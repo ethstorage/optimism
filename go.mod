@@ -8,7 +8,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0
 	github.com/ethereum-optimism/go-ethereum-hdwallet v0.1.3
-	github.com/ethereum/go-ethereum v1.11.6
+	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fsnotify/fsnotify v1.6.0
 	github.com/go-chi/chi/v5 v5.0.0
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb
@@ -167,7 +167,7 @@ require (
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
-	github.com/syndtr/goleveldb v1.0.1-0.20220614013038-64ee5596c38a // indirect
+	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tklauser/go-sysconf v0.3.10 // indirect
 	github.com/tklauser/numcpus v0.5.0 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
@@ -196,6 +196,11 @@ require (
 
 // replace github.com/ethereum/go-ethereum v1.11.6 => github.com/ethereum-optimism/op-geth v1.101106.0-rc.2
 
-replace github.com/ethereum/go-ethereum v1.11.6 => ./op-geth
+replace github.com/ethereum/go-ethereum => ./op-geth
 
 replace github.com/VictoriaMetrics/fastcache => ./fastcache
+
+replace github.com/syndtr/goleveldb => ./goleveldb
+
+replace go.uber.org/fx => ./fx
+replace github.com/libp2p/go-libp2p => ./go-libp2p

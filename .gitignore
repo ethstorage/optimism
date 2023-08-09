@@ -49,10 +49,9 @@ __pycache__
 crytic-export
 
 #Ignore wasm relatex:
-## op-get
-op-geth/*
-!op-geth/beacon
-!op-geth/trie
-!op-geth/core/rawdb
+op-program/bin/*
+## op-geth
+op-geth/tests
+op-geth/**/testdata/*
 ## fastcache
-fastcache/.github
+*/.github/*
