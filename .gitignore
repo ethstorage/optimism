@@ -47,3 +47,8 @@ __pycache__
 
 # Ignore echidna artifacts
 crytic-export
+
+#Ignore op-geth
+op-geth/*
+!op-geth/beacon
+!op-geth/trie
