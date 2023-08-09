@@ -48,7 +48,11 @@ __pycache__
 # Ignore echidna artifacts
 crytic-export
 
-#Ignore op-geth
+#Ignore wasm relatex:
+## op-get
 op-geth/*
 !op-geth/beacon
 !op-geth/trie
+!op-geth/core/rawdb
+## fastcache
+fastcache/.github

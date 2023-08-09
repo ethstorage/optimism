@@ -197,3 +197,5 @@ require (
 // replace github.com/ethereum/go-ethereum v1.11.6 => github.com/ethereum-optimism/op-geth v1.101106.0-rc.2
 
 replace github.com/ethereum/go-ethereum v1.11.6 => ./op-geth
+
+replace github.com/VictoriaMetrics/fastcache => ./fastcache

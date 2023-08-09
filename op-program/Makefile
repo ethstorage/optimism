@@ -26,11 +26,14 @@ op-program-client-mips:
 
 op-program-wasm:
 	op-program-host-wasm
+op-program-client-wasm:
+	env GO111MODULE=on GOOS=js GOARCH=wasm go build -v $(LDFLAGS) -o ./bin/op-program-client.wasm ./client/cmd/main.go
+	# tinygo build -o ./bin/op-program-client.wasm -target=wasm ./client/cmd/main.go
 op-program-host-wasm:
-	# env GO111MODULE=on GOOS=js GOARCH=wasm go build -v $(LDFLAGS) -o ./bin/op-program-wasm ./host/cmd/main.go
-	tinygo build -o ./bin/op-program-wasm -target=wasi ./host/cmd/main.go
+	env GO111MODULE=on GOOS=js GOARCH=wasm go build -v $(LDFLAGS) -o ./bin/op-program-wasm ./host/cmd/main.go
+	# tinygo build -o ./bin/op-program-host.wasm -target=wasm ./host/cmd/main.go
 op-program-client-mips-wasm:
-	tinygo build -o ./bin/op-program-client.elf.wasi -target=wasi  ./client/cmd/main.go
+	tinygo build -o ./bin/op-program-client.elf.wasi -target=wasm  ./client/cmd/main.go
 
 
 clean:
