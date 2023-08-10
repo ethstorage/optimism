@@ -24,9 +24,6 @@ make op-program-client-wasm
 - `github.com/libp2p/go-libp2p`:
     - `replace github.com/libp2p/go-libp2p => ./go-libp2p`
     - add `go-libp2p/p2p/transport/websocket/websocket_wasm.go`
-- `/go-ethereum/trie`:
-    - `replace github.com/ethereum/go-ethereum => ./op-geth`
-    - ref arb's go-etherum, `replace github.com/ethereum/go-ethereum => ./go-ethereum`, [related pr](https://github.com/OffchainLabs/go-ethereum/pull/205)
 - `/go-ethereum/trie` & `VictoriaMetrics/fastcache`: use [arb's fastcache](https://github.com/OffchainLabs/fastcache) `replace github.com/VictoriaMetrics/fastcache => ./fastcache`
 
 ## Arb reference
