@@ -4,12 +4,11 @@
 
 ```
 cd op-program
-make op-program-host-wasm
-make op-program-client-wasm
-
+op-program-client-mips-wasm
 ```
 
 ## problems with op-wasm and solutions
+### mock syscall
 - `github.com/gofrs/flock`:
     - modify `go-ethereum\core\rawdb\freezer.go`,`go-ethereum\core\rawdb\chain_freezer.go`
     - add `go-ethereum\core\rawdb\fileutil_mock.go`
@@ -25,15 +24,47 @@ make op-program-client-wasm
     - `replace github.com/libp2p/go-libp2p => ./go-libp2p`
     - add `go-libp2p/p2p/transport/websocket/websocket_wasm.go`
 - `/go-ethereum/trie` & `VictoriaMetrics/fastcache`: use [arb's fastcache](https://github.com/OffchainLabs/fastcache) `replace github.com/VictoriaMetrics/fastcache => ./fastcache`
-
-## Arb reference
-- [replay code](https://github.com/OffchainLabs/nitro/blob/master/cmd/replay/main.go)
-- Build:
-    1. follow [arbitrum build nitro tutorial](https://docs.arbitrum.io/node-running/how-tos/build-nitro-locally) to install requirements
-    2. `make build-wasm-bin`
-- Goetherum related commit:
+    - Goetherum related commit:
     - [First commit](https://github.com/OffchainLabs/go-ethereum/commits?after=1319d385dc35f0a3be7166ec4a63ce83de89c376+244&author=PlasmaPower)
     - [Another offchainlabs](https://github.com/OffchainLabs/go-ethereum/commits?author=Tristan-Wilson&before=1319d385dc35f0a3be7166ec4a63ce83de89c376+70)
+
+### how to remove syscall/host-io
+- [1th discussion between ethstorage & HO](https://drive.google.com/file/d/15XvyltLqXBuF26LD8hRYo7CsuLyajcUv/view?usp=drivesdk)
+- [current explorations](https://literate-wolfsbane-bf0.notion.site/Wasm-Compile-Explore-6f92d2a5d23f4dc18232d1b15266f422?pvs=4)
+
+## Arb reference
+- [code structure](https://docs.google.com/presentation/d/1I2eZ9qp6tkyuV2w-z-ffRaVwpOTMUloBX3n_tfvtdWo/edit#slide=id.p)
+    - Challenge manager:
+    ![image](https://literate-wolfsbane-bf0.notion.site/image/https%3A%2F%2Fs3-us-west-2.amazonaws.com%2Fsecure.notion-static.com%2F75a34284-0857-485c-ab91-401b67161d50%2FUntitled.png?table=block&id=caa17fae-dd87-4cd1-8bd5-5b2346637457&spaceId=1c6bced1-30e7-47d5-9ac7-860911f88272&width=2000&userId=&cache=v2)
+
+- How to build:
+    1. follow [arbitrum build nitro tutorial](https://docs.arbitrum.io/node-running/how-tos/build-nitro-locally) to install requirements (Don't `make`, all you'll have to clean the builded file)
+    2. `make build build-replay-env`
+
+- Compile replay.wasm separately: `make build-wasm-bin`
+
+- Test a wavm(Prover) can [load wasm file](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/main.rs#L185) compiled from `arbitrator/prover/test-cases/go/main.go`, [parse wasm](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/machine.rs#L868C19-L868C24)to op-codes, [replace the imports with Rust functions](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/machine.rs#L301), [transfrom wasm op-code to wavm op-code](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/machine.rs#L341), [run the wavm Op-codes](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/main.rs#L226) using its [customized VM](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/machine.rs#L1370):
+    `make contracts/test/prover/proofs/go.json`
+
+- Test Prover can load Rust compiled wasm file which **requires third-party wasm libraries**, and run it like the above test case:
+    `make contracts/test/prover/proofs/rust-host-io.json`
+- [serialize wavm to binary `machine.wavm.br`](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/arbitrator/prover/src/main.rs#L200) for valiator to generate proof:
+    `make target/machines/latest/machine.wavm.br`
+
+- Validator use `machine.wavm.br` to generate proof:
+    - [Validator spawn a arbitrator thread](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/valnode/valnode.go#L126)
+    - [load `machine.wavm.br`](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_arb/validator_spawner.go#L64)
+    - call `machine.wavm.br`'s c_binded function to execute or generate proof, for example:
+        - [execute](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_arb/validator_spawner.go#L122)
+        - [call `machine.wavm.br`'s c_binded function](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_arb/machine.go#L124)
+
+- Validator use JIT to run replay.wasm (compiled by `cmd/replay/main.go`):
+    - [Validator spawn a JIT thread](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/valnode/valnode.go#L103)
+    - configuaration: [replay.wasm](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_jit/machine_loader.go#L20), [JIT binary](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_jit/machine_loader.go#L31)
+    - [load config](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_jit/spawner.go#L48)
+    - [execute](https://github.com/OffchainLabs/nitro/blob/6a2078a8b91a74d826fff37c0f3d2ecdcd6c4bff/validator/server_jit/jit_machine.go#L34)
+
+
 
 
 # op-program
