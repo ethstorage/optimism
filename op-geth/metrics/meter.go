@@ -136,33 +136,6 @@ func (m *MeterSnapshot) Snapshot() Meter { return m }
 // Stop is a no-op.
 func (m *MeterSnapshot) Stop() {}
 
-// NilMeter is a no-op Meter.
-type NilMeter struct{}
-
-// Count is a no-op.
-func (NilMeter) Count() int64 { return 0 }
-
-// Mark is a no-op.
-func (NilMeter) Mark(n int64) {}
-
-// Rate1 is a no-op.
-func (NilMeter) Rate1() float64 { return 0.0 }
-
-// Rate5 is a no-op.
-func (NilMeter) Rate5() float64 { return 0.0 }
-
-// Rate15 is a no-op.
-func (NilMeter) Rate15() float64 { return 0.0 }
-
-// RateMean is a no-op.
-func (NilMeter) RateMean() float64 { return 0.0 }
-
-// Snapshot is a no-op.
-func (NilMeter) Snapshot() Meter { return NilMeter{} }
-
-// Stop is a no-op.
-func (NilMeter) Stop() {}
-
 // StandardMeter is the standard implementation of a Meter.
 type StandardMeter struct {
 	lock        sync.RWMutex
