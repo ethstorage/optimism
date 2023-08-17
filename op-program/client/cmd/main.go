@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/ethereum-optimism/optimism/op-program/client"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
 )
 
@@ -13,5 +12,6 @@ func main() {
 		Format: "logfmt",
 		Color:  false,
 	})
-	client.Main(logger)
+	// client.Main(logger)
+	logger.Info("Hello")
 }

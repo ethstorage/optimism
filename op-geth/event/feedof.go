@@ -88,61 +88,62 @@ func (f *FeedOf[T]) remove(sub *feedOfSub[T]) {
 // Send delivers to all subscribed channels simultaneously.
 // It returns the number of subscribers that the value was sent to.
 func (f *FeedOf[T]) Send(value T) (nsent int) {
-	rvalue := reflect.ValueOf(value)
+	// rvalue := reflect.ValueOf(value)
 
-	f.once.Do(f.init)
-	<-f.sendLock
+	// f.once.Do(f.init)
+	// <-f.sendLock
 
-	// Add new cases from the inbox after taking the send lock.
-	f.mu.Lock()
-	f.sendCases = append(f.sendCases, f.inbox...)
-	f.inbox = nil
-	f.mu.Unlock()
+	// // Add new cases from the inbox after taking the send lock.
+	// f.mu.Lock()
+	// f.sendCases = append(f.sendCases, f.inbox...)
+	// f.inbox = nil
+	// f.mu.Unlock()
 
-	// Set the sent value on all channels.
-	for i := firstSubSendCase; i < len(f.sendCases); i++ {
-		f.sendCases[i].Send = rvalue
-	}
+	// // Set the sent value on all channels.
+	// for i := firstSubSendCase; i < len(f.sendCases); i++ {
+	// 	f.sendCases[i].Send = rvalue
+	// }
 
-	// Send until all channels except removeSub have been chosen. 'cases' tracks a prefix
-	// of sendCases. When a send succeeds, the corresponding case moves to the end of
-	// 'cases' and it shrinks by one element.
-	cases := f.sendCases
-	for {
-		// Fast path: try sending without blocking before adding to the select set.
-		// This should usually succeed if subscribers are fast enough and have free
-		// buffer space.
-		for i := firstSubSendCase; i < len(cases); i++ {
-			if cases[i].Chan.TrySend(rvalue) {
-				nsent++
-				cases = cases.deactivate(i)
-				i--
-			}
-		}
-		if len(cases) == firstSubSendCase {
-			break
-		}
-		// Select on all the receivers, waiting for them to unblock.
-		chosen, recv, _ := reflect.Select(cases)
-		if chosen == 0 /* <-f.removeSub */ {
-			index := f.sendCases.find(recv.Interface())
-			f.sendCases = f.sendCases.delete(index)
-			if index >= 0 && index < len(cases) {
-				// Shrink 'cases' too because the removed case was still active.
-				cases = f.sendCases[:len(cases)-1]
-			}
-		} else {
-			cases = cases.deactivate(chosen)
-			nsent++
-		}
-	}
+	// // Send until all channels except removeSub have been chosen. 'cases' tracks a prefix
+	// // of sendCases. When a send succeeds, the corresponding case moves to the end of
+	// // 'cases' and it shrinks by one element.
+	// cases := f.sendCases
+	// for {
+	// 	// Fast path: try sending without blocking before adding to the select set.
+	// 	// This should usually succeed if subscribers are fast enough and have free
+	// 	// buffer space.
+	// 	for i := firstSubSendCase; i < len(cases); i++ {
+	// 		if cases[i].Chan.TrySend(rvalue) {
+	// 			nsent++
+	// 			cases = cases.deactivate(i)
+	// 			i--
+	// 		}
+	// 	}
+	// 	if len(cases) == firstSubSendCase {
+	// 		break
+	// 	}
+	// 	// Select on all the receivers, waiting for them to unblock.
+	// 	chosen, recv, _ := reflect.Select(cases)
+	// 	if chosen == 0 /* <-f.removeSub */ {
+	// 		index := f.sendCases.find(recv.Interface())
+	// 		f.sendCases = f.sendCases.delete(index)
+	// 		if index >= 0 && index < len(cases) {
+	// 			// Shrink 'cases' too because the removed case was still active.
+	// 			cases = f.sendCases[:len(cases)-1]
+	// 		}
+	// 	} else {
+	// 		cases = cases.deactivate(chosen)
+	// 		nsent++
+	// 	}
+	// }
 
-	// Forget about the sent value and hand off the send lock.
-	for i := firstSubSendCase; i < len(f.sendCases); i++ {
-		f.sendCases[i].Send = reflect.Value{}
-	}
-	f.sendLock <- struct{}{}
-	return nsent
+	// // Forget about the sent value and hand off the send lock.
+	// for i := firstSubSendCase; i < len(f.sendCases); i++ {
+	// 	f.sendCases[i].Send = reflect.Value{}
+	// }
+	// f.sendLock <- struct{}{}
+	// return nsent
+	return 0
 }
 
 type feedOfSub[T any] struct {
