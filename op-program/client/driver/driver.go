@@ -7,7 +7,6 @@ import (
 	"io"
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
-	"github.com/ethereum-optimism/optimism/op-node/metrics"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/log"
@@ -34,8 +33,24 @@ type Driver struct {
 	targetBlockNum uint64
 }
 
+type noopMetrics struct{}
+
+func (n *noopMetrics) RecordL1Ref(name string, ref eth.L1BlockRef) {
+}
+
+func (n *noopMetrics) RecordL2Ref(name string, ref eth.L2BlockRef) {
+}
+
+func (n *noopMetrics) RecordUnsafePayloadsBuffer(length uint64, memSize uint64, next eth.BlockID) {
+}
+
+func (n *noopMetrics) RecordChannelInputBytes(int) {
+}
+
+var NoopMetrics derive.Metrics = new(noopMetrics)
+
 func NewDriver(logger log.Logger, cfg *rollup.Config, l1Source derive.L1Fetcher, l2Source L2Source, targetBlockNum uint64) *Driver {
-	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Source, l2Source, metrics.NoopMetrics)
+	pipeline := derive.NewDerivationPipeline(logger, cfg, l1Source, l2Source, NoopMetrics)
 	pipeline.Reset()
 	return &Driver{
 		logger:         logger,

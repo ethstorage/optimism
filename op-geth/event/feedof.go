@@ -112,13 +112,13 @@ func (f *FeedOf[T]) Send(value T) (nsent int) {
 		// Fast path: try sending without blocking before adding to the select set.
 		// This should usually succeed if subscribers are fast enough and have free
 		// buffer space.
-		for i := firstSubSendCase; i < len(cases); i++ {
-			if cases[i].Chan.TrySend(rvalue) {
-				nsent++
-				cases = cases.deactivate(i)
-				i--
-			}
-		}
+		// for i := firstSubSendCase; i < len(cases); i++ {
+		// 	if cases[i].Chan.TrySend(rvalue) {
+		// 		nsent++
+		// 		cases = cases.deactivate(i)
+		// 		i--
+		// 	}
+		// }
 		if len(cases) == firstSubSendCase {
 			break
 		}
