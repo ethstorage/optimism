@@ -22,7 +22,7 @@ import (
 // The client runtime environment must be preset before calling this function.
 func Main(logger log.Logger) {
 	log.Info("Starting fault proof program client")
-	if err := RunProgram(logger); errors.Is(err, cldr.ErrClaimNotValid) {
+	if err := RunProgramWithDefault(logger); errors.Is(err, cldr.ErrClaimNotValid) {
 		log.Error("Claim is invalid", "err", err)
 		os.Exit(1)
 	} else if err != nil {
@@ -34,8 +34,8 @@ func Main(logger log.Logger) {
 	}
 }
 
-// RunProgram executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
-func RunProgram(logger log.Logger) error {
+// RunProgramWithDefault executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
+func RunProgramWithDefault(logger log.Logger) error {
 
 	pClient, hClient := NewOracleClientAndHintWriter()
 	l1PreimageOracle := l1.NewCachingOracle(l1.NewPreimageOracle(pClient, hClient))
