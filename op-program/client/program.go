@@ -13,20 +13,16 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	preimage "github.com/ethereum-optimism/optimism/op-preimage"
 	cldr "github.com/ethereum-optimism/optimism/op-program/client/driver"
 	"github.com/ethereum-optimism/optimism/op-program/client/l1"
 	"github.com/ethereum-optimism/optimism/op-program/client/l2"
-	oppio "github.com/ethereum-optimism/optimism/op-program/io"
 )
 
 // Main executes the client program in a detached context and exits the current process.
 // The client runtime environment must be preset before calling this function.
 func Main(logger log.Logger) {
 	log.Info("Starting fault proof program client")
-	preimageOracle := CreatePreimageChannel()
-	preimageHinter := CreateHinterChannel()
-	if err := RunProgram(logger, preimageOracle, preimageHinter); errors.Is(err, cldr.ErrClaimNotValid) {
+	if err := RunProgram(logger); errors.Is(err, cldr.ErrClaimNotValid) {
 		log.Error("Claim is invalid", "err", err)
 		os.Exit(1)
 	} else if err != nil {
@@ -39,10 +35,9 @@ func Main(logger log.Logger) {
 }
 
 // RunProgram executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
-func RunProgram(logger log.Logger, preimageOracle io.ReadWriter, preimageHinter io.ReadWriter) error {
+func RunProgram(logger log.Logger) error {
 
-	pClient := preimage.NewOracleClient(preimageOracle)
-	hClient := preimage.NewHintWriter(preimageHinter)
+	pClient, hClient := NewOracleClientAndHintWriter()
 	l1PreimageOracle := l1.NewCachingOracle(l1.NewPreimageOracle(pClient, hClient))
 	l2PreimageOracle := l2.NewCachingOracle(l2.NewPreimageOracle(pClient, hClient))
 
@@ -80,17 +75,4 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 		}
 	}
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
-}
-
-func CreateHinterChannel() oppio.FileChannel {
-	r := os.NewFile(HClientRFd, "preimage-hint-read")
-	w := os.NewFile(HClientWFd, "preimage-hint-write")
-	return oppio.NewReadWritePair(r, w)
-}
-
-// CreatePreimageChannel returns a FileChannel for the preimage oracle in a detached context
-func CreatePreimageChannel() oppio.FileChannel {
-	r := os.NewFile(PClientRFd, "preimage-oracle-read")
-	w := os.NewFile(PClientWFd, "preimage-oracle-write")
-	return oppio.NewReadWritePair(r, w)
 }
