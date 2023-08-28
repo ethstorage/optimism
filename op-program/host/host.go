@@ -8,6 +8,7 @@ import (
 	"io/fs"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/client"
@@ -97,7 +98,8 @@ func FaultProofProgram(ctx context.Context, logger log.Logger, cfg *config.Confi
 
 	var cmd *exec.Cmd
 	if cfg.ExecCmd != "" {
-		cmd = exec.CommandContext(ctx, cfg.ExecCmd)
+		parts := strings.Fields(cfg.ExecCmd)
+		cmd = exec.CommandContext(ctx, parts[0], parts[1:]...)
 		cmd.ExtraFiles = make([]*os.File, cl.MaxFd-3) // not including stdin, stdout and stderr
 		cmd.ExtraFiles[cl.HClientRFd-3] = hClientRW.Reader()
 		cmd.ExtraFiles[cl.HClientWFd-3] = hClientRW.Writer()

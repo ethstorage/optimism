@@ -11,7 +11,7 @@ LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
 op-program: \
 	op-program-host \
 	op-program-client \
-	op-program-client-mips
+	# op-program-client-mips
 
 op-program-host:
 	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -o ./bin/op-program ./host/cmd/main.go

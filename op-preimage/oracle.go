@@ -21,6 +21,7 @@ var _ Oracle = (*OracleClient)(nil)
 
 func (o *OracleClient) Get(key Key) []byte {
 	h := key.PreimageKey()
+	fmt.Printf("key is============>%02x\n", h)
 	if _, err := o.rw.Write(h[:]); err != nil {
 		panic(fmt.Errorf("failed to write key %s (%T) to pre-image oracle: %w", key, key, err))
 	}
@@ -33,7 +34,8 @@ func (o *OracleClient) Get(key Key) []byte {
 	if _, err := io.ReadFull(o.rw, payload); err != nil {
 		panic(fmt.Errorf("failed to read pre-image payload (length %d) of key %s (%T) from pre-image oracle: %w", length, key, key, err))
 	}
-
+	fmt.Printf("payload is============>%02x\n", payload)
+	// os.Exit(3)
 	return payload
 }
 

@@ -3,7 +3,12 @@
 
 package client
 
-import preimage "github.com/ethereum-optimism/optimism/op-preimage"
+import (
+	"encoding/binary"
+	"unsafe"
+
+	preimage "github.com/ethereum-optimism/optimism/op-preimage"
+)
 
 func NewOracleClientAndHintWriter() (preimage.Oracle, preimage.Hinter) {
 	o := wasmHostIO{}
@@ -14,16 +19,34 @@ func NewOracleClientAndHintWriter() (preimage.Oracle, preimage.Hinter) {
 type wasmHostIO struct {
 }
 
+//export allocate_buffer
+func allocateBuffer(size uint32) *uint8 {
+	// Allocate the in-Wasm memory region and returns its pointer to hosts.
+	// The region is supposed to store random strings generated in hosts,
+	// meaning that this is called "inside" of get_random_string.
+	buf := make([]uint8, size)
+	return &buf[0]
+}
+
 func (o wasmHostIO) Get(key preimage.Key) []byte {
-	return getKeyFromOracle(key.PreimageKey())
+	var bufPtr *byte
+	var bufSize uint32
+	h := key.PreimageKey()
+	getPreimageFromOracle(h, &bufPtr, &bufSize)
+	res := unsafe.Slice(bufPtr, bufSize)
+	return res
 }
 
-func (o wasmHostIO) Hint(hint preimage.Hint) {
-	hintToHinter(hint.Hint())
+func (o wasmHostIO) Hint(v preimage.Hint) {
+	hint := v.Hint()
+	var hintBytes []byte
+	hintBytes = binary.BigEndian.AppendUint32(hintBytes, uint32(len(hint)))
+	hintBytes = append(hintBytes, []byte(hint)...)
+	hintOracle(&hintBytes[0], uint32(len(hintBytes)))
 }
 
-//export getKeyFromOracle
-func getKeyFromOracle([32]byte) []byte
+//export get_preimage_from_oracle
+func getPreimageFromOracle(key [32]byte, retBufPtr **byte, retBufSize *uint32)
 
-//export hintToHinter
-func hintToHinter(string)
+//export hint_oracle
+func hintOracle(retBufPtr *byte, retBufSize uint32)

@@ -55,7 +55,7 @@ func (p *PreimageOracle) headerByBlockHash(blockHash common.Hash) *types.Header 
 	headerRlp := p.oracle.Get(preimage.Keccak256Key(blockHash))
 	var header types.Header
 	if err := rlp.DecodeBytes(headerRlp, &header); err != nil {
-		panic(fmt.Errorf("invalid block header %s: %w", blockHash, err))
+		panic(fmt.Errorf("invalid block headxer %s: %w", blockHash, err))
 	}
 	return &header
 }
