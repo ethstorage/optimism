@@ -22,6 +22,7 @@ import (
 // The client runtime environment must be preset before calling this function.
 func Main(logger log.Logger) {
 	log.Info("Starting fault proof program client")
+
 	if err := RunProgramWithDefault(logger); errors.Is(err, cldr.ErrClaimNotValid) {
 		log.Error("Claim is invalid", "err", err)
 		os.Exit(1)

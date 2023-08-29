@@ -3,6 +3,7 @@ package client
 import (
 	"encoding/binary"
 	"encoding/json"
+	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
@@ -47,7 +48,9 @@ func (br *BootstrapClient) BootInfo() *BootInfo {
 	l2ClaimBlockNumber := binary.BigEndian.Uint64(br.r.Get(L2ClaimBlockNumberLocalIndex))
 	l2ChainConfig := new(params.ChainConfig)
 	err := json.Unmarshal(br.r.Get(L2ChainConfigLocalIndex), &l2ChainConfig)
+	println("L2ChainConfigLocalIndex", L2ChainConfigLocalIndex)
 	if err != nil {
+		fmt.Println("err: failed to bootstrap l2ChainConfig:", err)
 		panic("failed to bootstrap l2ChainConfig")
 	}
 	rollupConfig := new(rollup.Config)

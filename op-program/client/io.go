@@ -1,5 +1,5 @@
-//go:build !wasm
-// +build !wasm
+//go:build !js || linux
+// +build !js linux
 
 package client
 
@@ -24,6 +24,7 @@ func RunProgram(logger log.Logger, preimageOracle io.ReadWriter, preimageHinter 
 
 	bootInfo := NewBootstrapClient(pClient).BootInfo()
 	logger.Info("Program Bootstrapped", "bootInfo", bootInfo)
+	os.Exit(3)
 	return runDerivation(
 		logger,
 		bootInfo.RollupConfig,
