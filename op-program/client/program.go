@@ -36,6 +36,7 @@ func Main(logger log.Logger) {
 
 // RunProgramWithDefault executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
 func RunProgramWithDefault(logger log.Logger) error {
+	println("runing wasm program=======>")
 
 	pClient, hClient := NewOracleClientAndHintWriter()
 	l1PreimageOracle := l1.NewCachingOracle(l1.NewPreimageOracle(pClient, hClient))
