@@ -19,9 +19,16 @@ func NewOracleClient(rw io.ReadWriter) *OracleClient {
 
 var _ Oracle = (*OracleClient)(nil)
 
+func min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
 func (o *OracleClient) Get(key Key) []byte {
 	h := key.PreimageKey()
-	fmt.Printf("key is============>%02x\n", h)
+	fmt.Println("PreimageKey==========>", h)
 	if _, err := o.rw.Write(h[:]); err != nil {
 		panic(fmt.Errorf("failed to write key %s (%T) to pre-image oracle: %w", key, key, err))
 	}
@@ -30,11 +37,13 @@ func (o *OracleClient) Get(key Key) []byte {
 	if err := binary.Read(o.rw, binary.BigEndian, &length); err != nil {
 		panic(fmt.Errorf("failed to read pre-image length of key %s (%T) from pre-image oracle: %w", key, key, err))
 	}
+	fmt.Println("PreimageSize==========>", length)
 	payload := make([]byte, length)
 	if _, err := io.ReadFull(o.rw, payload); err != nil {
 		panic(fmt.Errorf("failed to read pre-image payload (length %d) of key %s (%T) from pre-image oracle: %w", length, key, key, err))
 	}
-	fmt.Printf("payload is============>%02x\n", payload)
+	trunc := min(32, int(length))
+	fmt.Printf("PreimageBytes==========>%02x\n", payload[0:trunc])
 	// os.Exit(3)
 	return payload
 }

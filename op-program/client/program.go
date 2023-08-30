@@ -37,7 +37,7 @@ func Main(logger log.Logger) {
 
 // RunProgramWithDefault executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
 func RunProgramWithDefault(logger log.Logger) error {
-	println("runing wasm program=======>")
+	fmt.Println("runing wasm program=======>")
 
 	pClient, hClient := NewOracleClientAndHintWriter()
 	l1PreimageOracle := l1.NewCachingOracle(l1.NewPreimageOracle(pClient, hClient))
@@ -69,12 +69,16 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 
 	logger.Info("Starting derivation")
 	d := cldr.NewDriver(logger, cfg, l1Source, l2Source, l2ClaimBlockNum)
+	i := 0
+	fmt.Println("Starting derivation==============================>", i)
 	for {
+		fmt.Println("deriving==============================>", i)
 		if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
 			return err
 		}
+		i += 1
 	}
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
 }

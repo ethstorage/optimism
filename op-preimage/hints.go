@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"os"
 )
 
 // HintWriter writes hints to an io.Writer (e.g. a special file descriptor, or a debug log),
@@ -31,18 +30,6 @@ func (hw *HintWriter) Hint(v Hint) {
 	if err != nil {
 		panic(fmt.Errorf("failed to write pre-image hint: %w", err))
 	}
-
-	var length uint64
-	if err := binary.Read(hw.rw, binary.BigEndian, &length); err != nil {
-		panic(fmt.Errorf("failed to read pre-image length of key %s (%T) from pre-image oracle: %w", hint, hint, err))
-	}
-	fmt.Println("Payload length:", length)
-	os.Exit(3)
-	payload := make([]byte, length)
-	if _, err := io.ReadFull(hw.rw, payload); err != nil {
-		panic(fmt.Errorf("failed to read pre-image payload (length %d) of key %s (%T) from pre-image oracle: %w", length, hint, hint, err))
-	}
-
 	_, err = hw.rw.Read([]byte{0})
 	if err != nil {
 		panic(fmt.Errorf("failed to read pre-image hint ack: %w", err))
