@@ -213,6 +213,8 @@
 			}
 
 			const timeOrigin = Date.now() - performance.now();
+
+      let max_memory_usage = 0
 			this.importObject = {
 				_gotest: {
 					add: (a, b) => a + b,
@@ -224,7 +226,7 @@
 						let bytes_len = fs.readSync(PClientRFd,data,0,8)
 						console.log("read from host:", bytes_len)
 						console.log("read from host:", data.toString())
-						return 
+						return
 
 						// let mem = this.mem
 						// let target_str = "ab2233334444"
@@ -286,7 +288,7 @@
 							offset = offset + 1
 						}
 						return readed_len
-					
+
 					},
 
 					"hint_oracle": (retBufPtr, retBufSize) => {
@@ -295,7 +297,7 @@
 						// console.log("hintArr:",hintArr)
 						// console.log("hintStr:::",Buffer.from(hintArr))
 						// console.log("hintStr:::",Buffer.from(hintArr).toString())
-						
+
 						//write hint to file descriptor
 						let HClientWFd = 4
 						let number = fs.writeSync(HClientWFd, Buffer.from(hintArr))
@@ -310,6 +312,7 @@
 
 					// func wasmExit(code int32)
 					"runtime.wasmExit": (sp) => {
+            console.log("maximum memory usage==========================>",max_memory_usage)
 						sp >>>= 0;
 						const code = this.mem.getInt32(sp + 8, true);
 						this.exited = true;
@@ -340,6 +343,9 @@
 					"runtime.nanotime1": (sp) => {
 						sp >>>= 0;
 						setInt64(sp + 8, (timeOrigin + performance.now()) * 1000000);
+            if (this.mem.byteLength > max_memory_usage){
+              max_memory_usage= this.mem.byteLength
+            }
 					},
 
 					// func walltime() (sec int64, nsec int32)
@@ -557,11 +563,11 @@
 			}
 			this._inst = instance;
 			this.mem = new DataView(this._inst.exports.mem.buffer);
-			this.mem =  new DataView(new WebAssembly.Memory({
-				initial: 20,
-				maximum: 160,
-				shared: true,
-			  }).buffer)
+			// this.mem =  new DataView(new WebAssembly.Memory({
+			// 	initial: 20,
+			// 	maximum: 160,
+			// 	shared: true,
+			//   }).buffer)
 			this._values = [ // JS values that Go currently has references to, indexed by reference id
 				NaN,
 				0,
