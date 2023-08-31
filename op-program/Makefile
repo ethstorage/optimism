@@ -24,19 +24,9 @@ op-program-client-mips:
 	# verify output with: readelf -h bin/op-program-client.elf
 	# result is mips32, big endian, R3000
 
-op-program-wasm: \
-	op-program-host-wasm \
-	op-program-client-wasm
-
 op-program-client-wasm:
 	env GO111MODULE=on GOOS=js GOARCH=wasm go build -v $(LDFLAGS) -o ./bin/op-program-client.wasm ./client/cmd/main.go
 	# tinygo build -o ./bin/op-program-client.wasm -target=wasm ./client/cmd/main.go
-op-program-host-wasm:
-	env GO111MODULE=on GOOS=js GOARCH=wasm go build -v  -o ./bin/op-program-host.wasm ./host/cmd/main.go
-	# tinygo build -o ./bin/op-program-host.wasm -target=wasm ./host/cmd/main.go
-op-program-client-mips-wasm:
-	tinygo build -o ./bin/op-program-client.elf.wasi -target=wasm  ./client/cmd/main.go
-
 
 clean:
 	rm -rf bin
