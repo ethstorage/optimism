@@ -70,9 +70,7 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 	logger.Info("Starting derivation")
 	d := cldr.NewDriver(logger, cfg, l1Source, l2Source, l2ClaimBlockNum)
 	i := 0
-	fmt.Println("Starting derivation==============================>", i)
 	for {
-		fmt.Println("deriving==============================>", i)
 		if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {

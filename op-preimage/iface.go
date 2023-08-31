@@ -40,7 +40,6 @@ const (
 type LocalIndexKey uint64
 
 func (k LocalIndexKey) PreimageKey() (out [32]byte) {
-	println("LocalIndexKey is===========>", k)
 	out[0] = byte(LocalKeyType)
 	binary.BigEndian.PutUint64(out[24:], uint64(k))
 	return

@@ -1,11 +1,10 @@
-//go:build js
-// +build js
+//go:build js && wasm
+// +build js,wasm
 
 package client
 
 import (
 	"encoding/binary"
-	"fmt"
 	"unsafe"
 
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
@@ -21,12 +20,15 @@ type wasmHostIO struct {
 }
 
 //go:wasmimport _gotest get_preimage_len
+//go:noescape
 func getPreimageLenFromOracle(keyPtr uint32) uint32
 
 //go:wasmimport _gotest get_preimage_from_oracle
-func getPreimageFromOracle(keyPtr uint32, retBufPtr uint32, size uint32)
+//go:noescape
+func getPreimageFromOracle(keyPtr uint32, retBufPtr uint32, size uint32) uint32
 
 //go:wasmimport _gotest hint_oracle
+//go:noescape
 func hintOracle(retBufPtr uint32, retBufSize uint32)
 
 func min(x, y int) int {
@@ -38,16 +40,14 @@ func min(x, y int) int {
 
 func (o wasmHostIO) Get(key preimage.Key) []byte {
 	h := key.PreimageKey()
-	fmt.Printf("PreimageKey==========>%02x\n", h)
 	//get preimage size
 	size := getPreimageLenFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))))
-	fmt.Println("PreimageSize==========>", size)
 
 	buf := make([]byte, size)
-	getPreimageFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))), uint32(uintptr(unsafe.Pointer(&buf[0]))), size)
-
-	trunc := min(32, int(size))
-	fmt.Printf("PreimageBytes==========>%02x\n", buf[0:trunc])
+	readedLen := getPreimageFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))), uint32(uintptr(unsafe.Pointer(&buf[0]))), size)
+	if readedLen < size {
+		getPreimageFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))), uint32(uintptr(unsafe.Pointer(&buf[readedLen]))), size-readedLen)
+	}
 	return buf
 }
 

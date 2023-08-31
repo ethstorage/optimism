@@ -97,6 +97,7 @@ func (d *Driver) ValidateClaim(claimedOutputRoot eth.Bytes32) error {
 		return fmt.Errorf("calculate L2 output root: %w", err)
 	}
 	d.logger.Info("Validating claim", "head", d.SafeHead(), "output", outputRoot, "claim", claimedOutputRoot)
+	fmt.Println("Validating claim", "head", d.SafeHead(), "output", outputRoot, "claim", claimedOutputRoot)
 	if claimedOutputRoot != outputRoot {
 		return fmt.Errorf("%w: claim: %v actual: %v", ErrClaimNotValid, claimedOutputRoot, outputRoot)
 	}
