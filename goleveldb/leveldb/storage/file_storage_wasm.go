@@ -4,8 +4,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-//go:build js
-// +build js
+//go:build js || wasip1
+// +build js wasip1
 
 package storage
 

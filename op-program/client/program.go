@@ -40,8 +40,8 @@ func RunProgramWithDefault(logger log.Logger) error {
 	fmt.Println("runing wasm program=======>")
 
 	pClient, hClient := NewOracleClientAndHintWriter()
-	l1PreimageOracle := l1.NewCachingOracle(l1.NewPreimageOracle(pClient, hClient))
-	l2PreimageOracle := l2.NewCachingOracle(l2.NewPreimageOracle(pClient, hClient))
+	l1PreimageOracle := l1.NewPreimageOracle(pClient, hClient)
+	l2PreimageOracle := l2.NewPreimageOracle(pClient, hClient)
 
 	bootInfo := NewBootstrapClient(pClient).BootInfo()
 	logger.Info("Program Bootstrapped", "bootInfo", bootInfo)

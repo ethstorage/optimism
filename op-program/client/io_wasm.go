@@ -1,5 +1,5 @@
-//go:build js && wasm
-// +build js,wasm
+//go:build js || wasm || wasip1
+// +build js wasm wasip1
 
 package client
 
