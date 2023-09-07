@@ -1,0 +1,9 @@
+{
+  "name": "wasi-runtime",
+  "version": "1.0.0",
+  "description": "wasi-runtime test",
+  "type":"module",
+  "engines" : {
+    "node" : ">=20.5.1"
+  }
+}
