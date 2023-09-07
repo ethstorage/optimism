@@ -57,6 +57,8 @@ func NewOracleServer(rw io.ReadWriter) *OracleServer {
 
 type PreimageGetter func(key [32]byte) ([]byte, error)
 
+var Preimages = map[string]string{}
+
 func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	var key [32]byte
 	if _, err := io.ReadFull(o.rw, key[:]); err != nil {
@@ -69,6 +71,11 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	if err != nil {
 		return fmt.Errorf("failed to serve pre-image %s request: %w", hex.EncodeToString(key[:]), err)
 	}
+
+	//add preimage k,v to the Preimage map for dumping it to json file
+	bytes := make([]byte, 32)
+	copy(bytes[:], key[:])
+	Preimages[hex.EncodeToString(bytes)] = hex.EncodeToString(value)
 
 	if err := binary.Write(o.rw, binary.BigEndian, uint64(len(value))); err != nil {
 		return fmt.Errorf("failed to write length-prefix %d: %w", len(value), err)
