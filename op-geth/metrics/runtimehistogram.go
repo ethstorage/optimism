@@ -8,6 +8,8 @@ import (
 	"runtime/metrics"
 	"sort"
 	"sync/atomic"
+
+	cmath "github.com/ethereum/go-ethereum/common/math"
 )
 
 func getOrRegisterRuntimeHistogram(name string, scale float64, r Registry) *runtimeHistogram {
@@ -270,8 +272,7 @@ func (h *runtimeHistogramSnapshot) Max() int64 {
 func (h *runtimeHistogramSnapshot) Min() int64 {
 	for i, count := range h.Counts {
 		if count > 0 {
-			// return int64(math.Floor(h.Buckets[i]))
-			return int64(float64(int64(h.Buckets[i] - 0.5)))
+			return int64(cmath.Floor(h.Buckets[i]))
 		}
 	}
 	return 0
