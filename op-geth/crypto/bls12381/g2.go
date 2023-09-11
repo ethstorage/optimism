@@ -20,6 +20,8 @@ import (
 	"errors"
 	"math"
 	"math/big"
+
+	cmath "github.com/ethereum/go-ethereum/common/math"
 )
 
 // PointG2 is type for point in G2.
@@ -390,8 +392,7 @@ func (g *G2) MultiExp(r *PointG2, points []*PointG2, powers []*big.Int) (*PointG
 	}
 	var c uint32 = 3
 	if len(powers) >= 32 {
-		// c = uint32(math.Ceil(math.Log10(float64(len(powers)))))
-		c = uint32(float64(int64(math.Log10(float64(len(powers))) + 0.5)))
+		c = uint32(cmath.Ceil(math.Log10(float64(len(powers)))))
 	}
 	bucketSize, numBits := (1<<c)-1, uint32(g.Q().BitLen())
 	windows := make([]*PointG2, numBits/c+1)

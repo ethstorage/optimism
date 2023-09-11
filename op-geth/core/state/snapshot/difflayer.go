@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	cmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/rlp"
 	bloomfilter "github.com/holiman/bloomfilter/v2"
 )
@@ -60,9 +61,7 @@ var (
 
 	// bloomSize is the ideal bloom filter size given the maximum number of items
 	// it's expected to hold and the target false positive error rate.
-	// bloomSize = math.Ceil(float64(aggregatorItemLimit) * math.Log(bloomTargetError) / math.Log(1/math.Pow(2, math.Log(2))))
-	bloomSize = float64(int64(float64(aggregatorItemLimit) * math.Log(bloomTargetError) / math.Log(1/math.Pow(2, math.Log(2))) + 0.5))
-
+	bloomSize = cmath.Ceil(float64(aggregatorItemLimit) * math.Log(bloomTargetError) / math.Log(1/math.Pow(2, math.Log(2))))
 
 	// bloomFuncs is the ideal number of bits a single entry should set in the
 	// bloom filter to keep its size to a minimum (given it's size and maximum
