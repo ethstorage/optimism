@@ -35,7 +35,7 @@ replay
 
 ### build go
 ```
-git clone -b  https://github.com/ethstorage/go
+git clone -b wasi https://github.com/ethstorage/go
 cd go
 ./src/all.bash
 ```
