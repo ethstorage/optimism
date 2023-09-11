@@ -23,8 +23,8 @@ import path from 'node:path';
 
   const wasi = new WASI({
     version: 'preview1',
-    args: argv,
-    env,
+    args: [],
+    env:{},
     returnOnExit: true
     // preopens: {
     //   '/sandbox': '/root/now/wasm-runtime',
@@ -114,6 +114,7 @@ import path from 'node:path';
             coffset += 4;
             offset += Buffer.from(instance.exports.memory.buffer).write(`${a}\0`, offset);
           });
+          console.log("argv================>", argv)
           return WASI_ESUCCESS;
         },
         args_sizes_get: (argc, argvBufSize)=>{

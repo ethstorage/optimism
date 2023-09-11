@@ -24,7 +24,6 @@ func RunProgram(logger log.Logger, preimageOracle io.ReadWriter, preimageHinter 
 
 	bootInfo := NewBootstrapClient(pClient).BootInfo()
 	logger.Info("Program Bootstrapped", "bootInfo", bootInfo)
-	os.Exit(3)
 	return runDerivation(
 		logger,
 		bootInfo.RollupConfig,

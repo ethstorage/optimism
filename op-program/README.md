@@ -32,12 +32,18 @@ replay
 
 
 ## build wasi and replay without op-host program
-> require go version>=1.21.0 (you can use gvm to change go version)
+
+### build go
+```
+git clone -b  https://github.com/ethstorage/go
+cd go
+./src/all.bash
+```
 
 ### build wasi
 ```
 cd op-program
-make op-program-client-wasi
+make op-program-client-wasi #maybe you need to chaneg your go path from the above compilation
 ```
 ### replay wasi with op-host program for dumping preimages json file(./bin/preimages.json)
 ```
