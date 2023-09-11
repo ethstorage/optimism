@@ -270,7 +270,8 @@ func (h *runtimeHistogramSnapshot) Max() int64 {
 func (h *runtimeHistogramSnapshot) Min() int64 {
 	for i, count := range h.Counts {
 		if count > 0 {
-			return int64(math.Floor(h.Buckets[i]))
+			// return int64(math.Floor(h.Buckets[i]))
+			return int64(float64(int64(h.Buckets[i] - 0.5)))
 		}
 	}
 	return 0

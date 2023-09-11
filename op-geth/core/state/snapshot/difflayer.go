@@ -60,7 +60,9 @@ var (
 
 	// bloomSize is the ideal bloom filter size given the maximum number of items
 	// it's expected to hold and the target false positive error rate.
-	bloomSize = math.Ceil(float64(aggregatorItemLimit) * math.Log(bloomTargetError) / math.Log(1/math.Pow(2, math.Log(2))))
+	// bloomSize = math.Ceil(float64(aggregatorItemLimit) * math.Log(bloomTargetError) / math.Log(1/math.Pow(2, math.Log(2))))
+	bloomSize = float64(int64(float64(aggregatorItemLimit) * math.Log(bloomTargetError) / math.Log(1/math.Pow(2, math.Log(2))) + 0.5))
+
 
 	// bloomFuncs is the ideal number of bits a single entry should set in the
 	// bloom filter to keep its size to a minimum (given it's size and maximum

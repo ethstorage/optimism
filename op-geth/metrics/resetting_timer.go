@@ -1,7 +1,6 @@
 package metrics
 
 import (
-	"math"
 	"sort"
 	"sync"
 	"time"
@@ -213,7 +212,8 @@ func (t *ResettingTimerSnapshot) calc(percentiles []float64) {
 				}
 				// poor man's math.Round(x):
 				// math.Floor(x + 0.5)
-				indexOfPerc := int(math.Floor(((abs / 100.0) * float64(count)) + 0.5))
+				// indexOfPerc := int(math.Floor(((abs / 100.0) * float64(count)) + 0.5))
+				indexOfPerc := int(float64(int64(((abs / 100.0) * float64(count)))))
 				if pct >= 0 && indexOfPerc > 0 {
 					indexOfPerc -= 1 // index offset=0
 				}
