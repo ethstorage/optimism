@@ -1,12 +1,13 @@
 package metrics
 
 import (
-	cmath "github.com/ethereum/go-ethereum/common/math"
 	"math"
 	"math/rand"
 	"sort"
 	"sync"
 	"time"
+
+	cmath "github.com/ethereum/go-ethereum/common/math"
 )
 
 const rescaleThreshold = time.Hour
@@ -304,7 +305,6 @@ func SamplePercentiles(values int64Slice, ps []float64) []float64 {
 				lower := float64(values[int(pos)-1])
 				upper := float64(values[int(pos)])
 				scores[i] = lower + (pos-cmath.Floor(pos))*(upper-lower)
-				// scores[i] = lower + (pos-float64(int64(pos - 0.5)))*(upper-lower)
 			}
 		}
 	}
