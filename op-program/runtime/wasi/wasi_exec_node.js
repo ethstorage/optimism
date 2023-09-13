@@ -20,30 +20,50 @@ import path from 'node:path';
   );
 
   let instance
-  let wasm_input_counter = 0
+  let wasm_input_counter = 0;
+  let wasm_input_state = 0;
+  let wasm_inputs = ["68656c6c6f", "48656c6c6f2c20576f726c6421"]; // hex of input data
 
 
   const hostio = {
     "env":
     {
-      wasm_input: (isPublic) => {
+      "wasm_input": (isPublic) => {
         // a simple case to return "hello" and "Hello, World!"
-        wasm_input_counter = wasm_input_counter + 1;
-
-        if (wasm_input_counter == 1) {
-          return BigInt(5); // len
-        } else if (wasm_input_counter == 2) {
-          return BigInt(478560413032); // b"hello" in little
-        } else if (wasm_input_counter == 3) {
-          return BigInt(13);
-        } else if (wasm_input_counter == 4) {
-          return BigInt('6278066737626506568'); // b"Hello, W" in little
-        } else if (wasm_input_counter == 5) {
-          return BigInt(143418749551); // b"orld!" in little
-        } else {
-          console.log("unexpected input");
+        if (wasm_input_state == 0) {
+          wasm_input_state = 1;
+          console.log(BigInt(wasm_inputs[wasm_input_counter].length / 2))
+          return BigInt(wasm_inputs[wasm_input_counter].length / 2);
         }
+
+        let start = (wasm_input_state - 1) * 16;
+        let end = wasm_input_state * 16;
+        let data;
+        if (end >= wasm_inputs[wasm_input_counter].length) {
+          end = wasm_inputs[wasm_input_counter].length;
+          data = BigInt("0x" + wasm_inputs[wasm_input_counter].substring(start, end));
+          // move to next data
+          wasm_input_state = 0;
+          wasm_input_counter = wasm_input_counter + 1;
+        } else {
+          wasm_input_state = wasm_input_state + 1;
+          data = BigInt("0x" + wasm_inputs[wasm_input_counter].substring(start, end));
+        }
+
+        if (max_mem < instance.exports.memory.buffer.byteLength) {
+          max_mem = instance.exports.memory.buffer.byteLength
+        }
+
+        console.log(data);
+        return data;
       },
+
+      "require": (cond) => {
+        if (cond == 0) {
+          console.log("require is not satisfied, which is a false assertion in the wasm code. Please check the logic of your image or input.");
+          process.exit(1);
+        }
+      }
     },
     "_gotest": //func get_preimage_len
     {
