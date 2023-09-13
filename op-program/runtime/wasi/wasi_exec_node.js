@@ -20,8 +20,31 @@ import path from 'node:path';
   );
 
   let instance
+  let wasm_input_counter = 0
+
 
   const hostio = {
+    "env":
+    {
+      wasm_input: (isPublic) => {
+        // a simple case to return "hello" and "Hello, World!"
+        wasm_input_counter = wasm_input_counter + 1;
+
+        if (wasm_input_counter == 1) {
+          return BigInt(5); // len
+        } else if (wasm_input_counter == 2) {
+          return BigInt(478560413032); // b"hello" in little
+        } else if (wasm_input_counter == 3) {
+          return BigInt(13);
+        } else if (wasm_input_counter == 4) {
+          return BigInt('6278066737626506568'); // b"Hello, W" in little
+        } else if (wasm_input_counter == 5) {
+          return BigInt(143418749551); // b"orld!" in little
+        } else {
+          console.log("unexpected input");
+        }
+      },
+    },
     "_gotest": //func get_preimage_len
     {
       get_preimage_len: (keyPtr) => {

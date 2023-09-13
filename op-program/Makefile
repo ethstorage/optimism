@@ -33,6 +33,9 @@ op-program-client-wasi:
 	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client.wasi ./client/cmd/main.go
 	# tinygo build -o ./bin/op-program-client.wasm -target=wasm ./client/cmd/main.go
 
+hostio-test:
+	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/hostio-test.wasi ./hostio_test/main.go
+
 clean:
 	rm -rf bin
 
