@@ -1,5 +1,12 @@
 # op-program-wasm
 
+## build op-program
+> require go version<=1.20.7 (you can use gvm to change go version)
+```
+cd op-program
+make op-program
+```
+
 ## build js-wasm and replay
 > require go version>=1.21.0 (you can use gvm to change go version)
 
@@ -55,6 +62,17 @@ replay
 ### replay **without op-host program**
 ```
 node ./runtime/wasi-json/wasi_json_node.js  ./bin/op-program-client.wasi
+```
+
+## replay with preimage witness which is compatible with zk-wasm
+
+### first do ###replay js-wasm part
+
+### replay using wasm_input preimage format
+
+```
+make op-program-client-wasm-preimage
+node ./runtime/js-lib-bin/wasm_exec_node.js ./bin/op-program-client-preimage.wasm
 ```
 
 ## problems with op-wasm and solutions

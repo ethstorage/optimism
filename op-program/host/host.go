@@ -2,7 +2,6 @@ package host
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -54,12 +53,13 @@ func Main(logger log.Logger, cfg *config.Config) error {
 		log.Info("Claim successfully verified")
 	}
 
-	results, err := json.Marshal(preimage.Preimages)
-	if err != nil {
-		log.Crit("Fail to write preimages to json file", err.Error())
-	}
-	os.WriteFile("./bin/preimages.json", results, 0644)
-	preimage.PreimageFile.Close()
+	// results, err := json.Marshal(preimage.Preimages)
+	// if err != nil {
+	// 	log.Crit("Fail to write preimages to json file", err.Error())
+	// }
+	// os.WriteFile("./bin/preimages.json", results, 0644)
+	preimage.PreimagePrivateFile.Close()
+	preimage.PreimagePublicFile.Close()
 
 	return nil
 }

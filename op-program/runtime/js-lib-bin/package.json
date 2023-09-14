@@ -1,0 +1,25 @@
+{
+  "name": "wasm-runtime",
+  "version": "1.0.0",
+  "description": "wasm-runtime test",
+  "main": "index.js",
+  "directories": {
+    "lib": "lib"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dajuguan/wasm-runtime.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dajuguan/wasm-runtime/issues"
+  },
+  "homepage": "https://github.com/dajuguan/wasm-runtime#readme",
+  "engines" : { 
+    "node" : ">=20.5.1"
+  }
+}

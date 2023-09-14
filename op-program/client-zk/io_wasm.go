@@ -5,7 +5,6 @@ package client
 
 import (
 	"encoding/binary"
-	"fmt"
 
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -21,21 +20,24 @@ type wasmHostIO struct {
 }
 
 func (o wasmHostIO) Get(key preimage.Key) []byte {
-	// _key := key.PreimageKey()
-	size := wasm_input(0)
-	fmt.Println("go size:", size)
-
+	_key := key.PreimageKey()
+	_, _isPublic := key.(preimage.LocalIndexKey)
+	var isPublic uint32
+	if _isPublic {
+		isPublic = 1
+	}
+	size := wasm_input(isPublic)
 	buf := make([]byte, size)
 
 	ssize := size / 8
 	for i := uint64(0); i < ssize; i++ {
-		data := wasm_input(0)
+		data := wasm_input(isPublic)
 		binary.BigEndian.PutUint64(buf[i*8:], data)
 	}
 
 	if ssize*8 < size {
-		data := wasm_input(0)
-		sv := 56
+		data := wasm_input(isPublic)
+		var sv uint64 = 8*(size%8) - 8
 		for i := uint64(ssize * 8); i < size; i++ {
 			buf[i] = byte(data >> sv)
 			sv = sv - 8
@@ -43,9 +45,11 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	}
 	// Integrity check
 	// TODO: can use customized circuit to optimize
-	fmt.Printf("buf:%02x\n", buf[size-8:size])
-	fmt.Printf("crypto.Keccak256Hash:%02x\n", crypto.Keccak256Hash(buf))
-	// require_bool(crypto.Keccak256Hash(buf) == _key)
+	if !_isPublic {
+		hash := crypto.Keccak256Hash(buf)
+		hash[0] = _key[0]
+		require_bool(hash == _key)
+	}
 	return buf
 }
 
