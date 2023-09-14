@@ -58,6 +58,11 @@ import path from 'node:path';
         return data;
       },
 
+      "wasm_exit": (code) => {
+        console.log("\nmaximum memory usage==========================>",max_mem);
+        process.exit(code);
+      },
+
       "require": (cond) => {
         if (cond == 0) {
           console.log("require is not satisfied, which is a false assertion in the wasm code. Please check the logic of your image or input.");
