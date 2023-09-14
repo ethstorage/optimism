@@ -87,6 +87,9 @@ import path from 'node:path';
         // console.log("lenBuf====>",lenBuf)
         let len = parseInt(lenBuf.toString("hex"),16)
         // console.log("len js:", len)
+        if (max_mem < instance.exports.memory.buffer.byteLength) {
+          max_mem = instance.exports.memory.buffer.byteLength
+        }
         return len
       },
 
