@@ -29,6 +29,9 @@ op-program-client-wasm:
 	# env GO111MODULE=on GOOS=js GOARCH=wasm go build  -v $(LDFLAGS) -o ./bin/op-program-client.wasm ./client/cmd/main.go
 	# tinygo build -o ./bin/op-program-client.wasm -target=wasm ./client/cmd/main.go
 
+op-program-client-wasm-preimage:
+	env GO111MODULE=on GOOS=js GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client-preimage.wasm ./client-zk/cmd/main.go
+
 op-program-client-wasi:
 	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client.wasi ./client/cmd/main.go
 	# tinygo build -o ./bin/op-program-client.wasm -target=wasm ./client/cmd/main.go

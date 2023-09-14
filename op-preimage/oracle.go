@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"os"
 )
 
 // OracleClient implements the Oracle by writing the pre-image key to the given stream,
@@ -28,7 +29,7 @@ func min(x, y int) int {
 
 func (o *OracleClient) Get(key Key) []byte {
 	h := key.PreimageKey()
-	// fmt.Printf("PreimageKey==========>%02x\n", h)
+	fmt.Printf("PreimageKey==========>%02x\n", h)
 	if _, err := o.rw.Write(h[:]); err != nil {
 		panic(fmt.Errorf("failed to write key %s (%T) to pre-image oracle: %w", key, key, err))
 	}
@@ -37,7 +38,7 @@ func (o *OracleClient) Get(key Key) []byte {
 	if err := binary.Read(o.rw, binary.BigEndian, &length); err != nil {
 		panic(fmt.Errorf("failed to read pre-image length of key %s (%T) from pre-image oracle: %w", key, key, err))
 	}
-	// fmt.Println("PreimageSize==========>", length)
+	fmt.Println("PreimageSize==========>", length)
 	payload := make([]byte, length)
 	if _, err := io.ReadFull(o.rw, payload); err != nil {
 		panic(fmt.Errorf("failed to read pre-image payload (length %d) of key %s (%T) from pre-image oracle: %w", length, key, key, err))
@@ -59,6 +60,10 @@ type PreimageGetter func(key [32]byte) ([]byte, error)
 
 var Preimages = map[string]string{}
 
+var PreimageFile, _ = os.Create("./bin/preimages.bin")
+
+// var counter = 0
+
 func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	var key [32]byte
 	if _, err := io.ReadFull(o.rw, key[:]); err != nil {
@@ -76,6 +81,24 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	bytes := make([]byte, 32)
 	copy(bytes[:], key[:])
 	Preimages[hex.EncodeToString(bytes)] = hex.EncodeToString(value)
+
+	//write length & data to preimages.bin
+	binary.Write(PreimageFile, binary.BigEndian, uint64(len(value)))
+	for i := 0; i < len(value); i++ {
+		var ii = value[i]
+		err := binary.Write(PreimageFile, binary.LittleEndian, ii)
+		if err != nil {
+			return fmt.Errorf("failed to dump pre-image binary file: %w", err)
+		}
+	}
+	// fmt.Println("PreimageSize==========>", len(value))
+	// fmt.Println("Preimage==========>", value[(len(value)-8):])
+	// fmt.Printf("Preimage hex==========>%02x\n", value[(len(value)-8):])
+
+	// counter += 1
+	// if counter == 7 {
+	// 	os.Exit(3)
+	// }
 
 	if err := binary.Write(o.rw, binary.BigEndian, uint64(len(value))); err != nil {
 		return fmt.Errorf("failed to write length-prefix %d: %w", len(value), err)

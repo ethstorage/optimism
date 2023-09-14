@@ -35,9 +35,10 @@ replay
 
 ### build go
 ```
+go clean -cache
 git clone -b wasi https://github.com/ethstorage/go
-cd go
-./src/all.bash
+cd go/src
+./all.bash
 ```
 
 ### build wasi

@@ -56,9 +56,10 @@ func Main(logger log.Logger, cfg *config.Config) error {
 
 	results, err := json.Marshal(preimage.Preimages)
 	if err != nil {
-		log.Crit("Fail to write preimages to json file",err.Error())
+		log.Crit("Fail to write preimages to json file", err.Error())
 	}
 	os.WriteFile("./bin/preimages.json", results, 0644)
+	preimage.PreimageFile.Close()
 
 	return nil
 }
