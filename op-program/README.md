@@ -22,6 +22,22 @@ alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.
 replay
 ```
 
+## zkWasm emulator
+> Prerequisites: ##build js-wasm and replay
+
+### build zkWasm
+```
+git clone -b host-ops-1.3 https://github.com/ethstorage/zkWasm
+cd zkWasm
+cargo build --release
+```
+
+### dry run
+```
+{/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client-preimage.wasi path} dry-run --preimages "{preimages.bin path}"
+```
+
+
 ## build wasi and replay
 > require go version>=1.21.0 (you can use gvm to change go version)
 
