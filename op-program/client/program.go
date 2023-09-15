@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -69,14 +68,20 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 
 	logger.Info("Starting derivation")
 	d := cldr.NewDriver(logger, cfg, l1Source, l2Source, l2ClaimBlockNum)
-	i := 0
-	for {
-		if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		i += 1
+	// i := 0
+	// for {
+	// 	if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
+	// 		break
+	// 	} else if err != nil {
+	// 		return err
+	// 	}
+	// 	i += 1
+	// }
+	// return d.ValidateClaim(eth.Bytes32(l2Claim))
+
+	err = d.Step(context.Background())
+	if err != nil {
+		return err
 	}
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
 }

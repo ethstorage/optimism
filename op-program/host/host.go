@@ -58,9 +58,7 @@ func Main(logger log.Logger, cfg *config.Config) error {
 	// 	log.Crit("Fail to write preimages to json file", err.Error())
 	// }
 	// os.WriteFile("./bin/preimages.json", results, 0644)
-	preimage.PreimagePrivateFile.Close()
-	preimage.PreimagePublicFile.Close()
-
+	preimage.PreimageFile.Close()
 	return nil
 }
 

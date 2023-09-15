@@ -60,8 +60,7 @@ type PreimageGetter func(key [32]byte) ([]byte, error)
 
 var Preimages = map[string]string{}
 
-var PreimagePrivateFile, _ = os.Create("./bin/preimages_prv.bin")
-var PreimagePublicFile, _ = os.Create("./bin/preimages_pub.bin")
+var PreimageFile, _ = os.Create("./bin/preimages.bin")
 
 func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	var key [32]byte
@@ -82,17 +81,10 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	Preimages[hex.EncodeToString(bytes)] = hex.EncodeToString(value)
 
 	//write length & data to preimages.bin
-	var preimageFile *os.File
-	if hex.EncodeToString(bytes)[0:32] == "01000000000000000000000000000000" {
-		preimageFile = PreimagePublicFile
-	} else {
-		preimageFile = PreimagePrivateFile
-	}
-
-	binary.Write(preimageFile, binary.BigEndian, uint64(len(value)))
+	binary.Write(PreimageFile, binary.BigEndian, uint64(len(value)))
 	for i := 0; i < len(value); i++ {
 		var ii = value[i]
-		err := binary.Write(preimageFile, binary.LittleEndian, ii)
+		err := binary.Write(PreimageFile, binary.LittleEndian, ii)
 		if err != nil {
 			return fmt.Errorf("failed to dump pre-image binary file: %w", err)
 		}
@@ -100,7 +92,7 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	//padding some zeros to make preimages length can be divided by 8
 	if len(value)%8 != 0 {
 		for i := 0; i < 8-len(value)%8; i++ {
-			err := binary.Write(preimageFile, binary.LittleEndian, byte(0))
+			err := binary.Write(PreimageFile, binary.LittleEndian, byte(0))
 			if err != nil {
 				return fmt.Errorf("failed to dump pre-image binary file: %w", err)
 			}
