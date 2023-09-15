@@ -83,21 +83,27 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 
 	//write length & data to preimages.bin
 	var preimageFile *os.File
-	var order binary.ByteOrder
 	if hex.EncodeToString(bytes)[0:32] == "01000000000000000000000000000000" {
 		preimageFile = PreimagePublicFile
-		order = binary.LittleEndian
 	} else {
 		preimageFile = PreimagePrivateFile
-		order = binary.BigEndian
 	}
 
 	binary.Write(preimageFile, binary.BigEndian, uint64(len(value)))
 	for i := 0; i < len(value); i++ {
 		var ii = value[i]
-		err := binary.Write(preimageFile, order, ii)
+		err := binary.Write(preimageFile, binary.LittleEndian, ii)
 		if err != nil {
 			return fmt.Errorf("failed to dump pre-image binary file: %w", err)
+		}
+	}
+	//padding some zeros to make preimages length can be divided by 8
+	if len(value)%8 != 0 {
+		for i := 0; i < 8-len(value)%8; i++ {
+			err := binary.Write(preimageFile, binary.LittleEndian, byte(0))
+			if err != nil {
+				return fmt.Errorf("failed to dump pre-image binary file: %w", err)
+			}
 		}
 	}
 

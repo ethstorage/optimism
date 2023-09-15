@@ -37,7 +37,7 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 
 	if ssize*8 < size {
 		data := wasm_input(isPublic)
-		var sv uint64 = 8*(size%8) - 8
+		var sv uint64 = 56
 		for i := uint64(ssize * 8); i < size; i++ {
 			buf[i] = byte(data >> sv)
 			sv = sv - 8
