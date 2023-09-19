@@ -31,6 +31,8 @@ replay
 ```
 git clone -b dev https://github.com/ethstorage/zkWasm
 cd zkWasm
+git submodule init
+git submodule update
 cargo build --release
 ```
 
