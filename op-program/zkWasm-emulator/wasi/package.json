@@ -1,0 +1,22 @@
+{
+  "name": "wasi-zkWasm-emulator",
+  "version": "1.0.0",
+  "type":"module",
+  "description": "wasm-runtime test",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dajuguan/wasm-runtime.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/dajuguan/wasm-runtime/issues"
+  },
+  "homepage": "https://github.com/dajuguan/wasm-runtime#readme",
+  "engines" : {
+    "node" : ">=20.5.1"
+  }
+}

@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
+	"io"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
@@ -25,15 +25,14 @@ func Main(logger log.Logger) {
 	if err := RunProgramWithDefault(logger); errors.Is(err, cldr.ErrClaimNotValid) {
 		log.Error("Claim is invalid", "err", err)
 		wasm_output(1022)
-		os.Exit(1)
+		require(1)
 	} else if err != nil {
 		wasm_output(1023)
 		log.Error("Program failed", "err", err)
-		os.Exit(2)
+		require(2)
 	} else {
 		wasm_output(1024)
 		log.Info("Claim successfully verified")
-		os.Exit(0)
 	}
 }
 
@@ -71,20 +70,18 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 
 	logger.Info("Starting derivation")
 	d := cldr.NewDriver(logger, cfg, l1Source, l2Source, l2ClaimBlockNum)
-	// i := 0
-	// for {
-	// 	if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
-	// 		break
-	// 	} else if err != nil {
-	// 		return err
-	// 	}
-	// 	i += 1
-	// }
-	// return d.ValidateClaim(eth.Bytes32(l2Claim))
-
-	err = d.Step(context.Background())
-	if err != nil {
-		return err
+	i := 0
+	for {
+		if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
+			break
+		} else if err != nil {
+			return err
+		}
+		i += 1
 	}
+	// err = d.Step(context.Background())
+	// if err != nil {
+	// 	return err
+	// }
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
 }

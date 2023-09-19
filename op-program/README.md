@@ -23,11 +23,13 @@ replay
 ```
 
 ## zkWasm emulator
-> Prerequisites: ##build js-wasm and replay
+> Prerequisites:
+  1.generate preimage witness(in #build js-wasm and replay)
+  2.build customized go(in ## build wasi and replay without op-host program)
 
 ### build zkWasm
 ```
-git clone -b host-ops-1.3 https://github.com/ethstorage/zkWasm
+git clone -b dev https://github.com/ethstorage/zkWasm
 cd zkWasm
 cargo build --release
 ```
@@ -36,6 +38,7 @@ cargo build --release
 ```
 {/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client-preimage.wasi path} dry-run --preimages "{preimages.bin path}"
 ```
+> Notice: it will print `wasm_output:1024` if correct. Dry run costs about 30 minutes.
 
 
 ## build wasi and replay

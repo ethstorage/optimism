@@ -21,12 +21,13 @@ import fs from "fs"
 
   let instance
   let cur = 0
-  let preimages = fs.readFileSync("./bin/preimages.bin")
+  let preimages = fs.readFileSync("./bin/preimages_cp.bin")
+  // let preimages = fs.readFileSync("./bin/preimages.bin")
   const hostio = {
     env: {
       wasm_input: (ispulic) => {
 				let data = preimages.readBigInt64BE(cur)
-        console.log("data:",data)
+        // console.log("data:",data)
 				cur += 8
 				return data
       },
