@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { WASI } from 'wasi';
 import { argv, env } from 'node:process';
 import fs from "fs"
+import path from 'node:path';
 
 (async function () {
   const wasi = new WASI({
@@ -9,20 +10,16 @@ import fs from "fs"
     args: argv,
     env,
     returnOnExit: true
-    // preopens: {
-    //   '/sandbox': '/root/now/wasm-runtime',
-    // },
   });
   const wasm = await WebAssembly.compile(
-    await readFile(new URL(process.argv[2], import.meta.url)),
+    await readFile(process.argv[2]),
   );
 
   console.log("start ")
 
   let instance
   let cur = 0
-  let preimages = fs.readFileSync("./bin/preimages_cp.bin")
-  // let preimages = fs.readFileSync("./bin/preimages.bin")
+  let preimages = fs.readFileSync("./bin/preimages.bin")
   const hostio = {
     env: {
       wasm_input: (ispulic) => {

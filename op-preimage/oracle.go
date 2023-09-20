@@ -99,8 +99,6 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 		}
 	}
 
-	fmt.Printf("go buf is:===>%02x\n", value[len(value)-8:])
-
 	if err := binary.Write(o.rw, binary.BigEndian, uint64(len(value))); err != nil {
 		return fmt.Errorf("failed to write length-prefix %d: %w", len(value), err)
 	}

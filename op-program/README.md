@@ -27,6 +27,12 @@ replay
   1.generate preimage witness(in #build js-wasm and replay)
   2.build customized go(in ## build wasi and replay without op-host program)
 
+### test if preimages and wasi is satisfied with zkWasm node emulator
+
+```
+node ./zkWasm-emulator/wasi/main.js ./bin/op-program-client-preimage.wasi
+```
+
 ### build zkWasm
 ```
 git clone -b dev https://github.com/ethstorage/zkWasm
