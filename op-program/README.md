@@ -37,6 +37,8 @@ node ./zkWasm-emulator/wasi/main.js ./bin/op-program-client-preimage.wasi
 ```
 git clone -b dev https://github.com/ethstorage/zkWasm
 cd zkWasm
+git submodule init
+git submodule update
 cargo build --release
 ```
 
