@@ -7,8 +7,8 @@ cd op-program
 make op-program
 ```
 
-## build js-wasm and replay
-> require go version>=1.21.0 (you can use gvm to change go version)
+## build js-wasm and replay (Generate witness by replaying js-wasm)
+> require zkwasm-go version>=1.21.0 (you can use gvm to change go version)
 
 ### build js-wasm
 ```
@@ -21,6 +21,16 @@ alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.
 
 replay
 ```
+
+
+### check witness file (TODO)
+where is the file?
+with a flag?
+
+## Build wasi for zkWasm image
+> require zkwasm-go version>=1.21.0 (you can use gvm to change go version)
+
+(TODO)
 
 ## zkWasm emulator
 > Prerequisites:
