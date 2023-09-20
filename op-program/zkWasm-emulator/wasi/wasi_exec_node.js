@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import { WASI } from 'wasi';
 import { argv, env } from 'node:process';
 import fs from "fs"
-import path from 'node:path';
 
 (async function () {
   const wasi = new WASI({
@@ -15,16 +14,13 @@ import path from 'node:path';
     await readFile(process.argv[2]),
   );
 
-  console.log("start ")
-
   let instance
   let cur = 0
-  let preimages = fs.readFileSync("./bin/preimages.bin")
+  let preimages = fs.readFileSync(process.argv[3])
   const hostio = {
     env: {
       wasm_input: (ispulic) => {
 				let data = preimages.readBigInt64BE(cur)
-        // console.log("data:",data)
 				cur += 8
 				return data
       },
@@ -40,24 +36,9 @@ import path from 'node:path';
     }
   }
 
-  let max_mem = 0
-
-  const wasi_imports = wasi.getImportObject()
-  const previous_clock_time_get = wasi_imports.wasi_snapshot_preview1.clock_time_get
-  wasi_imports.wasi_snapshot_preview1.clock_time_get =  (clockId, precision, time) => {
-    let res = previous_clock_time_get(clockId, precision, time)
-    if (max_mem < instance.exports.memory.buffer.byteLength) {
-      max_mem = instance.exports.memory.buffer.byteLength
-    }
-    return res
-  }
-
-  instance = await WebAssembly.instantiate(wasm, {...wasi_imports,...hostio});
+  instance = await WebAssembly.instantiate(wasm, hostio);
   wasi.start(instance);
-
-  process.on("exit", ()=> {
-    console.log("\nmaximum memory usage==========================>",max_mem)
-  })
-
 })()
+
+
 

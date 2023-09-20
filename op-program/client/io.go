@@ -15,7 +15,6 @@ import (
 )
 
 func RunProgram(logger log.Logger, preimageOracle io.ReadWriter, preimageHinter io.ReadWriter) error {
-	println("runing gp program=======>")
 	pClient := preimage.NewOracleClient(preimageOracle)
 	hClient := preimage.NewHintWriter(preimageHinter)
 

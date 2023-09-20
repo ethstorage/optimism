@@ -1,9 +1,0 @@
-{
-  "name": "wasi-runtime-without-hostio",
-  "version": "1.0.0",
-  "description": "wasi-runtime without hostio test",
-  "type":"module",
-  "engines" : {
-    "node" : ">=20.5.1"
-  }
-}

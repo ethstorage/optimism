@@ -38,6 +38,15 @@ func Main(logger log.Logger, cfg *config.Config) error {
 	opservice.ValidateEnvVars(flags.EnvVarPrefix, flags.Flags, logger)
 	cfg.Rollup.LogDescription(logger, chaincfg.L2ChainIDToNetworkName)
 
+	if cfg.PreimageFile != "" {
+		preimageFile, err := os.Create(cfg.PreimageFile)
+		if err != nil {
+			log.Crit("Failed to create preimage file, please provide a correct path", "err", err)
+		}
+		preimage.PreimageFile = preimageFile
+		defer preimage.PreimageFile.Close()
+	}
+
 	ctx := context.Background()
 	if cfg.ServerMode {
 		preimageChan := cl.CreatePreimageChannel()
@@ -53,12 +62,6 @@ func Main(logger log.Logger, cfg *config.Config) error {
 		log.Info("Claim successfully verified")
 	}
 
-	// results, err := json.Marshal(preimage.Preimages)
-	// if err != nil {
-	// 	log.Crit("Fail to write preimages to json file", err.Error())
-	// }
-	// os.WriteFile("./bin/preimages.json", results, 0644)
-	preimage.PreimageFile.Close()
 	return nil
 }
 
