@@ -19,7 +19,7 @@ alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.
 replay
 ```
 
-## Build wasi for zkWasm image
+## Build op-program-client-wasi for zkWasm image
 
 ### build customized zkwasm-go
 ```
@@ -29,7 +29,7 @@ cd go/src
 ./all.bash
 ```
 
-### build wasi with zkwasm-go
+### build op-program-client-wasi with zkwasm-go
 ```
 # make sure your go path is the above zkwasm-go(you can change the relevant go path in makefile)
 make op-program-client-wasi
