@@ -29,16 +29,16 @@ cd go/src
 ./all.bash
 ```
 
-### build op-program-client-wasi with zkwasm-go
+### build op-program-client-wasm with zkwasm-go
 ```
 # make sure your go path is the above zkwasm-go(you can change the relevant go path in makefile)
-make op-program-client-wasi
+make op-program-client-wasm
 ```
 
 ### check witness file with Node.js zkwasm emulator
 > Notice: require node.js version>=20.5.1
 ```
-node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client.wasi ./bin/preimages.bin
+node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client.wasm ./bin/preimages.bin
 ```
 > Notice: it will print `wasm_output:1024` if correct.
 
@@ -54,7 +54,7 @@ cargo build --release
 
 ### dry run
 ```
-{/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client-preimage.wasi path} dry-run --preimages "{preimages.bin path}"
+{/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client.wasm path} dry-run --private_file "{preimages.bin path}"
 ```
 > Notice: it will print `wasm_output:1024` if correct. Dry run costs about 22 hours.
 

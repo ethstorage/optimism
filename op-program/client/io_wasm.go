@@ -51,7 +51,7 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 }
 
 func (o wasmHostIO) Hint(v preimage.Hint) {
-	//do nothing
+	// do nothing
 	return
 }
 

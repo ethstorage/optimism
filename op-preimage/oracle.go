@@ -55,8 +55,6 @@ func NewOracleServer(rw io.ReadWriter) *OracleServer {
 
 type PreimageGetter func(key [32]byte) ([]byte, error)
 
-var Preimages = map[string]string{}
-
 var PreimageFile *os.File
 
 func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
@@ -73,27 +71,18 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	}
 
 	if PreimageFile != nil {
-		//add preimage k,v to the Preimage map for dumping it to json file
-		bytes := make([]byte, 32)
-		copy(bytes[:], key[:])
-		Preimages[hex.EncodeToString(bytes)] = hex.EncodeToString(value)
-
-		//write length & data to preimages.bin
+		// write length & data to preimages.bin
 		binary.Write(PreimageFile, binary.BigEndian, uint64(len(value)))
-		for i := 0; i < len(value); i++ {
-			var ii = value[i]
-			err := binary.Write(PreimageFile, binary.LittleEndian, ii)
+		_, err := PreimageFile.Write(value)
+		if err != nil {
+			return fmt.Errorf("failed to dump pre-image binary file: %w", err)
+		}
+
+		// padding some zeros to make preimages length can be divided by 8
+		if len(value)%8 != 0 {
+			_, err := PreimageFile.Write(make([]byte, 8-len(value)%8))
 			if err != nil {
 				return fmt.Errorf("failed to dump pre-image binary file: %w", err)
-			}
-		}
-		//padding some zeros to make preimages length can be divided by 8
-		if len(value)%8 != 0 {
-			for i := 0; i < 8-len(value)%8; i++ {
-				err := binary.Write(PreimageFile, binary.LittleEndian, byte(0))
-				if err != nil {
-					return fmt.Errorf("failed to dump pre-image binary file: %w", err)
-				}
 			}
 		}
 	}

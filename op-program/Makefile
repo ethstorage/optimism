@@ -24,8 +24,8 @@ op-program-client-mips:
 	# verify output with: readelf -h bin/op-program-client.elf
 	# result is mips32, big endian, R3000
 
-op-program-client-wasi:
-	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client.wasi ./client/cmd/main.go
+op-program-client-wasm:
+	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client.wasm ./client/cmd/main.go
 
 clean:
 	rm -rf bin
