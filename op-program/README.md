@@ -1,83 +1,27 @@
-# op-program-wasm
+# op-program-zkwasm
 
-## build op-program
-> require go version<=1.20.7 (you can use gvm to change go version)
+## build op-program-host
+> Notice: require go version<=1.20.7 (you can use gvm to change go version)
 ```
 cd op-program
-make op-program
+make op-program-host
 ```
 
-## build js-wasm and replay (Generate witness by replaying js-wasm)
-> require zkwasm-go version>=1.21.0 (you can use gvm to change go version)
+## build op-program-client and replay (Generate witness by replaying op-program-client)
+> Notice: require go version<=1.20.7
 
-### build js-wasm
 ```
-cd op-program
-make op-program-client-wasm
-```
-### replay js-wasm
-```
-alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0x530658ab1b1b3ff4829731fc8d5955f0e6b8410db2cd65b572067ba58df1f2b9     --l2.blocknumber 8813570     --datadir /tmp/fpp-database     --exec \"node ./runtime/js/wasm_exec_node.js ./bin/op-program-client.wasm\""
+make op-program-client
+
+# specify the `--preimage {file path}` flag to change preimages file location
+alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0x530658ab1b1b3ff4829731fc8d5955f0e6b8410db2cd65b572067ba58df1f2b9     --l2.blocknumber 8813570     --datadir /tmp/fpp-database --preimage ./bin/preimages.bin    --exec ./bin/op-program-client"
 
 replay
 ```
 
+## Build op-program-client-wasi for zkWasm image
 
-### check witness file (TODO)
-where is the file?
-with a flag?
-
-## Build wasi for zkWasm image
-> require zkwasm-go version>=1.21.0 (you can use gvm to change go version)
-
-(TODO)
-
-## zkWasm emulator
-> Prerequisites:
-  1.generate preimage witness(in #build js-wasm and replay)
-  2.build customized go(in ## build wasi and replay without op-host program)
-
-### test if preimages and wasi is satisfied with zkWasm node emulator
-
-```
-node ./zkWasm-emulator/wasi/main.js ./bin/op-program-client-preimage.wasi
-```
-
-### build zkWasm
-```
-git clone -b dev https://github.com/ethstorage/zkWasm
-cd zkWasm
-git submodule init
-git submodule update
-cargo build --release
-```
-
-### dry run
-```
-{/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client-preimage.wasi path} dry-run --preimages "{preimages.bin path}"
-```
-> Notice: it will print `wasm_output:1024` if correct. Dry run costs about 30 minutes.
-
-
-## build wasi and replay
-> require go version>=1.21.0 (you can use gvm to change go version)
-
-### build wasi
-```
-cd op-program
-make op-program-client-wasi
-```
-### replay wasi
-```
-alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0x530658ab1b1b3ff4829731fc8d5955f0e6b8410db2cd65b572067ba58df1f2b9     --l2.blocknumber 8813570     --datadir /tmp/fpp-database     --exec \"node ./runtime/wasi/wasi_exec_node.js ./bin/op-program-client.wasi\""
-
-replay
-```
-
-
-## build wasi and replay without op-host program
-
-### build go
+### build customized zkwasm-go
 ```
 go clean -cache
 git clone -b wasi https://github.com/ethstorage/go
@@ -85,61 +29,34 @@ cd go/src
 ./all.bash
 ```
 
-### build wasi
+### build op-program-client-wasm with zkwasm-go
 ```
-cd op-program
-make op-program-client-wasi #maybe you need to chaneg your go path from the above compilation
-```
-### replay wasi with op-host program for dumping preimages json file(./bin/preimages.json)
-```
-alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0x530658ab1b1b3ff4829731fc8d5955f0e6b8410db2cd65b572067ba58df1f2b9     --l2.blocknumber 8813570     --datadir /tmp/fpp-database     --exec \"node ./runtime/wasi/wasi_exec_node.js ./bin/op-program-client.wasi\""
-replay
+# make sure your go path is the above zkwasm-go(you can change the relevant go path in makefile)
+make op-program-client-wasm
 ```
 
-### replay **without op-host program**
+### check witness file with Node.js zkwasm emulator
+> Notice: require node.js version>=20.5.1
 ```
-node ./runtime/wasi-json/wasi_json_node.js  ./bin/op-program-client.wasi
+node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client.wasm ./bin/preimages.bin
+```
+> Notice: it will print `wasm_output:1024` if correct.
+
+## zkWasm emulator
+
+### build zkWasm
+```
+git clone -b dev https://github.com/ethstorage/zkWasm
+cd zkWasm
+git submodule update --init
+cargo build --release
 ```
 
-## replay with preimage witness which is compatible with zk-wasm
-
-### first do ###replay js-wasm part
-
-### replay using wasm_input preimage format
-
+### dry run
 ```
-make op-program-client-wasm-preimage
-node ./runtime/js-lib-bin/wasm_exec_node.js ./bin/op-program-client-preimage.wasm
+{/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client.wasm path} dry-run --private_file "{preimages.bin path}"
 ```
-
-## problems with op-wasm and solutions
-- `github.com/gofrs/flock`:
-    - modify `go-ethereum\core\rawdb\freezer.go`,`go-ethereum\core\rawdb\chain_freezer.go`
-    - add `go-ethereum\core\rawdb\fileutil_mock.go`
-    - modify `op-geth/node/node_mock.go`
-    - add `op-geth/node/fileutil_mock.go`
-- `/go-ethereum/ethdb/leveldb`:
-    - `replace github.com/syndtr/goleveldb => ./goleveldb`
-    - add `goleveldb/leveldb/storage/file_storage_wasm.go`
-- `go.uber.org/fx`
-    - `replace go.uber.org/fx => ./fx`
-    - add `fx/app_wasm.go`
-- `github.com/libp2p/go-libp2p`:
-    - `replace github.com/libp2p/go-libp2p => ./go-libp2p`
-    - add `go-libp2p/p2p/transport/websocket/websocket_wasm.go`
-- `/go-ethereum/trie`:
-    - `replace github.com/ethereum/go-ethereum => ./op-geth`
-    - ref arb's go-etherum, `replace github.com/ethereum/go-ethereum => ./go-ethereum`, [related pr](https://github.com/OffchainLabs/go-ethereum/pull/205)
-- `/go-ethereum/trie` & `VictoriaMetrics/fastcache`: use [arb's fastcache](https://github.com/OffchainLabs/fastcache) `replace github.com/VictoriaMetrics/fastcache => ./fastcache`
-
-## Arb reference
-- [replay code](https://github.com/OffchainLabs/nitro/blob/master/cmd/replay/main.go)
-- Build:
-    1. follow [arbitrum build nitro tutorial](https://docs.arbitrum.io/node-running/how-tos/build-nitro-locally) to install requirements
-    2. `make build-wasm-bin`
-- Goetherum related commit:
-    - [First commit](https://github.com/OffchainLabs/go-ethereum/commits?after=1319d385dc35f0a3be7166ec4a63ce83de89c376+244&author=PlasmaPower)
-    - [Another offchainlabs](https://github.com/OffchainLabs/go-ethereum/commits?author=Tristan-Wilson&before=1319d385dc35f0a3be7166ec4a63ce83de89c376+70)
+> Notice: it will print `wasm_output:1024` if correct. Dry run costs about 22 hours.
 
 
 # op-program

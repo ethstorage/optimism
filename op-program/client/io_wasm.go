@@ -5,9 +5,9 @@ package client
 
 import (
 	"encoding/binary"
-	"unsafe"
 
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func NewOracleClientAndHintWriter() (preimage.Oracle, preimage.Hinter) {
@@ -19,42 +19,58 @@ func NewOracleClientAndHintWriter() (preimage.Oracle, preimage.Hinter) {
 type wasmHostIO struct {
 }
 
-//go:wasmimport _gotest get_preimage_len
-//go:noescape
-func getPreimageLenFromOracle(keyPtr uint32) uint32
-
-//go:wasmimport _gotest get_preimage_from_oracle
-//go:noescape
-func getPreimageFromOracle(keyPtr uint32, retBufPtr uint32, size uint32) uint32
-
-//go:wasmimport _gotest hint_oracle
-//go:noescape
-func hintOracle(retBufPtr uint32, retBufSize uint32)
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
 func (o wasmHostIO) Get(key preimage.Key) []byte {
-	h := key.PreimageKey()
-	//get preimage size
-	size := getPreimageLenFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))))
+	_key := key.PreimageKey()
+	_, _isPublic := key.(preimage.LocalIndexKey)
 
+	size := wasm_input(0)
 	buf := make([]byte, size)
-	readedLen := getPreimageFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))), uint32(uintptr(unsafe.Pointer(&buf[0]))), size)
-	if readedLen < size {
-		getPreimageFromOracle(uint32(uintptr(unsafe.Pointer(&h[0]))), uint32(uintptr(unsafe.Pointer(&buf[readedLen]))), size-readedLen)
+
+	ssize := size / 8
+	for i := uint64(0); i < ssize; i++ {
+		data := wasm_input(0)
+		binary.BigEndian.PutUint64(buf[i*8:], data)
+	}
+
+	if ssize*8 < size {
+		data := wasm_input(0)
+		var sv uint64 = 56
+		for i := uint64(ssize * 8); i < size; i++ {
+			buf[i] = byte(data >> sv)
+			sv = sv - 8
+		}
+	}
+	// Integrity check
+	// TODO: can use customized circuit to optimize
+	if !_isPublic {
+		hash := crypto.Keccak256Hash(buf)
+		hash[0] = _key[0]
+		require_bool(hash == _key)
 	}
 	return buf
 }
 
 func (o wasmHostIO) Hint(v preimage.Hint) {
-	hint := v.Hint()
-	var hintBytes []byte
-	hintBytes = binary.BigEndian.AppendUint32(hintBytes, uint32(len(hint)))
-	hintBytes = append(hintBytes, []byte(hint)...)
-	hintOracle(uint32(uintptr(unsafe.Pointer(&hintBytes[0]))), uint32(len(hintBytes)))
+	// do nothing
+	return
+}
+
+//go:wasmimport env wasm_input
+//go:noescape
+func wasm_input(isPublic uint32) uint64
+
+//go:wasmimport env wasm_output
+//go:noescape
+func wasm_output(value uint64)
+
+//go:wasmimport env require
+//go:noescape
+func require(uint32)
+
+func require_bool(cond bool) {
+	if cond {
+		require(1)
+	} else {
+		require(0)
+	}
 }

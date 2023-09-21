@@ -58,6 +58,8 @@ type Config struct {
 	// ServerMode indicates that the program should run in pre-image server mode and wait for requests.
 	// No client program is run.
 	ServerMode bool
+	//preimage file
+	PreimageFile string
 }
 
 func (c *Config) Check() error {
@@ -160,6 +162,7 @@ func NewConfigFromCLI(log log.Logger, ctx *cli.Context) (*Config, error) {
 		L1RPCKind:          sources.RPCProviderKind(ctx.String(flags.L1RPCProviderKind.Name)),
 		ExecCmd:            ctx.String(flags.Exec.Name),
 		ServerMode:         ctx.Bool(flags.Server.Name),
+		PreimageFile:       ctx.String(flags.PreimageFile.Name),
 	}, nil
 }
 

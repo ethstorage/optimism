@@ -20,12 +20,9 @@ func NewHintWriter(rw io.ReadWriter) *HintWriter {
 
 func (hw *HintWriter) Hint(v Hint) {
 	hint := v.Hint()
-	fmt.Println("Hint str:", hint)
-	fmt.Printf("Hint:%02x \n", hint)
 	var hintBytes []byte
 	hintBytes = binary.BigEndian.AppendUint32(hintBytes, uint32(len(hint)))
 	hintBytes = append(hintBytes, []byte(hint)...)
-	fmt.Printf("hintBytes:%02x \n", hintBytes)
 	_, err := hw.rw.Write(hintBytes)
 	if err != nil {
 		panic(fmt.Errorf("failed to write pre-image hint: %w", err))

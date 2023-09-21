@@ -29,7 +29,6 @@ func min(x, y int) int {
 
 func (o *OracleClient) Get(key Key) []byte {
 	h := key.PreimageKey()
-	fmt.Printf("PreimageKey==========>%02x\n", h)
 	if _, err := o.rw.Write(h[:]); err != nil {
 		panic(fmt.Errorf("failed to write key %s (%T) to pre-image oracle: %w", key, key, err))
 	}
@@ -38,12 +37,10 @@ func (o *OracleClient) Get(key Key) []byte {
 	if err := binary.Read(o.rw, binary.BigEndian, &length); err != nil {
 		panic(fmt.Errorf("failed to read pre-image length of key %s (%T) from pre-image oracle: %w", key, key, err))
 	}
-	fmt.Println("PreimageSize==========>", length)
 	payload := make([]byte, length)
 	if _, err := io.ReadFull(o.rw, payload); err != nil {
 		panic(fmt.Errorf("failed to read pre-image payload (length %d) of key %s (%T) from pre-image oracle: %w", length, key, key, err))
 	}
-	// os.Exit(3)
 	return payload
 }
 
@@ -58,9 +55,7 @@ func NewOracleServer(rw io.ReadWriter) *OracleServer {
 
 type PreimageGetter func(key [32]byte) ([]byte, error)
 
-var Preimages = map[string]string{}
-
-var PreimageFile, _ = os.Create("./bin/preimages.bin")
+var PreimageFile *os.File
 
 func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 	var key [32]byte
@@ -75,24 +70,17 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 		return fmt.Errorf("failed to serve pre-image %s request: %w", hex.EncodeToString(key[:]), err)
 	}
 
-	//add preimage k,v to the Preimage map for dumping it to json file
-	bytes := make([]byte, 32)
-	copy(bytes[:], key[:])
-	Preimages[hex.EncodeToString(bytes)] = hex.EncodeToString(value)
-
-	//write length & data to preimages.bin
-	binary.Write(PreimageFile, binary.BigEndian, uint64(len(value)))
-	for i := 0; i < len(value); i++ {
-		var ii = value[i]
-		err := binary.Write(PreimageFile, binary.LittleEndian, ii)
+	if PreimageFile != nil {
+		// write length & data to preimages.bin
+		binary.Write(PreimageFile, binary.BigEndian, uint64(len(value)))
+		_, err := PreimageFile.Write(value)
 		if err != nil {
 			return fmt.Errorf("failed to dump pre-image binary file: %w", err)
 		}
-	}
-	//padding some zeros to make preimages length can be divided by 8
-	if len(value)%8 != 0 {
-		for i := 0; i < 8-len(value)%8; i++ {
-			err := binary.Write(PreimageFile, binary.LittleEndian, byte(0))
+
+		// padding some zeros to make preimages length can be divided by 8
+		if len(value)%8 != 0 {
+			_, err := PreimageFile.Write(make([]byte, 8-len(value)%8))
 			if err != nil {
 				return fmt.Errorf("failed to dump pre-image binary file: %w", err)
 			}

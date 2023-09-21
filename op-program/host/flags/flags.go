@@ -95,6 +95,12 @@ var (
 		Usage:   "Run in pre-image server mode without executing any client program.",
 		EnvVars: prefixEnvVars("SERVER"),
 	}
+
+	PreimageFile = &cli.StringFlag{
+		Name:    "preimage",
+		Usage:   "Specify the preimage output path when running in pre-image server mode with client program.",
+		EnvVars: prefixEnvVars("PREIMAGE_FILE"),
+	}
 )
 
 // Flags contains the list of configuration options available to the binary.
@@ -117,6 +123,7 @@ var programFlags = []cli.Flag{
 	L1RPCProviderKind,
 	Exec,
 	Server,
+	PreimageFile,
 }
 
 func init() {
