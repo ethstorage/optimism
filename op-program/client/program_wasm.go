@@ -27,14 +27,14 @@ func Main(logger log.Logger) {
 
 	if err := RunProgramWithDefault(logger); errors.Is(err, cldr.ErrClaimNotValid) {
 		log.Error("Claim is invalid", "err", err)
-		wasm_output(1022)
-		require(1)
+		Wasm_output(1022)
+		Require(1)
 	} else if err != nil {
-		wasm_output(1023)
+		Wasm_output(1023)
 		log.Error("Program failed", "err", err)
-		require(2)
+		Require(2)
 	} else {
-		wasm_output(1024)
+		Wasm_output(1024)
 		log.Info("Claim successfully verified")
 	}
 }
@@ -80,5 +80,6 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 		}
 		i += 1
 	}
+	// d.Step(context.Background())
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
 }

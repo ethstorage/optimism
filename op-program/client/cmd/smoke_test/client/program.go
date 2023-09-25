@@ -1,13 +1,12 @@
 //go:build !(wasm || wasip1)
 // +build !wasm,!wasip1
 
-package client
+package smoke_test_client
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/eth"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-program/client"
 	cldr "github.com/ethereum-optimism/optimism/op-program/client/driver"
 	"github.com/ethereum-optimism/optimism/op-program/client/l1"
 	"github.com/ethereum-optimism/optimism/op-program/client/l2"
@@ -40,11 +40,11 @@ func Main(logger log.Logger) {
 
 // RunProgramWithDefault executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
 func RunProgramWithDefault(logger log.Logger) error {
-	pClient, hClient := NewOracleClientAndHintWriter()
+	pClient, hClient := client.NewOracleClientAndHintWriter()
 	l1PreimageOracle := l1.NewPreimageOracle(pClient, hClient)
 	l2PreimageOracle := l2.NewPreimageOracle(pClient, hClient)
 
-	bootInfo := NewBootstrapClient(pClient).BootInfo()
+	bootInfo := client.NewBootstrapClient(pClient).BootInfo()
 	logger.Info("Program Bootstrapped", "bootInfo", bootInfo)
 	return runDerivation(
 		logger,
@@ -70,15 +70,10 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 
 	logger.Info("Starting derivation")
 	d := cldr.NewDriver(logger, cfg, l1Source, l2Source, l2ClaimBlockNum)
-	i := 0
-	for {
-		if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return err
-		}
-		i += 1
+
+	// in smoke test, we only run 10 steps
+	for i := 0; i < 10; i++ {
+		d.Step(context.Background())
 	}
-	// d.Step(context.Background())
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
 }
