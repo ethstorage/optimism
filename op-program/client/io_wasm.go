@@ -23,17 +23,17 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	_key := key.PreimageKey()
 	_, _isPublic := key.(preimage.LocalIndexKey)
 
-	size := Wasm_input(0)
+	size := wasm_input(0)
 	buf := make([]byte, size)
 
 	ssize := size / 8
 	for i := uint64(0); i < ssize; i++ {
-		data := Wasm_input(0)
+		data := wasm_input(0)
 		binary.BigEndian.PutUint64(buf[i*8:], data)
 	}
 
 	if ssize*8 < size {
-		data := Wasm_input(0)
+		data := wasm_input(0)
 		var sv uint64 = 56
 		for i := uint64(ssize * 8); i < size; i++ {
 			buf[i] = byte(data >> sv)
@@ -57,20 +57,20 @@ func (o wasmHostIO) Hint(v preimage.Hint) {
 
 //go:wasmimport env wasm_input
 //go:noescape
-func Wasm_input(isPublic uint32) uint64
+func wasm_input(isPublic uint32) uint64
 
 //go:wasmimport env wasm_output
 //go:noescape
-func Wasm_output(value uint64)
+func wasm_output(value uint64)
 
 //go:wasmimport env require
 //go:noescape
-func Require(uint32)
+func require(uint32)
 
 func require_bool(cond bool) {
 	if cond {
-		Require(1)
+		require(1)
 	} else {
-		Require(0)
+		require(0)
 	}
 }

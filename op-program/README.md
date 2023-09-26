@@ -46,12 +46,12 @@ cd go/src
 
 ### for `smoke_test`
 ```
-make op-program-client-smoke-test
+make op-program-client-wasm-smoke-test
 ```
 
 ### for `full run`
 ```
-make op-program-client
+make op-program-client-wasm
 ```
 
 ## check witness file with Node.js zkwasm emulator

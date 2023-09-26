@@ -1,6 +1,3 @@
-//go:build !smoke_test
-// +build !smoke_test
-
 package client
 
 import (
@@ -32,6 +29,9 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 	d := cldr.NewDriver(logger, cfg, l1Source, l2Source, l2ClaimBlockNum)
 	i := 0
 	for {
+		if i > maximumSteps && maximumSteps >= 0 {
+			break
+		}
 		if err = d.Step(context.Background()); errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
@@ -40,4 +40,25 @@ func runDerivation(logger log.Logger, cfg *rollup.Config, l2Cfg *params.ChainCon
 		i += 1
 	}
 	return d.ValidateClaim(eth.Bytes32(l2Claim))
+}
+
+// RunProgramWithDefault executes the Program, while attached to an IO based pre-image oracle, to be served by a host.
+func RunProgramWithDefault(logger log.Logger) error {
+	pClient, hClient := NewOracleClientAndHintWriter()
+	l1PreimageOracle := l1.NewPreimageOracle(pClient, hClient)
+	l2PreimageOracle := l2.NewPreimageOracle(pClient, hClient)
+
+	bootInfo := NewBootstrapClient(pClient).BootInfo()
+	logger.Info("Program Bootstrapped", "bootInfo", bootInfo)
+	return runDerivation(
+		logger,
+		bootInfo.RollupConfig,
+		bootInfo.L2ChainConfig,
+		bootInfo.L1Head,
+		bootInfo.L2Head,
+		bootInfo.L2Claim,
+		bootInfo.L2ClaimBlockNumber,
+		l1PreimageOracle,
+		l2PreimageOracle,
+	)
 }
