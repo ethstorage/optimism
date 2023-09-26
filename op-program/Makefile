@@ -32,10 +32,10 @@ op-program-smoke-test:\
 	op-program-client-wasm-smoke-test \
 
 op-program-client-smoke-test:
-	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -o ./bin/op-program-client-test ./client/cmd/smoke_test/main.go
+	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test ./client/cmd/main.go
 
 op-program-client-wasm-smoke-test:
-	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client-test.wasm ./client/cmd/smoke_test/main.go
+	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test.wasm ./client/cmd/main.go
 
 clean:
 	rm -rf bin

@@ -16,7 +16,7 @@ make op-program-host
 make op-program-client-smoke-test
 
 # specify the `--preimage {file path}` flag to change preimages file location
-alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0x530658ab1b1b3ff4829731fc8d5955f0e6b8410db2cd65b572067ba58df1f2b9     --l2.blocknumber 8813570     --datadir /tmp/fpp-database --preimage ./bin/preimages-test.bin    --exec ./bin/op-program-client-test"
+alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0xe4d3430afd2f56e874e64842f8c7153b1c34312f7e09e09be6d3036f3001dafd     --l2.blocknumber 8813570     --datadir /tmp/fpp-database --preimage ./bin/preimages-test.bin    --exec ./bin/op-program-client-test"
 
 replay
 ```
@@ -65,7 +65,7 @@ node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client-test.wasm 
 ```
 node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client.wasm ./bin/preimages.bin
 ```
-> Notice: It will print  `wasm_output:1023` for `smoke_test` and `wasm_output:1024` for `full run` when your run is correct.
+> Notice: These two runs both will print  `wasm_output:1024` when your run is correct.
 
 ## zkWasm emulator
 
@@ -81,8 +81,7 @@ cargo build --release
 ```
 {/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client.wasm path} dry-run --private_file "{preimages.bin path}"
 ```
-> Notice: For smoke_test it will print `wasm_output:1023` if correct;
-> For full run, it will print `wasm_output:1024` when your run is correct, and costs about 7 minutes.
+> Notice: For `smoke_test` it costs ~40 seconds; for `full run`, it costs about 7 minutes.
 
 
 # op-program
