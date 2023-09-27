@@ -27,6 +27,16 @@ op-program-client-mips:
 op-program-client-wasm:
 	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -o ./bin/op-program-client.wasm ./client/cmd/main.go
 
+op-program-smoke-test:\
+	op-program-client-smoke-test \
+	op-program-client-wasm-smoke-test \
+
+op-program-client-smoke-test:
+	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test ./client/cmd/main.go
+
+op-program-client-wasm-smoke-test:
+	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test.wasm ./client/cmd/main.go
+
 clean:
 	rm -rf bin
 

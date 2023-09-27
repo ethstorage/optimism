@@ -1,5 +1,5 @@
-//go:build !js && !wasip1
-// +build !js,!wasip1
+//go:build !(wasm || wasip1)
+// +build !wasm,!wasip1
 
 package client
 

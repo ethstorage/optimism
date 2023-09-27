@@ -1,4 +1,5 @@
 # op-program-zkwasm
+Due to fully replay op-program of 1 block txs cost 10 minutes, here we provide 2 options to play with op-program. One is `smoke_test` run, which only runs 10 steps of the [derivation process](https://github.com/ethereum-optimism/optimism/blob/develop/specs/derivation.md); another is `full run`, which derivates a full block.
 
 ## build op-program-host
 > Notice: require go version<=1.20.7 (you can use gvm to change go version)
@@ -10,6 +11,17 @@ make op-program-host
 ## build op-program-client and replay (Generate witness by replaying op-program-client)
 > Notice: require go version<=1.20.7
 
+### for `smoke_test`
+```
+make op-program-client-smoke-test
+
+# specify the `--preimage {file path}` flag to change preimages file location
+alias replay="./bin/op-program --l2 http://65.108.75.40:8645     --l1 http://65.108.75.40:8745     --l1.trustrpc     --l1.rpckind debug_geth     --log.format terminal     --l2.head 0xedc79de4d616a9100fdd42192224580daee81ea3d6303de8089d48a6c1bf4816     --network goerli     --l1.head 0x204f815790ca3bb43526ad60ebcc64784ec809bdc3550e82b54a0172f981efab     --l2.claim 0xe4d3430afd2f56e874e64842f8c7153b1c34312f7e09e09be6d3036f3001dafd     --l2.blocknumber 8813570     --datadir /tmp/fpp-database --preimage ./bin/preimages-test.bin    --exec ./bin/op-program-client-test"
+
+replay
+```
+
+### for `full run`
 ```
 make op-program-client
 
@@ -29,18 +41,31 @@ cd go/src
 ./all.bash
 ```
 
-### build op-program-client-wasm with zkwasm-go
+## build op-program-client-wasm with zkwasm-go
+> Notice: make sure your go path is the above zkwasm-go(you can change the relevant go path in makefile)
+
+### for `smoke_test`
 ```
-# make sure your go path is the above zkwasm-go(you can change the relevant go path in makefile)
+make op-program-client-wasm-smoke-test
+```
+
+### for `full run`
+```
 make op-program-client-wasm
 ```
 
-### check witness file with Node.js zkwasm emulator
+## check witness file with Node.js zkwasm emulator
 > Notice: require node.js version>=20.5.1
+
+### for `smoke_test`
+```
+node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client-test.wasm ./bin/preimages-test.bin
+```
+### for `full run`
 ```
 node ./zkWasm-emulator/wasi/wasi_exec_node.js ./bin/op-program-client.wasm ./bin/preimages.bin
 ```
-> Notice: it will print `wasm_output:1024` if correct.
+> Notice: These two runs both will print  `wasm_output:1024` when your run is correct.
 
 ## zkWasm emulator
 
@@ -56,7 +81,7 @@ cargo build --release
 ```
 {/target/release/delphinus-cli path} -k 22 --function zkmain --output ./output --wasm {op-program-client.wasm path} dry-run --private_file "{preimages.bin path}"
 ```
-> Notice: it will print `wasm_output:1024` if correct. Dry run costs about 22 hours.
+> Notice: For `smoke_test` it costs ~40 seconds; for `full run`, it costs about 7 minutes.
 
 
 # op-program
