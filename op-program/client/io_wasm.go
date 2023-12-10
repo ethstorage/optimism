@@ -7,7 +7,7 @@ import (
 	"encoding/binary"
 
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
-	"github.com/ethereum/go-ethereum/crypto"
+	//"github.com/ethereum/go-ethereum/crypto"
 )
 
 func NewOracleClientAndHintWriter() (preimage.Oracle, preimage.Hinter) {
@@ -43,7 +43,8 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	// Integrity check
 	// TODO: can use customized circuit to optimize
 	if !_isPublic {
-		hash := crypto.Keccak256Hash(buf)
+		//hash := crypto.Keccak256Hash(buf)
+		hash := Keccak256Hash(buf)
 		hash[0] = _key[0]
 		require_bool(hash == _key)
 	}
