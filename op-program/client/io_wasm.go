@@ -46,19 +46,19 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	if !_isPublic {
 		hash := Keccak256HashInputU64(bufU64)
 		hash[0] = _key[0]
-		for _, val := range hash {
-			wasm_log(uint64(val))
-		}
-		wasm_log(0)
-		wasm_log(0)
-		wasm_log(0)
-		wasm_log(0)
-		wasm_log(0)
-		wasm_log(0)
-		wasm_log(0)
-		wasm_log(0)
-		for _, val := range _key {
-			wasm_log(uint64(val))
+		if _key[1] != 79 {
+			print_log_flag()
+			for _, val := range buf {
+				wasm_log(uint64(val))
+			}
+			print_log_flag()
+			for _, val := range hash {
+				wasm_log(uint64(val))
+			}
+			print_log_flag()
+			for _, val := range _key {
+				wasm_log(uint64(val))
+			}
 		}
 
 		require_bool(hash == _key)
@@ -124,4 +124,13 @@ func require_bool(cond bool) {
 	} else {
 		require(0)
 	}
+}
+
+func print_log_flag() {
+	wasm_log(1)
+	wasm_log(1)
+	wasm_log(1)
+	wasm_log(0)
+	wasm_log(0)
+	wasm_log(0)
 }

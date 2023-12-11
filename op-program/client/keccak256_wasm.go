@@ -42,7 +42,7 @@ func Keccak256HashInputU64(data ...[]uint64) (output [32]byte) {
 	keccak_new(0)
 	for _, value := range data {
 		for _, value2 := range value {
-			keccak_push(value2)
+			keccak_push(Uint64BigEndianToLittleEndian(value2))
 		}
 	}
 	result := make([]uint64, 0)
@@ -54,6 +54,12 @@ func Keccak256HashInputU64(data ...[]uint64) (output [32]byte) {
 		output[i] = resultBytes[i]
 	}
 	return output
+}
+
+func Uint64BigEndianToLittleEndian(input uint64) uint64 {
+	byteSlice := make([]byte, 8)
+	binary.BigEndian.PutUint64(byteSlice, input)
+	return binary.LittleEndian.Uint64(byteSlice)
 }
 
 func Uint64SliceToByteSlice(uint64Slice []uint64) []byte {
