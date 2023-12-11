@@ -1,3 +1,6 @@
+//go:build js || wasm || wasip1
+// +build js wasm wasip1
+
 package client
 
 import "encoding/binary"
