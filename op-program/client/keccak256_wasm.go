@@ -22,7 +22,6 @@ func Keccak256Hash(data ...[]byte) (output [32]byte) {
 	for _, value := range data {
 		dataBytes = append(dataBytes, value...)
 	}
-	require_bool(len(dataBytes)%8 == 0)
 	input := ByteSliceToUint64Slice(dataBytes)
 	keccak_new(0)
 	for _, value := range input {
@@ -39,19 +38,41 @@ func Keccak256Hash(data ...[]byte) (output [32]byte) {
 	return output
 }
 
+func Keccak256HashInputU64(data ...[]uint64) (output [32]byte) {
+	keccak_new(0)
+	for _, value := range data {
+		for _, value2 := range value {
+			keccak_push(value2)
+		}
+	}
+	result := make([]uint64, 0)
+	for i := 0; i < 4; i++ {
+		result = append(result, keccak_finalize())
+	}
+	resultBytes := Uint64SliceToByteSlice(result)
+	for i := 0; i < 32; i++ {
+		output[i] = resultBytes[i]
+	}
+	return output
+}
+
 func Uint64SliceToByteSlice(uint64Slice []uint64) []byte {
 	byteSlice := make([]byte, len(uint64Slice)*8)
 	for i, val := range uint64Slice {
 		binary.LittleEndian.PutUint64(byteSlice[i*8:], val)
+		//binary.BigEndian.PutUint64(byteSlice[i*8:], val)
 	}
 	return byteSlice
 }
 
 func ByteSliceToUint64Slice(byteSlice []byte) []uint64 {
-	require_bool(len(byteSlice)%8 == 0)
-	uint64Slice := make([]uint64, len(byteSlice)/8)
+	uint64Slice := make([]uint64, (len(byteSlice)+7)/8)
 	for i := 0; i < len(byteSlice); i += 8 {
-		val := binary.LittleEndian.Uint64(byteSlice[i:])
+		end := i + 8
+		if end > len(byteSlice) {
+			end = len(byteSlice)
+		}
+		val := binary.LittleEndian.Uint64(byteSlice[i:end])
 		uint64Slice[i/8] = val
 	}
 	return uint64Slice
