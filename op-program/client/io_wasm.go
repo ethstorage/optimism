@@ -46,6 +46,21 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	if !_isPublic {
 		hash := Keccak256HashInputU64(bufU64)
 		hash[0] = _key[0]
+		for _, val := range hash {
+			wasm_log(uint64(val))
+		}
+		wasm_log(0)
+		wasm_log(0)
+		wasm_log(0)
+		wasm_log(0)
+		wasm_log(0)
+		wasm_log(0)
+		wasm_log(0)
+		wasm_log(0)
+		for _, val := range _key {
+			wasm_log(uint64(val))
+		}
+
 		require_bool(hash == _key)
 	}
 	return buf
