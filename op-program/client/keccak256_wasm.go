@@ -17,71 +17,75 @@ func keccak_push(uint64)
 //go:noescape
 func keccak_finalize() uint64
 
+type KeccakHasher struct {
+	data    uint64
+	byteIdx uint64
+	bufSize uint64
+}
+
+func NewKeccakHasher() *KeccakHasher {
+	keccak_new(1)
+	return &KeccakHasher{
+		data:    0,
+		byteIdx: 0,
+		bufSize: 0,
+	}
+}
+
+func (kh *KeccakHasher) UpdateByte(v byte) {
+	kh.data += uint64(v) << (kh.byteIdx * 8)
+	kh.byteIdx++
+	if kh.byteIdx >= 8 {
+		keccak_push(kh.data)
+		kh.data = 0
+		kh.byteIdx = 0
+		kh.bufSize++
+
+		if kh.bufSize == 17 {
+			keccak_finalize()
+			keccak_finalize()
+			keccak_finalize()
+			keccak_finalize()
+			keccak_new(0)
+			kh.bufSize = 0
+		}
+	}
+}
+
+func (kh *KeccakHasher) Finalize() [4]uint64 {
+	bytesToPad := 136 - kh.byteIdx - kh.bufSize*8
+	if bytesToPad == 1 {
+		var result uint64 = 0x86 << 56
+		keccak_push(kh.data + result)
+	} else {
+		kh.UpdateByte(1)
+		for i := 0; i < int(bytesToPad)-2; i++ {
+			kh.UpdateByte(0)
+		}
+		var result uint64 = 0x80 << 56
+		keccak_push(kh.data + result)
+	}
+
+	return [4]uint64{
+		keccak_finalize(),
+		keccak_finalize(),
+		keccak_finalize(),
+		keccak_finalize(),
+	}
+}
+
 func Keccak256Hash(data ...[]byte) (output [32]byte) {
-	dataBytes := make([]byte, 0)
+	hasher := NewKeccakHasher()
 	for _, value := range data {
-		dataBytes = append(dataBytes, value...)
-	}
-	input := ByteSliceToUint64Slice(dataBytes)
-	keccak_new(0)
-	for _, value := range input {
-		keccak_push(value)
-	}
-	result := make([]uint64, 0)
-	for i := 0; i < 4; i++ {
-		result = append(result, keccak_finalize())
-	}
-	resultBytes := Uint64SliceToByteSlice(result)
-	for i := 0; i < 32; i++ {
-		output[i] = resultBytes[i]
-	}
-	return output
-}
-
-func Keccak256HashInputU64(data ...[]uint64) (output [32]byte) {
-	keccak_new(0)
-	for _, value := range data {
-		for _, value2 := range value {
-			keccak_push(Uint64BigEndianToLittleEndian(value2))
+		for _, byteValue := range value {
+			hasher.UpdateByte(byteValue)
 		}
 	}
-	result := make([]uint64, 0)
-	for i := 0; i < 4; i++ {
-		result = append(result, keccak_finalize())
-	}
-	resultBytes := Uint64SliceToByteSlice(result)
-	for i := 0; i < 32; i++ {
-		output[i] = resultBytes[i]
+	result := hasher.Finalize()
+	for i, val := range result {
+		binary.LittleEndian.PutUint64(output[i*8:], val)
 	}
 	return output
-}
-
-func Uint64BigEndianToLittleEndian(input uint64) uint64 {
-	byteSlice := make([]byte, 8)
-	binary.BigEndian.PutUint64(byteSlice, input)
-	return binary.LittleEndian.Uint64(byteSlice)
-}
-
-func Uint64SliceToByteSlice(uint64Slice []uint64) []byte {
-	byteSlice := make([]byte, len(uint64Slice)*8)
-	for i, val := range uint64Slice {
-		binary.LittleEndian.PutUint64(byteSlice[i*8:], val)
-		//binary.BigEndian.PutUint64(byteSlice[i*8:], val)
-	}
-	return byteSlice
-}
-
-func ByteSliceToUint64Slice(byteSlice []byte) []uint64 {
-	uint64Slice := make([]uint64, (len(byteSlice)+7)/8)
-	for i := 0; i < len(byteSlice); i += 8 {
-		end := i + 8
-		if end > len(byteSlice) {
-			end = len(byteSlice)
-		}
-		val := binary.LittleEndian.Uint64(byteSlice[i:end])
-		uint64Slice[i/8] = val
-	}
-	return uint64Slice
 }
 
 /*
