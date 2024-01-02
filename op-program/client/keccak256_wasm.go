@@ -55,7 +55,7 @@ func (kh *KeccakHasher) UpdateByte(v byte) {
 func (kh *KeccakHasher) Finalize() [4]uint64 {
 	bytesToPad := 136 - kh.byteIdx - kh.bufSize*8
 	if bytesToPad == 1 {
-		var result uint64 = 0x86 << 56
+		var result uint64 = 0x81 << 56
 		keccak_push(kh.data + result)
 	} else {
 		kh.UpdateByte(1)
@@ -63,7 +63,7 @@ func (kh *KeccakHasher) Finalize() [4]uint64 {
 			kh.UpdateByte(0)
 		}
 		var result uint64 = 0x80 << 56
-		keccak_push(kh.data + result)
+		keccak_push(kh.data ^ result)
 	}
 
 	return [4]uint64{
@@ -75,6 +75,20 @@ func (kh *KeccakHasher) Finalize() [4]uint64 {
 }
 
 func Keccak256Hash(data ...[]byte) (output [32]byte) {
+	hasher := NewKeccakHasher()
+	for _, value := range data {
+		for _, byteValue := range value {
+			hasher.UpdateByte(byteValue)
+		}
+	}
+	result := hasher.Finalize()
+	for i, val := range result {
+		binary.LittleEndian.PutUint64(output[i*8:], val)
+	}
+	return output
+}
+
+func Keccak256HashSimple(data ...[]byte) (output [32]byte) {
 	hasher := NewKeccakHasher()
 	for _, value := range data {
 		for _, byteValue := range value {
