@@ -17,89 +17,45 @@ func keccak_push(uint64)
 //go:noescape
 func keccak_finalize() uint64
 
-type KeccakHasher struct {
-	data    uint64
-	byteIdx uint64
-	bufSize uint64
-}
+var hash [32]byte
 
-func NewKeccakHasher() *KeccakHasher {
-	keccak_new(1)
-	return &KeccakHasher{
-		data:    0,
-		byteIdx: 0,
-		bufSize: 0,
-	}
-}
-
-func (kh *KeccakHasher) UpdateByte(v byte) {
-	kh.data += uint64(v) << (kh.byteIdx * 8)
-	kh.byteIdx++
-	if kh.byteIdx >= 8 {
-		keccak_push(kh.data)
-		kh.data = 0
-		kh.byteIdx = 0
-		kh.bufSize++
-
-		if kh.bufSize == 17 {
-			keccak_finalize()
-			keccak_finalize()
-			keccak_finalize()
-			keccak_finalize()
-			keccak_new(0)
-			kh.bufSize = 0
-		}
-	}
-}
-
-func (kh *KeccakHasher) Finalize() [4]uint64 {
-	bytesToPad := 136 - kh.byteIdx - kh.bufSize*8
-	if bytesToPad == 1 {
-		var result uint64 = 0x81 << 56
-		keccak_push(kh.data + result)
+func Keccak256Hash(data []byte, size uint64, padding uint64) [32]byte {
+	total_len := len(data)
+	if padding == 1 {
+		data[total_len-1] = 0x81
 	} else {
-		kh.UpdateByte(1)
-		for i := 0; i < int(bytesToPad)-2; i++ {
-			kh.UpdateByte(0)
-		}
-		var result uint64 = 0x80 << 56
-		keccak_push(kh.data ^ result)
+		data[size] = 0x01
+		data[total_len-1] = 0x80
 	}
 
-	return [4]uint64{
-		keccak_finalize(),
-		keccak_finalize(),
-		keccak_finalize(),
-		keccak_finalize(),
-	}
-}
+	var hash_0 uint64
+	var hash_1 uint64
+	var hash_2 uint64
+	var hash_3 uint64
 
-func Keccak256Hash(data ...[]byte) (output [32]byte) {
-	hasher := NewKeccakHasher()
-	for _, value := range data {
-		for _, byteValue := range value {
-			hasher.UpdateByte(byteValue)
-		}
-	}
-	result := hasher.Finalize()
-	for i, val := range result {
-		binary.LittleEndian.PutUint64(output[i*8:], val)
-	}
-	return output
-}
+	var val uint64
 
-func Keccak256HashSimple(data ...[]byte) (output [32]byte) {
-	hasher := NewKeccakHasher()
-	for _, value := range data {
-		for _, byteValue := range value {
-			hasher.UpdateByte(byteValue)
+	round := total_len / 136
+	keccak_new(1)
+	for i := 0; i < round; i++ {
+		for j := 0; j < 17; j++ {
+			start := i*136 + j*8
+			val = binary.LittleEndian.Uint64(data[start : start+8])
+			keccak_push(val)
 		}
+		hash_0 = keccak_finalize()
+		hash_1 = keccak_finalize()
+		hash_2 = keccak_finalize()
+		hash_3 = keccak_finalize()
+		keccak_new(0)
 	}
-	result := hasher.Finalize()
-	for i, val := range result {
-		binary.LittleEndian.PutUint64(output[i*8:], val)
-	}
-	return output
+
+	binary.LittleEndian.PutUint64(hash[:], hash_0)
+	binary.LittleEndian.PutUint64(hash[8:], hash_1)
+	binary.LittleEndian.PutUint64(hash[16:], hash_2)
+	binary.LittleEndian.PutUint64(hash[24:], hash_3)
+
+	return hash
 }
 
 /*
