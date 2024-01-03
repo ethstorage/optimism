@@ -56,7 +56,14 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	_, _isPublic := key.(preimage.LocalIndexKey)
 
 	size := wasm_input(0)
-	buf := make([]byte, size)
+	padding := size % 136
+	if padding != 0 {
+		padding = 136 - padding
+	} else {
+		padding = 136
+	}
+
+	buf := make([]byte, size+padding)
 
 	ssize := size / 8
 	for i := uint64(0); i < ssize; i++ {
@@ -76,11 +83,11 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	// TODO: can use customized circuit to optimize
 	if !_isPublic {
 		// hash := crypto.Keccak256Hash(buf)
-		hash := Keccak256Hash(buf)
+		hash := Keccak256Hash(buf, size, padding)
 		hash[0] = _key[0]
 		require_bool(hash == _key)
 	}
-	return buf
+	return buf[:size]
 }
 
 func (o wasmHostIO) Hint(v preimage.Hint) {
@@ -99,6 +106,10 @@ func wasm_output(value uint64)
 //go:wasmimport env require
 //go:noescape
 func require(uint32)
+
+//go:wasmimport env wasm_dbg
+//go:noescape
+func wasm_dbg(uint64)
 
 func require_bool(cond bool) {
 	if cond {
