@@ -20,7 +20,7 @@ import fs from "fs"
   const hostio = {
     env: {
       wasm_input: (ispulic) => {
-				let data = preimages.readBigInt64BE(cur)
+				let data = preimages.readBigInt64LE(cur)
 				cur += 8
 				return data
       },
