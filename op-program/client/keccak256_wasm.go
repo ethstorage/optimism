@@ -58,6 +58,34 @@ func Keccak256Hash(data []byte, size uint64, padding uint64) [32]byte {
 	return hash
 }
 
+func Keccak256HashUint64(data []uint64) [32]byte {
+	var hash [32]byte
+	var hash_0 uint64
+	var hash_1 uint64
+	var hash_2 uint64
+	var hash_3 uint64
+
+	keccak_new(1)
+	round := len(data) / 17
+	for i := 0; i < round; i++ {
+		for j := 0; j < 17; j++ {
+			keccak_push(data[i*17+j])
+		}
+		hash_0 = keccak_finalize()
+		hash_1 = keccak_finalize()
+		hash_2 = keccak_finalize()
+		hash_3 = keccak_finalize()
+		keccak_new(0)
+	}
+
+	binary.LittleEndian.PutUint64(hash[:], hash_0)
+	binary.LittleEndian.PutUint64(hash[8:], hash_1)
+	binary.LittleEndian.PutUint64(hash[16:], hash_2)
+	binary.LittleEndian.PutUint64(hash[24:], hash_3)
+
+	return hash
+}
+
 /*
 // for test
 
