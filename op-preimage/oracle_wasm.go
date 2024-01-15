@@ -1,5 +1,5 @@
-//go:build !(js || wasm || wasip1)
-// +build !wasm,!wasip1, !js
+//go:build js || wasm || wasip1
+// +build js wasm wasip1
 package preimage
 
 import (
@@ -36,7 +36,7 @@ func (o *OracleClient) Get(key Key) []byte {
 	}
 
 	var length uint64
-	if err := binary.Read(o.rw, binary.BigEndian, &length); err != nil {
+	if err := binary.Read(o.rw, binary.LittleEndian, &length); err != nil {
 		panic(fmt.Errorf("failed to read pre-image length of key %s (%T) from pre-image oracle: %w", key, key, err))
 	}
 	payload := make([]byte, length)
@@ -74,7 +74,7 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 
 	if PreimageFile != nil {
 		// write length & data to preimages.bin
-		binary.Write(PreimageFile, binary.BigEndian, uint64(len(value)))
+		binary.Write(PreimageFile, binary.LittleEndian, uint64(len(value)))
 		_, err := PreimageFile.Write(value)
 		if err != nil {
 			return fmt.Errorf("failed to dump pre-image binary file: %w", err)
@@ -89,7 +89,7 @@ func (o *OracleServer) NextPreimageRequest(getPreimage PreimageGetter) error {
 		}
 	}
 
-	if err := binary.Write(o.rw, binary.BigEndian, uint64(len(value))); err != nil {
+	if err := binary.Write(o.rw, binary.LittleEndian, uint64(len(value))); err != nil {
 		return fmt.Errorf("failed to write length-prefix %d: %w", len(value), err)
 	}
 	if len(value) == 0 {
