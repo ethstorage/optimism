@@ -1,21 +1,5 @@
-//go:build !(js || wasm || wasip1)
-// +build !wasm,!wasip1, !js
-// Copyright 2021 The go-ethereum Authors
-// This file is part of the go-ethereum library.
-//
-// The go-ethereum library is free software: you can redistribute it and/or modify
-// it under the terms of the GNU Lesser General Public License as published by
-// the Free Software Foundation, either version 3 of the License, or
-// (at your option) any later version.
-//
-// The go-ethereum library is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Lesser General Public License for more details.
-//
-// You should have received a copy of the GNU Lesser General Public License
-// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
-
+//go:build js || wasm || wasip1
+// +build js wasm wasip1
 package types
 
 import (
@@ -39,13 +23,37 @@ var encodeBufferPool = sync.Pool{
 }
 
 // rlpHash encodes x and hashes the encoded bytes.
-func rlpHash(x interface{}) (h common.Hash) {
+func oldrlpHash(x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
 	return h
+}
+
+func checkrlpHash(x interface{}) (h common.Hash) {
+	sha := hasherPool.Get().(crypto.KeccakState)
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	hash := NewHashHelper()
+	rlp.Encode(hash, x)
+	hash.WriteTo(sha)
+	sha.Read(h[:])
+	n := hash.Hash()
+	for i := 0; i < 32; i++ {
+		if h[i] != n[i] {
+		}
+		require_bool(h[i] == n[i])
+	}
+	return n
+}
+
+func rlpHash(x interface{}) (h common.Hash) {
+	hash := NewHashHelper()
+	rlp.Encode(hash, x)
+	n := hash.Hash()
+	return n
 }
 
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
@@ -57,6 +65,7 @@ func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 	sha.Write([]byte{prefix})
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
+	wasm_dbg(222)
 	return h
 }
 
@@ -114,5 +123,22 @@ func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 		value := encodeForDerive(list, i, valueBuf)
 		hasher.Update(indexBuf, value)
 	}
+	wasm_dbg(111)
 	return hasher.Hash()
+}
+
+//go:wasmimport env wasm_dbg
+//go:noescape
+func wasm_dbg(uint64)
+
+//go:wasmimport env require
+//go:noescape
+func require(uint32)
+
+func require_bool(cond bool) {
+	if cond {
+		require(1)
+	} else {
+		require(0)
+	}
 }
