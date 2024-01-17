@@ -113,7 +113,6 @@ func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 		value := encodeForDerive(list, i, valueBuf)
 		hasher.Update(indexBuf, value)
 	}
-	wasm_dbg(111)
 	return hasher.Hash()
 }
 
