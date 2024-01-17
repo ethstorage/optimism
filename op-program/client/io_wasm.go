@@ -251,6 +251,7 @@ func (o wasmHostIO) Get(key preimage.Key) []byte {
 	// Integrity check
 	// TODO: can use customized circuit to optimize
 	if !_isPublic {
+		//wasm_dbg(666)
 		// hash := crypto.Keccak256Hash(buf)
 		var hash [32]byte
 		hash_0 := keccak_finalize()

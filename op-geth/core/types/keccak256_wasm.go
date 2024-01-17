@@ -19,25 +19,27 @@ func keccak_push(uint64)
 //go:noescape
 func keccak_finalize() uint64
 
-func NewHashHelper() *HashHelper {
-	return &HashHelper{}
+func NewKeccak256Helper() *Keccak256Helper {
+	return &Keccak256Helper{
+		data: make([]byte, 0),
+	}
 }
 
-type HashHelper struct {
+type Keccak256Helper struct {
 	data []byte
 }
 
-func (b *HashHelper) Write(p []byte) (n int, err error) {
+func (b *Keccak256Helper) Write(p []byte) (n int, err error) {
 	b.data = append(b.data, p...)
 	return len(p), nil
 }
 
-func (b *HashHelper) WriteTo(w io.Writer) (err error) {
+func (b *Keccak256Helper) WriteTo(w io.Writer) (err error) {
 	w.Write(b.data)
 	return nil
 }
 
-func (b *HashHelper) Hash() [32]byte {
+func (b *Keccak256Helper) Hash() [32]byte {
 	size := uint64(len(b.data))
 	padding := size % 136
 	if padding != 0 {
@@ -46,23 +48,10 @@ func (b *HashHelper) Hash() [32]byte {
 		padding = 136
 	}
 	buf := make([]byte, size+padding)
-	//wasm_dbg(size)
-	wasm_dbg(size + padding)
 	copy(buf, b.data)
 	hash := Keccak256Hash(buf, size, padding)
 	return hash
 }
-
-/*
- *func (b HashHelper) PrintData() {
- *    for _, v := range b.data {
- *        wasm_dbg(v)
- *    }
- *    for i := 0; i < 136; i++ {
- *        wasm_dbg(v)
- *    }
- *}
- */
 
 var hash [32]byte
 
@@ -162,3 +151,71 @@ func main() {
 	keccak256check(input, short_output)
 }
 */
+
+func NewHashHelperV2() *HashHelperV2 {
+	h := &HashHelperV2{}
+	keccak_new(1)
+	return h
+}
+
+type HashHelperV2 struct {
+	data   [136]byte
+	length int
+}
+
+func (b *HashHelperV2) Write(p []byte) (n int, err error) {
+	for _, byte := range p {
+		b.data[b.length] = byte
+		b.length++
+		if b.length == 136 {
+			for i := 0; i < 136; i += 8 {
+				val := binary.LittleEndian.Uint64(b.data[i : i+8])
+				keccak_push(val)
+			}
+			keccak_finalize()
+			keccak_finalize()
+			keccak_finalize()
+			keccak_finalize()
+			keccak_new(0)
+			b.length = 0
+		}
+	}
+	return len(p), nil
+}
+
+func (b *HashHelperV2) Hash() [32]byte {
+	var hash [32]byte
+	var hash_0, hash_1, hash_2, hash_3 uint64
+
+	padding := 136 - (b.length % 136)
+	buf := make([]byte, b.length+padding)
+	copy(buf, b.data[:b.length])
+
+	if padding == 1 {
+		buf[b.length] = 0x81
+	} else {
+		buf[b.length] = 0x01
+		buf[b.length+padding-1] = 0x80
+	}
+	for i := 0; i < len(buf); i += 8 {
+		val := binary.LittleEndian.Uint64(buf[i : i+8])
+		keccak_push(val)
+	}
+
+	hash_0 = keccak_finalize()
+	hash_1 = keccak_finalize()
+	hash_2 = keccak_finalize()
+	hash_3 = keccak_finalize()
+
+	binary.LittleEndian.PutUint64(hash[:], hash_0)
+	binary.LittleEndian.PutUint64(hash[8:], hash_1)
+	binary.LittleEndian.PutUint64(hash[16:], hash_2)
+	binary.LittleEndian.PutUint64(hash[24:], hash_3)
+
+	return hash
+}
+
+func (b *HashHelperV2) WriteTo(w io.Writer) (err error) {
+	//w.Write(b.data)
+	return nil
+}

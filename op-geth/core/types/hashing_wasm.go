@@ -36,21 +36,19 @@ func checkrlpHash(x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
-	hash := NewHashHelper()
+	hash := NewKeccak256Helper()
 	rlp.Encode(hash, x)
 	hash.WriteTo(sha)
 	sha.Read(h[:])
 	n := hash.Hash()
 	for i := 0; i < 32; i++ {
-		if h[i] != n[i] {
-		}
 		require_bool(h[i] == n[i])
 	}
 	return n
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
-	hash := NewHashHelper()
+	hash := NewKeccak256Helper()
 	rlp.Encode(hash, x)
 	n := hash.Hash()
 	return n
@@ -58,15 +56,41 @@ func rlpHash(x interface{}) (h common.Hash) {
 
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
 // It's used for typed transactions.
-func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+func oldprefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
 	sha.Write([]byte{prefix})
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
-	wasm_dbg(222)
 	return h
+}
+
+func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+	hash := NewKeccak256Helper()
+	hash.Write([]byte{prefix})
+	rlp.Encode(hash, x)
+	n := hash.Hash()
+	return n
+}
+
+func checkprefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+	hash := NewKeccak256Helper()
+	hash.Write([]byte{prefix})
+	rlp.Encode(hash, x)
+	n := hash.Hash()
+
+	sha := hasherPool.Get().(crypto.KeccakState)
+	defer hasherPool.Put(sha)
+	sha.Reset()
+	hash.WriteTo(sha)
+	sha.Read(h[:])
+
+	for i := 0; i < 32; i++ {
+		require_bool(h[i] == n[i])
+	}
+
+	return n
 }
 
 // TrieHasher is the tool used to calculate the hash of derivable list.
