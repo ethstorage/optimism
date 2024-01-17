@@ -39,7 +39,7 @@ func (b *Keccak256Helper) WriteTo(w io.Writer) (err error) {
 	return nil
 }
 
-func (b *Keccak256Helper) Hash() [32]byte {
+func (b *Keccak256Helper) Hash() (hash [32]byte) {
 	size := uint64(len(b.data))
 	padding := size % 136
 	if padding != 0 {
@@ -49,26 +49,20 @@ func (b *Keccak256Helper) Hash() [32]byte {
 	}
 	data := make([]byte, size+padding)
 	copy(data, b.data)
-	total_len := len(data)
-	//hash := Keccak256Hash(buf, size, padding)
+	totalLen := len(data)
 	if padding == 1 {
-		data[total_len-1] = 0x81
+		data[totalLen-1] = 0x81
 	} else {
 		data[size] = 0x01
-		data[total_len-1] = 0x80
+		data[totalLen-1] = 0x80
 	}
-	var hash [32]byte
-	var hash_0 uint64
-	var hash_1 uint64
-	var hash_2 uint64
-	var hash_3 uint64
-	var val uint64
-	round := total_len / 136
+	round := totalLen / 136
+	var hash_0, hash_1, hash_2, hash_3 uint64
 	keccak_new(1)
 	for i := 0; i < round; i++ {
 		for j := 0; j < 17; j++ {
 			start := i*136 + j*8
-			val = binary.LittleEndian.Uint64(data[start : start+8])
+			val := binary.LittleEndian.Uint64(data[start : start+8])
 			keccak_push(val)
 		}
 		hash_0 = keccak_finalize()
