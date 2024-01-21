@@ -1,5 +1,6 @@
-//go:build !(js || wasm || wasip1)
-// +build !wasm,!wasip1, !js
+//go:build js || wasm || wasip1
+// +build js wasm wasip1
+
 // Copyright 2014 The Go Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
@@ -28,10 +29,7 @@ func New224() hash.Hash {
 // Its generic security strength is 256 bits against preimage attacks,
 // and 128 bits against collision attacks.
 func New256() hash.Hash {
-	if h := new256Asm(); h != nil {
-		return h
-	}
-	return &state{rate: 136, outputLen: 32, dsbyte: 0x06}
+	return NewKeccak256Helper()
 }
 
 // New384 creates a new SHA3-384 hash.
@@ -58,7 +56,9 @@ func New512() hash.Hash {
 //
 // Only use this function if you require compatibility with an existing cryptosystem
 // that uses non-standard padding. All other users should use New256 instead.
-func NewLegacyKeccak256() hash.Hash { return &state{rate: 136, outputLen: 32, dsbyte: 0x01} }
+func NewLegacyKeccak256() hash.Hash {
+	return NewKeccak256Helper()
+}
 
 // NewLegacyKeccak512 creates a new Keccak-512 hash.
 //

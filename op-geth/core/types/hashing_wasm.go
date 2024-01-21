@@ -1,5 +1,21 @@
 //go:build js || wasm || wasip1
 // +build js wasm wasip1
+// Copyright 2021 The go-ethereum Authors
+// This file is part of the go-ethereum library.
+//
+// The go-ethereum library is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Lesser General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// The go-ethereum library is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Lesser General Public License for more details.
+//
+// You should have received a copy of the GNU Lesser General Public License
+// along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
+
 package types
 
 import (
@@ -33,15 +49,16 @@ func oldrlpHash(x interface{}) (h common.Hash) {
 }
 
 func rlpHash(x interface{}) (h common.Hash) {
-	hash := NewKeccak256Helper()
-	rlp.Encode(hash, x)
-	n := hash.Hash()
-	return n
+	sha := sha3.NewKeccak256Helper()
+	sha.Reset()
+	rlp.Encode(sha, x)
+	sha.Read(h[:])
+	return h
 }
 
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
 // It's used for typed transactions.
-func oldprefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
@@ -49,14 +66,6 @@ func oldprefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
 	return h
-}
-
-func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
-	hash := NewKeccak256Helper()
-	hash.Write([]byte{prefix})
-	rlp.Encode(hash, x)
-	n := hash.Hash()
-	return n
 }
 
 // TrieHasher is the tool used to calculate the hash of derivable list.
@@ -114,20 +123,4 @@ func DeriveSha(list DerivableList, hasher TrieHasher) common.Hash {
 		hasher.Update(indexBuf, value)
 	}
 	return hasher.Hash()
-}
-
-//go:wasmimport env wasm_dbg
-//go:noescape
-func wasm_dbg(uint64)
-
-//go:wasmimport env require
-//go:noescape
-func require(uint32)
-
-func require_bool(cond bool) {
-	if cond {
-		require(1)
-	} else {
-		require(0)
-	}
 }
