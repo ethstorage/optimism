@@ -20,15 +20,13 @@ func keccak_push(uint64)
 func keccak_finalize() uint64
 
 func NewKeccak256Helper() *Keccak256Helper {
-	keccak_new(1)
 	return &Keccak256Helper{
 		data: make([]byte, 0),
 	}
 }
 
 type Keccak256Helper struct {
-	data                           []byte
-	hash_0, hash_1, hash_2, hash_3 uint64
+	data []byte
 }
 
 func (b *Keccak256Helper) Size() int {
@@ -46,7 +44,6 @@ func (b *Keccak256Helper) clone() *Keccak256Helper {
 }
 
 func (b *Keccak256Helper) Reset() {
-	keccak_new(1)
 	b.data = make([]byte, 0)
 }
 
@@ -61,21 +58,17 @@ func (b *Keccak256Helper) WriteTo(w io.Writer) (n int64, err error) {
 }
 
 func (b *Keccak256Helper) Read(in []byte) (n int, err error) {
-	b.calculate()
-	binary.LittleEndian.PutUint64(in[:], b.hash_0)
-	binary.LittleEndian.PutUint64(in[8:], b.hash_1)
-	binary.LittleEndian.PutUint64(in[16:], b.hash_2)
-	binary.LittleEndian.PutUint64(in[24:], b.hash_3)
+	h := b.Hash()
+	copy(in, h[:])
 	return 32, nil
 }
 
 func (b *Keccak256Helper) Sum(in []byte) []byte {
-	hash := make([]byte, b.Size())
-	b.Read(hash)
-	return append(in, hash...)
+	h := b.Hash()
+	return append(in, h[:]...)
 }
 
-func (b *Keccak256Helper) calculate() {
+func (b *Keccak256Helper) Hash() [32]byte {
 	size := uint64(len(b.data))
 	padding := size % 136
 	if padding != 0 {
@@ -92,6 +85,7 @@ func (b *Keccak256Helper) calculate() {
 		data[size] = 0x01
 		data[totalLen-1] = 0x80
 	}
+	var hash_0, hash_1, hash_2, hash_3 uint64
 	round := totalLen / 136
 	keccak_new(1)
 	for i := 0; i < round; i++ {
@@ -100,21 +94,17 @@ func (b *Keccak256Helper) calculate() {
 			val := binary.LittleEndian.Uint64(data[start : start+8])
 			keccak_push(val)
 		}
-		b.hash_0 = keccak_finalize()
-		b.hash_1 = keccak_finalize()
-		b.hash_2 = keccak_finalize()
-		b.hash_3 = keccak_finalize()
+		hash_0 = keccak_finalize()
+		hash_1 = keccak_finalize()
+		hash_2 = keccak_finalize()
+		hash_3 = keccak_finalize()
 		keccak_new(0)
 	}
-}
-
-func (b *Keccak256Helper) Hash() []byte {
-	b.calculate()
-	hash := make([]byte, 32)
-	binary.LittleEndian.PutUint64(hash[:], b.hash_0)
-	binary.LittleEndian.PutUint64(hash[8:], b.hash_1)
-	binary.LittleEndian.PutUint64(hash[16:], b.hash_2)
-	binary.LittleEndian.PutUint64(hash[24:], b.hash_3)
+	var hash [32]byte
+	binary.LittleEndian.PutUint64(hash[:], hash_0)
+	binary.LittleEndian.PutUint64(hash[8:], hash_1)
+	binary.LittleEndian.PutUint64(hash[16:], hash_2)
+	binary.LittleEndian.PutUint64(hash[24:], hash_3)
 	return hash
 }
 

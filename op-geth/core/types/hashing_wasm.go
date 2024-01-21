@@ -50,7 +50,6 @@ func oldrlpHash(x interface{}) (h common.Hash) {
 
 func rlpHash(x interface{}) (h common.Hash) {
 	sha := sha3.NewKeccak256Helper()
-	sha.Reset()
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
 	return h
@@ -58,10 +57,18 @@ func rlpHash(x interface{}) (h common.Hash) {
 
 // prefixedRlpHash writes the prefix into the hasher before rlp-encoding x.
 // It's used for typed transactions.
-func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+func oldprefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
 	sha := hasherPool.Get().(crypto.KeccakState)
 	defer hasherPool.Put(sha)
 	sha.Reset()
+	sha.Write([]byte{prefix})
+	rlp.Encode(sha, x)
+	sha.Read(h[:])
+	return h
+}
+
+func prefixedRlpHash(prefix byte, x interface{}) (h common.Hash) {
+	sha := sha3.NewKeccak256Helper()
 	sha.Write([]byte{prefix})
 	rlp.Encode(sha, x)
 	sha.Read(h[:])
