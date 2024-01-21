@@ -202,5 +202,8 @@ replace github.com/VictoriaMetrics/fastcache => ./fastcache
 
 replace github.com/syndtr/goleveldb => ./goleveldb
 
+replace golang.org/x/crypto => ./crypto
+
 replace go.uber.org/fx => ./fx
+
 replace github.com/libp2p/go-libp2p => ./go-libp2p
