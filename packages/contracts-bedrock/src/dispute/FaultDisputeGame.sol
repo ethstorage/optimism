@@ -259,10 +259,9 @@ contract FaultDisputeGameN is IFaultDisputeGame, Clone, ISemver {
         // INVARIANT: There cannot be multiple identical claims with identical moves on the same challengeIndex. Multiple
         //            claims at the same position may dispute the same challengeIndex. However, they must have different
         //            values.
-        // Ignore duplicate claim check, as submitting duplicated claim will lose more as long as the bond > move cost.
-        // ClaimHash claimHash = _claim.hashClaimPos(nextPosition, _challengeIndex);
-        // if (claims[claimHash]) revert ClaimAlreadyExists();
-        // claims[claimHash] = true;
+        ClaimHash claimHash = _claim.hashClaimPos(nextPosition, _challengeIndex);
+        if (claims[claimHash]) revert ClaimAlreadyExists();
+        claims[claimHash] = true;
 
         // Create the new claim.
         claimData.push(
