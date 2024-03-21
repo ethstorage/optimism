@@ -306,8 +306,17 @@ func (n *OpNode) initL1BeaconAPI(ctx context.Context, cfg *Config) error {
 	if err != nil {
 		return fmt.Errorf("failed to setup L1 Beacon API client: %w", err)
 	}
+	var esClient *sources.ESClient
+	if cfg.ESNode != nil {
+		esClient, err = cfg.ESNode.Setup(ctx, cfg.Rollup.BatchInboxAddress, n.log)
+		if err != nil {
+			return fmt.Errorf("failed to setup ES client: %w", err)
+		}
+	}
+
 	beaconCfg := sources.L1BeaconClientConfig{
 		FetchAllSidecars: cfg.Beacon.ShouldFetchAllSidecars(),
+		ESClient:         esClient,
 	}
 	n.beacon = sources.NewL1BeaconClient(httpClient, beaconCfg)
 

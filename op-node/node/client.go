@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/log"
 	gn "github.com/ethereum/go-ethereum/node"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -35,6 +36,10 @@ type L1BeaconEndpointSetup interface {
 	ShouldIgnoreBeaconCheck() bool
 	ShouldFetchAllSidecars() bool
 	Check() error
+}
+
+type ESNodeEndpointSetup interface {
+	Setup(ctx context.Context, batcherAddr common.Address, log log.Logger) (cl *sources.ESClient, err error)
 }
 
 type L2EndpointConfig struct {
@@ -200,4 +205,14 @@ func (cfg *L1BeaconEndpointConfig) ShouldIgnoreBeaconCheck() bool {
 
 func (cfg *L1BeaconEndpointConfig) ShouldFetchAllSidecars() bool {
 	return cfg.BeaconFetchAllSidecars
+}
+
+var _ ESNodeEndpointSetup = (*ESNodeEndpointConfig)(nil)
+
+type ESNodeEndpointConfig struct {
+	ESNodeAddr string
+}
+
+func (cfg *ESNodeEndpointConfig) Setup(ctx context.Context, batchInboxAddr common.Address, log log.Logger) (cl *sources.ESClient, err error) {
+	return sources.NewESClient(cfg.ESNodeAddr, batchInboxAddr, log)
 }

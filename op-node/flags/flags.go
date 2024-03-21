@@ -43,6 +43,12 @@ var (
 		Destination: new(string),
 	}
 	/* Optional Flags */
+	ESNodeAddr = &cli.StringFlag{
+		Name:     "esnode",
+		Usage:    "Address of es-node HTTP endpoint to use.",
+		Required: false,
+		EnvVars:  prefixEnvVars("ES_NODE"),
+	}
 	BeaconAddr = &cli.StringFlag{
 		Name:     "l1.beacon",
 		Usage:    "Address of L1 Beacon-node HTTP endpoint to use.",
