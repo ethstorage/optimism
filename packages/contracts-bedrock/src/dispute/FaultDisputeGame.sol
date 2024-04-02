@@ -17,6 +17,8 @@ import { LibClock } from "src/dispute/lib/LibUDT.sol";
 import "src/libraries/DisputeTypes.sol";
 import "src/libraries/DisputeErrors.sol";
 
+error NotSupported();
+
 /// @title FaultDisputeGame
 /// @notice An implementation of the `IFaultDisputeGame` interface.
 contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
@@ -88,6 +90,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
     /// @notice Flag for the `initialize` function to prevent re-initialization.
     bool internal initialized;
+
+    /// @notice Bits of N-ary search
+    uint256 nBits;
 
     /// @notice Semantic version.
     /// @custom:semver 0.7.1
@@ -226,107 +231,17 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     /// @param _claim The claim at the next logical position in the game.
     /// @param _isAttack Whether or not the move is an attack or defense.
     function move(uint256 _challengeIndex, Claim _claim, bool _isAttack) public payable virtual {
-        // INVARIANT: Moves cannot be made unless the game is currently in progress.
-        if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
-
-        // Get the parent. If it does not exist, the call will revert with OOB.
-        ClaimData memory parent = claimData[_challengeIndex];
-
-        // Compute the position that the claim commits to. Because the parent's position is already
-        // known, we can compute the next position by moving left or right depending on whether
-        // or not the move is an attack or defense.
-        Position parentPos = parent.position;
-        Position nextPosition = parentPos.move(_isAttack);
-        uint256 nextPositionDepth = nextPosition.depth();
-
-        // INVARIANT: A defense can never be made against the root claim of either the output root game or any
-        //            of the execution trace bisection subgames. This is because the root claim commits to the
-        //            entire state. Therefore, the only valid defense is to do nothing if it is agreed with.
-        if ((_challengeIndex == 0 || nextPositionDepth == SPLIT_DEPTH + 2) && !_isAttack) {
-            revert CannotDefendRootClaim();
-        }
-
-        // INVARIANT: A move can never surpass the `MAX_GAME_DEPTH`. The only option to counter a
-        //            claim at this depth is to perform a single instruction step on-chain via
-        //            the `step` function to prove that the state transition produces an unexpected
-        //            post-state.
-        if (nextPositionDepth > MAX_GAME_DEPTH) revert GameDepthExceeded();
-
-        // When the next position surpasses the split depth (i.e., it is the root claim of an execution
-        // trace bisection sub-game), we need to perform some extra verification steps.
-        if (nextPositionDepth == SPLIT_DEPTH + 1) {
-            _verifyExecBisectionRoot(_claim, _challengeIndex, parentPos, _isAttack);
-        }
-
-        // INVARIANT: The `msg.value` must be sufficient to cover the required bond.
-        if (getRequiredBond(nextPosition) > msg.value) revert InsufficientBond();
-
-        // Fetch the grandparent clock, if it exists.
-        // The grandparent clock should always exist unless the parent is the root claim.
-        Clock grandparentClock;
-        if (parent.parentIndex != type(uint32).max) {
-            grandparentClock = claimData[parent.parentIndex].clock;
-        }
-
-        // Compute the duration of the next clock. This is done by adding the duration of the
-        // grandparent claim to the difference between the current block timestamp and the
-        // parent's clock timestamp.
-        Duration nextDuration = Duration.wrap(
-            uint64(
-                // First, fetch the duration of the grandparent claim.
-                grandparentClock.duration().raw()
-                // Second, add the difference between the current block timestamp and the
-                // parent's clock timestamp.
-                + block.timestamp - parent.clock.timestamp().raw()
-            )
-        );
-
-        // INVARIANT: A move can never be made once its clock has exceeded `GAME_DURATION / 2`
-        //            seconds of time.
-        if (nextDuration.raw() > GAME_DURATION.raw() >> 1) revert ClockTimeExceeded();
-
-        // Construct the next clock with the new duration and the current block timestamp.
-        Clock nextClock = LibClock.wrap(nextDuration, Timestamp.wrap(uint64(block.timestamp)));
-
-        // INVARIANT: There cannot be multiple identical claims with identical moves on the same challengeIndex. Multiple
-        //            claims at the same position may dispute the same challengeIndex. However, they must have different
-        //            values.
-        ClaimHash claimHash = _claim.hashClaimPos(nextPosition, _challengeIndex);
-        if (claims[claimHash]) revert ClaimAlreadyExists();
-        claims[claimHash] = true;
-
-        // Create the new claim.
-        claimData.push(
-            ClaimData({
-                parentIndex: uint32(_challengeIndex),
-                // This is updated during subgame resolution
-                counteredBy: address(0),
-                claimant: msg.sender,
-                bond: uint128(msg.value),
-                claim: _claim,
-                position: nextPosition,
-                clock: nextClock
-            })
-        );
-
-        // Update the subgame rooted at the parent claim.
-        subgames[_challengeIndex].push(claimData.length - 1);
-
-        // Deposit the bond.
-        WETH.deposit{ value: msg.value }();
-
-        // Emit the appropriate event for the attack or defense.
-        emit Move(_challengeIndex, _claim, msg.sender);
+        revert NotSupported();
     }
 
     /// @inheritdoc IFaultDisputeGame
     function attack(uint256 _parentIndex, Claim _claim) external payable {
-        move(_parentIndex, _claim, true);
+        revert NotSupported();
     }
 
     /// @inheritdoc IFaultDisputeGame
     function defend(uint256 _parentIndex, Claim _claim) external payable {
-        move(_parentIndex, _claim, false);
+        revert NotSupported();
     }
 
     /// @inheritdoc IFaultDisputeGame
@@ -548,6 +463,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // Set the game's starting timestamp
         createdAt = Timestamp.wrap(uint64(block.timestamp));
 
+        nBits = 2;
         // Set the game as initialized.
         initialized = true;
     }
@@ -788,46 +704,13 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
         // Walk up the DAG until the ancestor's depth is equal to the split depth.
         uint256 currentDepth;
-        ClaimData storage execRootClaim = claim;
         while ((currentDepth = claim.position.depth()) > SPLIT_DEPTH) {
             uint256 parentIndex = claim.parentIndex;
-
-            // If we're currently at the split depth + 1, we're at the root of the execution sub-game.
-            // We need to keep track of the root claim here to determine whether the execution sub-game was
-            // started with an attack or defense against the output leaf claim.
-            if (currentDepth == SPLIT_DEPTH + 1) execRootClaim = claim;
-
             claim = claimData[parentIndex];
             claimIdx = parentIndex;
         }
-
-        // Determine whether the start of the execution sub-game was an attack or defense to the output root
-        // above. This is important because it determines which claim is the starting output root and which
-        // is the disputed output root.
-        (Position execRootPos, Position outputPos) = (execRootClaim.position, claim.position);
-        bool wasAttack = execRootPos.parent().raw() == outputPos.raw();
-
-        // Determine the starting and disputed output root indices.
-        // 1. If it was an attack, the disputed output root is `claim`, and the starting output root is
-        //    elsewhere in the DAG (it must commit to the block # index at depth of `outputPos - 1`).
-        // 2. If it was a defense, the starting output root is `claim`, and the disputed output root is
-        //    elsewhere in the DAG (it must commit to the block # index at depth of `outputPos + 1`).
-        if (wasAttack) {
-            // If this is an attack on the first output root (the block directly after genesis), the
-            // starting claim nor position exists in the tree. We leave these as 0, which can be easily
-            // identified due to 0 being an invalid Gindex.
-            if (outputPos.indexAtDepth() > 0) {
-                ClaimData storage starting = _findTraceAncestor(Position.wrap(outputPos.raw() - 1), claimIdx, true);
-                (startingClaim_, startingPos_) = (starting.claim, starting.position);
-            } else {
-                startingClaim_ = Claim.wrap(GENESIS_OUTPUT_ROOT.raw());
-            }
-            (disputedClaim_, disputedPos_) = (claim.claim, claim.position);
-        } else {
-            ClaimData storage disputed = _findTraceAncestor(Position.wrap(outputPos.raw() + 1), claimIdx, true);
-            (startingClaim_, startingPos_) = (claim.claim, claim.position);
-            (disputedClaim_, disputedPos_) = (disputed.claim, disputed.position);
-        }
+        (startingPos_, startingClaim_) = findPreStateClaim(1 << nBits, claim.position, claimIdx);
+        (disputedPos_, disputedClaim_) = findPostStateClaim(1 << nBits, claim.position, claimIdx);
     }
 
     /// @notice Finds the local context hash for a given claim index that is present in an execution trace subgame.
@@ -862,5 +745,243 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         } else {
             uuid_ = Hash.wrap(keccak256(abi.encode(_starting, _startingPos, _disputed, _disputedPos)));
         }
+    }
+
+    function attackAt(uint256 _parentIndex, Claim _claim, uint256 _attackBranch) public payable {
+        moveV2(_parentIndex, _claim, _attackBranch);
+    }
+
+    // ClaimHash => attackBranch => Claim
+    mapping(Claim => mapping(uint256 => Claim)) internal claimHashToClaims;
+
+    function setClaimHashClaims(Claim _claimHash, uint256 _attackBranch, Claim _claim) public {
+        claimHashToClaims[_claimHash][_attackBranch] = _claim;
+    }
+
+    function getClaimFromClaimHash(
+        Claim claimsHash,
+        uint256 claimIndex
+    ) internal view returns (Claim) {
+        // TODO: retrieve the claim from the claimsHash
+        // Either: from EIP-4844 BLOB with point-evaluation proof or calldata with Merkle proof
+        return claimHashToClaims[claimsHash][claimIndex];
+    }
+
+    function findPreStateClaim(
+        uint256 _nary,
+        Position _pos,
+        uint256 _start
+    ) public view returns (Position pos_, Claim claim_) {
+        ClaimData storage ancestor_ = claimData[_start];
+        uint256 pos = _pos.raw();
+        while (pos % _nary == 0 && pos != 1) {
+            pos = pos / _nary;
+            if (type(uint32).max != ancestor_.parentIndex) {
+                ancestor_ = claimData[ancestor_.parentIndex];
+            }
+        }
+        if (pos == 1) {
+            // S_0
+            claim_ = ABSOLUTE_PRESTATE;
+        } else {
+            claim_ = getClaimFromClaimHash(ancestor_.claim, (pos - 1) % _nary);
+            pos = ancestor_.position.raw();
+        }
+        return (Position.wrap(uint128(pos)), claim_);
+    }
+
+    function findPostStateClaim(
+        uint256 _nary,
+        Position _pos,
+        uint256 _start
+    ) public view returns (Position pos_, Claim claim_) {
+        ClaimData storage ancestor_ = claimData[_start];
+        uint256 pos = _pos.raw();
+        // pos is _nary's multiple, while condition is false
+        // actually return the claim of _start
+        while ((pos + 1) % _nary == 0 && pos != 1) {
+            pos = pos / _nary;
+            if (type(uint32).max != ancestor_.parentIndex) {
+                ancestor_ = claimData[ancestor_.parentIndex];
+            }
+        }
+        return (Position.wrap(uint128(pos)), getClaimFromClaimHash(ancestor_.claim, pos % _nary));
+    }
+
+    function stepV2(
+        uint256 _claimIndex,
+        uint256 _attackBranch,
+        bytes calldata _stateData,
+        bytes calldata _proof
+    )
+        public
+        virtual
+    {
+        // INVARIANT: Steps cannot be made unless the game is currently in progress.
+        if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
+
+        // Get the parent. If it does not exist, the call will revert with OOB.
+        ClaimData storage parent = claimData[_claimIndex];
+
+        // Pull the parent position out of storage.
+        Position parentPos = parent.position;
+        // Determine the position of the step.
+        Position stepPos = parentPos.moveN(nBits, _attackBranch);
+
+        // INVARIANT: A step cannot be made unless the move position is 1 below the `MAX_GAME_DEPTH`
+        if (stepPos.depth() != MAX_GAME_DEPTH + nBits) revert InvalidParent();
+
+        // Determine the expected pre & post states of the step.
+        Claim preStateClaim;
+        Position preStatePosition;
+        Claim postStateClaim;
+        Position postStatePosition;
+        //ClaimData storage postState;
+
+        // TODO: deal with SPLIT_DEPTH
+        //(preStatePosition, preStateClaim) = findPreStateClaim(1 << nBits, stepPos, _claimIndex);
+        (preStatePosition, preStateClaim) = findPreStateClaim(1 << nBits, parentPos, _claimIndex);
+        //(postStatePosition, postStateClaim) = findPostStateClaim(1 << nBits, stepPos, _claimIndex);
+        (postStatePosition, postStateClaim) = findPostStateClaim(1 << nBits, parentPos, _claimIndex);
+
+        // INVARIANT: The prestate is always invalid if the passed `_stateData` is not the
+        //            preimage of the prestate claim hash.
+        //            We ignore the highest order byte of the digest because it is used to
+        //            indicate the VM Status and is added after the digest is computed.
+        if (keccak256(_stateData) << 8 != preStateClaim.raw() << 8) revert InvalidPrestate();
+
+        // Compute the local preimage context for the step.
+        Hash uuid = _findLocalContext(_claimIndex);
+
+        // INVARIANT: If a step is an attack, the poststate is valid if the step produces
+        //            the same poststate hash as the parent claim's value.
+        //            If a step is a defense:
+        //              1. If the parent claim and the found post state agree with each other
+        //                 (depth diff % 2 == 0), the step is valid if it produces the same
+        //                 state hash as the post state's claim.
+        //              2. If the parent claim and the found post state disagree with each other
+        //                 (depth diff % 2 != 0), the parent cannot be countered unless the step
+        //                 produces the same state hash as `postState.claim`.
+        // SAFETY:    While the `attack` path does not need an extra check for the post
+        //            state's depth in relation to the parent, we don't need another
+        //            branch because (n - n) % 2 == 0.
+        bool validStep = VM.step(_stateData, _proof, uuid.raw()) == postStateClaim.raw();
+        bool parentPostAgree = (parentPos.depth() - postStatePosition.depth()) % 2 == 0;
+        if (parentPostAgree == validStep) revert ValidStep();
+
+        // INVARIANT: A step cannot be made against a claim for a second time.
+        if (parent.counteredBy != address(0)) revert DuplicateStep();
+
+        // Set the parent claim as countered. We do not need to append a new claim to the game;
+        // instead, we can just set the existing parent as countered.
+        parent.counteredBy = msg.sender;
+    }
+
+    function moveV2(uint256 _challengeIndex, Claim _claim, uint256 _attackBranch) public payable {
+        // For N = 4 (bisec),
+        // 1. _attackBranch == 0 (attack)
+        // 2. _attackBranch == 1 (attack)
+        // 3. _attackBranch == 2 (attack)
+        // 4. _attackBranch == 3 (attack)
+        require(_attackBranch < (1 << nBits));
+
+        // INVARIANT: Moves cannot be made unless the game is currently in progress.
+        if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
+
+        // Get the parent. If it does not exist, the call will revert with OOB.
+        ClaimData memory parent = claimData[_challengeIndex];
+
+        // Compute the position that the claim commits to. Because the parent's position is already
+        // known, we can compute the next position by moving left or right depending on whether
+        // or not the move is an attack or defense.
+        Position parentPos = parent.position;
+        Position nextPosition = parentPos.moveN(nBits, _attackBranch);
+        uint256 nextPositionDepth = nextPosition.depth();
+
+        // INVARIANT: A defense can never be made against the root claim of either the output root game or any
+        //            of the execution trace bisection subgames. This is because the root claim commits to the
+        //            entire state. Therefore, the only valid defense is to do nothing if it is agreed with.
+        //if ((_challengeIndex == 0 || nextPositionDepth == SPLIT_DEPTH + 2) && _attackBranch != 0) {
+            //revert CannotDefendRootClaim();
+        //}
+        // todo  bill modify, nextPositionDepth == SPLIT_DEPTH + 2 check ??
+        // root claim only one branch
+        if (_challengeIndex == 0 && _attackBranch != 0) {
+            revert CannotDefendRootClaim();
+        }
+
+        // INVARIANT: A move can never surpass the `MAX_GAME_DEPTH`. The only option to counter a
+        //            claim at this depth is to perform a single instruction step on-chain via
+        //            the `step` function to prove that the state transition produces an unexpected
+        //            post-state.
+        if (nextPositionDepth > MAX_GAME_DEPTH) revert GameDepthExceeded();
+
+        // When the next position surpasses the split depth (i.e., it is the root claim of an execution
+        // trace bisection sub-game), we need to perform some extra verification steps.
+        // TODO
+        //if (nextPositionDepth == SPLIT_DEPTH + 1) {
+            //_verifyExecBisectionRoot(_claim, _challengeIndex, parentPos, _isAttack);
+        //}
+
+        // INVARIANT: The `msg.value` must be sufficient to cover the required bond.
+        if (getRequiredBond(nextPosition) > msg.value) revert InsufficientBond();
+
+        // Fetch the grandparent clock, if it exists.
+        // The grandparent clock should always exist unless the parent is the root claim.
+        Clock grandparentClock;
+        if (parent.parentIndex != type(uint32).max) {
+            grandparentClock = claimData[parent.parentIndex].clock;
+        }
+
+        // Compute the duration of the next clock. This is done by adding the duration of the
+        // grandparent claim to the difference between the current block timestamp and the
+        // parent's clock timestamp.
+        Duration nextDuration = Duration.wrap(
+            uint64(
+                // First, fetch the duration of the grandparent claim.
+                grandparentClock.duration().raw()
+                // Second, add the difference between the current block timestamp and the
+                // parent's clock timestamp.
+                + block.timestamp - parent.clock.timestamp().raw()
+            )
+        );
+
+        // INVARIANT: A move can never be made once its clock has exceeded `GAME_DURATION / 2`
+        //            seconds of time.
+        if (nextDuration.raw() > GAME_DURATION.raw() >> 1) revert ClockTimeExceeded();
+
+        // Construct the next clock with the new duration and the current block timestamp.
+        Clock nextClock = LibClock.wrap(nextDuration, Timestamp.wrap(uint64(block.timestamp)));
+
+        // INVARIANT: There cannot be multiple identical claims with identical moves on the same challengeIndex. Multiple
+        //            claims at the same position may dispute the same challengeIndex. However, they must have different
+        //            values.
+        // todo  bill modify
+        ClaimHash claimHash = _claim.hashClaimPos(nextPosition, _challengeIndex);
+        if (claims[claimHash]) revert ClaimAlreadyExists();
+        claims[claimHash] = true;
+
+        // Create the new claim.
+        claimData.push(
+            ClaimData({
+                parentIndex: uint32(_challengeIndex),
+                // This is updated during subgame resolution
+                counteredBy: address(0),
+                claimant: msg.sender,
+                bond: uint128(msg.value),
+                claim: _claim,
+                position: nextPosition,
+                clock: nextClock
+            })
+        );
+
+        // Update the subgame rooted at the parent claim.
+        subgames[_challengeIndex].push(claimData.length - 1);
+
+        // Deposit the bond.
+        WETH.deposit{ value: msg.value }();
+
+        // Emit the appropriate event for the attack or defense.
+        emit Move(_challengeIndex, _claim, msg.sender);
     }
 }

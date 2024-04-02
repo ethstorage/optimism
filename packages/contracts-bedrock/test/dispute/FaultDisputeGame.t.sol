@@ -1004,6 +1004,321 @@ contract FaultDisputeGame_Test is FaultDisputeGame_Init {
     }
 }
 
+contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
+    /// @dev The root claim of the game.
+    Claim internal constant ROOT_CLAIM = Claim.wrap(bytes32((uint256(1) << 248) | uint256(10)));
+
+    /// @dev The preimage of the absolute prestate claim
+    bytes internal absolutePrestateData;
+    /// @dev The absolute prestate of the trace.
+    Claim internal absolutePrestate;
+
+    /// @dev Minimum bond value that covers all possible moves.
+    uint256 internal constant MIN_BOND = 50 ether;
+
+    function setUp() public override {
+        absolutePrestateData = abi.encode(0);
+        absolutePrestate = _changeClaimStatus(Claim.wrap(keccak256(absolutePrestateData)), VMStatuses.UNFINISHED);
+
+        super.setUp();
+        super.init({
+            rootClaim: ROOT_CLAIM,
+            absolutePrestate: absolutePrestate,
+            l2BlockNumber: 0x10,
+            genesisBlockNumber: 0,
+            genesisOutputRoot: Hash.wrap(bytes32(0))
+        });
+    }
+
+    ////////////////////////////////////////////////////////////////
+    //            `IDisputeGame` Implementation Tests             //
+    ////////////////////////////////////////////////////////////////
+
+    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `_splitDepth`
+    ///      parameter is greater than or equal to the `MAX_GAME_DEPTH`
+    function test_constructor_wrongArgs_reverts(uint256 _splitDepth) public {
+        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
+
+        // Test that the constructor reverts when the `_splitDepth` parameter is greater than or equal
+        // to the `MAX_GAME_DEPTH` parameter.
+        _splitDepth = bound(_splitDepth, 2 ** 3, type(uint256).max);
+        vm.expectRevert(InvalidSplitDepth.selector);
+        new FaultDisputeGame({
+            _gameType: GAME_TYPE,
+            _absolutePrestate: absolutePrestate,
+            _genesisBlockNumber: 0,
+            _genesisOutputRoot: Hash.wrap(bytes32(0)),
+            _maxGameDepth: 2 ** 3,
+            _splitDepth: _splitDepth,
+            _gameDuration: Duration.wrap(7 days),
+            _vm: alphabetVM,
+            _weth: DelayedWETH(payable(address(0))),
+            _l2ChainId: 10
+        });
+    }
+
+    /// @dev Tests that the game's root claim is set correctly.
+    function test_rootClaim_succeeds() public {
+        assertEq(gameProxy.rootClaim().raw(), ROOT_CLAIM.raw());
+    }
+
+    /// @dev Tests that the game's extra data is set correctly.
+    function test_extraData_succeeds() public {
+        assertEq(gameProxy.extraData(), extraData);
+    }
+
+    /// @dev Tests that the game's starting timestamp is set correctly.
+    function test_createdAt_succeeds() public {
+        assertEq(gameProxy.createdAt().raw(), block.timestamp);
+    }
+
+    /// @dev Tests that the game's type is set correctly.
+    function test_gameType_succeeds() public {
+        assertEq(gameProxy.gameType().raw(), GAME_TYPE.raw());
+    }
+
+    /// @dev Tests that the game's data is set correctly.
+    function test_gameData_succeeds() public {
+        (GameType gameType, Claim rootClaim, bytes memory _extraData) = gameProxy.gameData();
+
+        assertEq(gameType.raw(), GAME_TYPE.raw());
+        assertEq(rootClaim.raw(), ROOT_CLAIM.raw());
+        assertEq(_extraData, extraData);
+    }
+
+    ////////////////////////////////////////////////////////////////
+    //          `IFaultDisputeGame` Implementation Tests       //
+    ////////////////////////////////////////////////////////////////
+
+    /// @dev Tests that the game cannot be initialized with an output root that commits to <= the configured genesis
+    ///      block number
+    function testFuzz_initialize_cannotProposeGenesis_reverts(uint256 _blockNumber) public {
+        _blockNumber = bound(_blockNumber, 0, gameProxy.genesisBlockNumber());
+
+        Claim claim = _dummyClaim();
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRootClaim.selector, claim));
+        gameProxy =
+            FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber)))));
+    }
+
+    /// @dev Tests that the proxy receives ETH from the dispute game factory.
+    function test_initialize_receivesETH_succeeds(uint128 _value) public {
+        _value = uint128(bound(_value, gameProxy.getRequiredBond(Position.wrap(1)), type(uint128).max));
+        vm.deal(address(this), _value);
+
+        assertEq(address(gameProxy).balance, 0);
+        gameProxy = FaultDisputeGame(
+            payable(address(disputeGameFactory.create{ value: _value }(GAME_TYPE, ROOT_CLAIM, abi.encode(1))))
+        );
+        assertEq(address(gameProxy).balance, 0);
+        assertEq(delayedWeth.balanceOf(address(gameProxy)), _value);
+    }
+
+    /// @dev Tests that the game cannot be initialized with extra data > 64 bytes long (root claim + l2 block number
+    ///      concatenated)
+    function testFuzz_initialize_extraDataTooLong_reverts(uint256 _extraDataLen) public {
+        // The `DisputeGameFactory` will pack the root claim and the extra data into a single array, which is enforced
+        // to be at least 64 bytes long.
+        // We bound the upper end to 23.5KB to ensure that the minimal proxy never surpasses the contract size limit
+        // in this test, as CWIA proxies store the immutable args in their bytecode.
+        // [33 bytes, 23.5 KB]
+        _extraDataLen = bound(_extraDataLen, 33, 23_500);
+        bytes memory _extraData = new bytes(_extraDataLen);
+
+        // Assign the first 32 bytes in `extraData` to a valid L2 block number passed genesis.
+        uint256 genesisBlockNumber = gameProxy.genesisBlockNumber();
+        assembly {
+            mstore(add(_extraData, 0x20), add(genesisBlockNumber, 1))
+        }
+
+        Claim claim = _dummyClaim();
+        vm.expectRevert(abi.encodeWithSelector(ExtraDataTooLong.selector));
+        gameProxy = FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, claim, _extraData))));
+    }
+
+    /// @dev Tests that the game is initialized with the correct data.
+    function test_initialize_correctData_succeeds() public {
+        // Assert that the root claim is initialized correctly.
+        (
+            uint32 parentIndex,
+            address counteredBy,
+            address claimant,
+            uint128 bond,
+            Claim claim,
+            Position position,
+            Clock clock
+        ) = gameProxy.claimData(0);
+        assertEq(parentIndex, type(uint32).max);
+        assertEq(counteredBy, address(0));
+        assertEq(claimant, DEFAULT_SENDER);
+        assertEq(bond, 0);
+        assertEq(claim.raw(), ROOT_CLAIM.raw());
+        assertEq(position.raw(), 1);
+        assertEq(clock.raw(), LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp))).raw());
+
+        // Assert that the `createdAt` timestamp is correct.
+        assertEq(gameProxy.createdAt().raw(), block.timestamp);
+
+        // Assert that the blockhash provided is correct.
+        assertEq(gameProxy.l1Head().raw(), blockhash(block.number - 1));
+    }
+
+    /// @dev Tests that the game cannot be initialized twice.
+    function test_initialize_onlyOnce_succeeds() public {
+        vm.expectRevert(AlreadyInitialized.selector);
+        gameProxy.initialize();
+    }
+
+    /// @dev Tests that the bond during the bisection game depths is correct.
+    function test_getRequiredBond_succeeds() public {
+        for (uint64 i = 0; i < uint64(gameProxy.splitDepth()); i++) {
+            Position pos = LibPosition.wrap(i, 0);
+            uint256 bond = gameProxy.getRequiredBond(pos);
+
+            // Reasonable approximation for a max depth of 8.
+            uint256 expected = 0.08 ether;
+            for (uint64 j = 0; j < i; j++) {
+                expected = expected * 217456;
+                expected = expected / 100000;
+            }
+
+            assertApproxEqAbs(bond, expected, 0.01 ether);
+        }
+    }
+
+    /// @dev Tests that the bond at a depth greater than the maximum game depth reverts.
+    function test_getRequiredBond_outOfBounds_reverts() public {
+        Position pos = LibPosition.wrap(uint64(gameProxy.maxGameDepth() + 1), 0);
+        vm.expectRevert(GameDepthExceeded.selector);
+        gameProxy.getRequiredBond(pos);
+    }
+
+    function test_stepAttackDummyClaim_lastAttackFalse_succeeds() public {
+        // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(4), 0);
+        gameProxy.attackAt{ value: MIN_BOND }(1, _dummyClaimHashAndSetClaims(4), 3);
+
+        bytes memory claimData3 = abi.encode(5, 5);
+        Claim preState_ = Claim.wrap(keccak256(claimData3));
+
+        Claim hash = _dummyClaim();
+        gameProxy.setClaimHashClaims(hash, 0, preState_);
+        gameProxy.setClaimHashClaims(hash, 1, _dummyClaim());
+        gameProxy.setClaimHashClaims(hash, 2, _dummyClaim());
+        gameProxy.setClaimHashClaims(hash, 3, _dummyClaim());
+
+        gameProxy.attackAt{ value: MIN_BOND }(2, hash, 2);
+        gameProxy.attackAt{ value: MIN_BOND }(3, _dummyClaimHashAndSetClaims(4), 1);
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
+        gameProxy.stepV2(4, 0, claimData3, hex"");
+
+        // Ensure that the step successfully countered the leaf claim.
+        (, address counteredBy,,,,,) = gameProxy.claimData(4);
+        assertEq(counteredBy, address(this));
+    }
+
+    function test_stepAttackDummyClaim_lastAttackTrue_reverts() public {
+        // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(4), 0);
+        gameProxy.attackAt{ value: MIN_BOND }(1, _dummyClaimHashAndSetClaims(4), 3);
+
+        bytes memory claimData3 = abi.encode(5, 5);
+        Claim preState_ = Claim.wrap(keccak256(claimData3));
+        Claim postState_ = Claim.wrap(gameImpl.vm().step(claimData3, hex"", bytes32(0)));
+
+        Claim hash2 = _dummyClaim();
+        gameProxy.setClaimHashClaims(hash2, 0, preState_);
+        gameProxy.setClaimHashClaims(hash2, 1, _dummyClaim());
+        gameProxy.setClaimHashClaims(hash2, 2, _dummyClaim());
+        gameProxy.setClaimHashClaims(hash2, 3, _dummyClaim());
+        gameProxy.attackAt{ value: MIN_BOND }(2, hash2, 2);
+
+        Claim hash3 = _dummyClaim();
+        gameProxy.setClaimHashClaims(hash3, 0, postState_);
+        gameProxy.setClaimHashClaims(hash3, 1, _dummyClaim());
+        gameProxy.setClaimHashClaims(hash3, 2, _dummyClaim());
+        gameProxy.setClaimHashClaims(hash3, 3, _dummyClaim());
+        gameProxy.attackAt{ value: MIN_BOND }(3, hash3, 1);
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
+
+        vm.expectRevert(ValidStep.selector);
+        gameProxy.stepV2(4, 0, claimData3, hex"");
+    }
+
+    /// @dev Static unit test for the correctness an uncontested root resolution.
+    function test_resolve_rootUncontested_succeeds() public {
+        vm.warp(block.timestamp + 3 days + 12 hours + 1 seconds);
+        gameProxy.resolveClaim(0);
+        assertEq(uint8(gameProxy.resolve()), uint8(GameStatus.DEFENDER_WINS));
+    }
+
+    /// @dev Static unit test for the correctness an uncontested root resolution.
+    function test_resolve_rootUncontestedClockNotExpired_succeeds() public {
+        vm.warp(block.timestamp + 3 days + 12 hours);
+        vm.expectRevert(ClockNotExpired.selector);
+        gameProxy.resolveClaim(0);
+    }
+
+    /// @dev Static unit test asserting that resolve reverts when the absolute root
+    ///      subgame has not been resolved.
+    function test_resolve_rootUncontestedButUnresolved_reverts() public {
+        vm.warp(block.timestamp + 3 days + 12 hours + 1 seconds);
+        vm.expectRevert(OutOfOrderResolution.selector);
+        gameProxy.resolve();
+    }
+
+    /// @dev Static unit test asserting that resolve reverts when the game state is
+    ///      not in progress.
+    function test_resolve_notInProgress_reverts() public {
+        uint256 chalWins = uint256(GameStatus.CHALLENGER_WINS);
+
+        // Replace the game status in storage. It exists in slot 0 at offset 16.
+        uint256 slot = uint256(vm.load(address(gameProxy), bytes32(0)));
+        uint256 offset = 16 << 3;
+        uint256 mask = 0xFF << offset;
+        // Replace the byte in the slot value with the challenger wins status.
+        slot = (slot & ~mask) | (chalWins << offset);
+
+        vm.store(address(gameProxy), bytes32(uint256(0)), bytes32(slot));
+        vm.expectRevert(GameNotInProgress.selector);
+        gameProxy.resolveClaim(0);
+    }
+
+    /// @dev Static unit test for the correctness of resolving a single attack game state.
+    function test_resolve_rootContested_succeeds() public {
+        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(4), 0);
+
+        vm.warp(block.timestamp + 3 days + 12 hours + 1 seconds);
+
+        gameProxy.resolveClaim(0);
+        assertEq(uint8(gameProxy.resolve()), uint8(GameStatus.CHALLENGER_WINS));
+    }
+
+
+    /// @dev Helper to return a pseudo-random claim
+    function _dummyClaim() internal view returns (Claim) {
+        return Claim.wrap(keccak256(abi.encode(gasleft())));
+    }
+
+    function _dummyClaimHashAndSetClaims(uint256 nary) internal returns (Claim) {
+        Claim hash = _dummyClaim();
+        for (uint256 i; i < nary; i++) {
+            gameProxy.setClaimHashClaims(hash, i, _dummyClaim());
+        }
+        return hash;
+    }
+
+    /// @dev Helper to get the localized key for an identifier in the context of the game proxy.
+    function _getKey(uint256 _ident, bytes32 _localContext) internal view returns (bytes32) {
+        bytes32 h = keccak256(abi.encode(_ident | (1 << 248), address(gameProxy), _localContext));
+        return bytes32((uint256(h) & ~uint256(0xFF << 248)) | (1 << 248));
+    }
+}
+
 contract FaultDispute_1v1_Actors_Test is FaultDisputeGame_Init {
     /// @dev The honest actor
     DisputeActor internal honest;
