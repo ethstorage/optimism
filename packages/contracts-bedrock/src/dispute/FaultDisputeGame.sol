@@ -775,10 +775,10 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         ClaimData storage ancestor_ = claimData[_start];
         uint256 pos = _pos.raw();
         while (pos % _nary == 0 && pos != 1) {
-            pos = pos / _nary;
-            if (type(uint32).max != ancestor_.parentIndex) {
+            if (pos != _pos.raw()) {
                 ancestor_ = claimData[ancestor_.parentIndex];
             }
+            pos = pos / _nary;
         }
         if (pos == 1) {
             // S_0
@@ -797,13 +797,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     ) public view returns (Position pos_, Claim claim_) {
         ClaimData storage ancestor_ = claimData[_start];
         uint256 pos = _pos.raw();
-        // pos is _nary's multiple, while condition is false
-        // actually return the claim of _start
+        pos = pos / _nary;
         while ((pos + 1) % _nary == 0 && pos != 1) {
-            pos = pos / _nary;
-            if (type(uint32).max != ancestor_.parentIndex) {
+            if (pos != _pos.raw() / _nary) {
                 ancestor_ = claimData[ancestor_.parentIndex];
             }
+            pos = pos / _nary;
         }
         return (Position.wrap(uint128(pos)), getClaimFromClaimHash(ancestor_.claim, pos % _nary));
     }
@@ -839,10 +838,10 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         //ClaimData storage postState;
 
         // TODO: deal with SPLIT_DEPTH
-        //(preStatePosition, preStateClaim) = findPreStateClaim(1 << nBits, stepPos, _claimIndex);
-        (preStatePosition, preStateClaim) = findPreStateClaim(1 << nBits, parentPos, _claimIndex);
-        //(postStatePosition, postStateClaim) = findPostStateClaim(1 << nBits, stepPos, _claimIndex);
-        (postStatePosition, postStateClaim) = findPostStateClaim(1 << nBits, parentPos, _claimIndex);
+        (preStatePosition, preStateClaim) = findPreStateClaim(1 << nBits, stepPos, _claimIndex);
+        //(preStatePosition, preStateClaim) = findPreStateClaim(1 << nBits, parentPos, _claimIndex);
+        (postStatePosition, postStateClaim) = findPostStateClaim(1 << nBits, stepPos, _claimIndex);
+        //(postStatePosition, postStateClaim) = findPostStateClaim(1 << nBits, parentPos, _claimIndex);
 
         // INVARIANT: The prestate is always invalid if the passed `_stateData` is not the
         //            preimage of the prestate claim hash.

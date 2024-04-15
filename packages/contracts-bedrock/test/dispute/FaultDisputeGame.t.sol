@@ -1197,8 +1197,8 @@ contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
         // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
-        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(4), 0);
-        gameProxy.attackAt{ value: MIN_BOND }(1, _dummyClaimHashAndSetClaims(4), 3);
+        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(3), 0);
+        gameProxy.attackAt{ value: MIN_BOND }(1, _dummyClaimHashAndSetClaims(3), 3);
 
         bytes memory claimData3 = abi.encode(5, 5);
         Claim preState_ = Claim.wrap(keccak256(claimData3));
@@ -1207,10 +1207,9 @@ contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
         gameProxy.setClaimHashClaims(hash, 0, preState_);
         gameProxy.setClaimHashClaims(hash, 1, _dummyClaim());
         gameProxy.setClaimHashClaims(hash, 2, _dummyClaim());
-        gameProxy.setClaimHashClaims(hash, 3, _dummyClaim());
 
         gameProxy.attackAt{ value: MIN_BOND }(2, hash, 2);
-        gameProxy.attackAt{ value: MIN_BOND }(3, _dummyClaimHashAndSetClaims(4), 1);
+        gameProxy.attackAt{ value: MIN_BOND }(3, _dummyClaimHashAndSetClaims(3), 1);
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
         gameProxy.stepV2(4, 0, claimData3, hex"");
 
@@ -1223,8 +1222,8 @@ contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
         // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
-        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(4), 0);
-        gameProxy.attackAt{ value: MIN_BOND }(1, _dummyClaimHashAndSetClaims(4), 3);
+        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(3), 0);
+        gameProxy.attackAt{ value: MIN_BOND }(1, _dummyClaimHashAndSetClaims(3), 3);
 
         bytes memory claimData3 = abi.encode(5, 5);
         Claim preState_ = Claim.wrap(keccak256(claimData3));
@@ -1234,14 +1233,12 @@ contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
         gameProxy.setClaimHashClaims(hash2, 0, preState_);
         gameProxy.setClaimHashClaims(hash2, 1, _dummyClaim());
         gameProxy.setClaimHashClaims(hash2, 2, _dummyClaim());
-        gameProxy.setClaimHashClaims(hash2, 3, _dummyClaim());
         gameProxy.attackAt{ value: MIN_BOND }(2, hash2, 2);
 
         Claim hash3 = _dummyClaim();
         gameProxy.setClaimHashClaims(hash3, 0, postState_);
         gameProxy.setClaimHashClaims(hash3, 1, _dummyClaim());
         gameProxy.setClaimHashClaims(hash3, 2, _dummyClaim());
-        gameProxy.setClaimHashClaims(hash3, 3, _dummyClaim());
         gameProxy.attackAt{ value: MIN_BOND }(3, hash3, 1);
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
 
@@ -1290,7 +1287,7 @@ contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
 
     /// @dev Static unit test for the correctness of resolving a single attack game state.
     function test_resolve_rootContested_succeeds() public {
-        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(4), 0);
+        gameProxy.attackAt{ value: MIN_BOND }(0, _dummyClaimHashAndSetClaims(3), 0);
 
         vm.warp(block.timestamp + 3 days + 12 hours + 1 seconds);
 
