@@ -747,20 +747,20 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         }
     }
 
-    function attackAt(uint256 _parentIndex, Claim _claim, uint256 _attackBranch) public payable {
+    function attackAt(uint256 _parentIndex, Claim _claim, uint64 _attackBranch) public payable {
         moveV2(_parentIndex, _claim, _attackBranch);
     }
 
     // ClaimHash => attackBranch => Claim
-    mapping(Claim => mapping(uint256 => Claim)) internal claimHashToClaims;
+    mapping(Claim => mapping(uint64 => Claim)) internal claimHashToClaims;
 
-    function setClaimHashClaims(Claim _claimHash, uint256 _attackBranch, Claim _claim) public {
+    function setClaimHashClaims(Claim _claimHash, uint64 _attackBranch, Claim _claim) public {
         claimHashToClaims[_claimHash][_attackBranch] = _claim;
     }
 
     function getClaimFromClaimHash(
         Claim claimsHash,
-        uint256 claimIndex
+        uint64 claimIndex
     ) internal view returns (Claim) {
         // TODO: retrieve the claim from the claimsHash
         // Either: from EIP-4844 BLOB with point-evaluation proof or calldata with Merkle proof
@@ -784,7 +784,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             // S_0
             claim_ = ABSOLUTE_PRESTATE;
         } else {
-            claim_ = getClaimFromClaimHash(ancestor_.claim, (pos - 1) % _nary);
+            claim_ = getClaimFromClaimHash(ancestor_.claim, uint64((pos - 1) % _nary));
             pos = ancestor_.position.raw();
         }
         return (Position.wrap(uint128(pos)), claim_);
@@ -804,12 +804,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             }
             pos = pos / _nary;
         }
-        return (Position.wrap(uint128(pos)), getClaimFromClaimHash(ancestor_.claim, pos % _nary));
+        return (Position.wrap(uint128(pos)), getClaimFromClaimHash(ancestor_.claim, uint64(pos % _nary)));
     }
 
     function stepV2(
         uint256 _claimIndex,
-        uint256 _attackBranch,
+        uint64 _attackBranch,
         bytes calldata _stateData,
         bytes calldata _proof
     )
@@ -876,7 +876,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         parent.counteredBy = msg.sender;
     }
 
-    function moveV2(uint256 _challengeIndex, Claim _claim, uint256 _attackBranch) public payable {
+    function moveV2(uint256 _challengeIndex, Claim _claim, uint64 _attackBranch) public payable {
         // For N = 4 (bisec),
         // 1. _attackBranch == 0 (attack)
         // 2. _attackBranch == 1 (attack)

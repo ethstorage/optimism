@@ -1303,7 +1303,7 @@ contract FaultDisputeGame4Ary_Test is FaultDisputeGame_Init {
 
     function _dummyClaimHashAndSetClaims(uint256 nary) internal returns (Claim) {
         Claim hash = _dummyClaim();
-        for (uint256 i; i < nary; i++) {
+        for (uint64 i; i < nary; i++) {
             gameProxy.setClaimHashClaims(hash, i, _dummyClaim());
         }
         return hash;

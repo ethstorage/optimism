@@ -177,7 +177,7 @@ library LibPosition {
         }
     }
 
-    function moveN(Position _position, uint256 _bits, uint256 _branch) internal pure returns (Position move_) {
+    function moveN(Position _position, uint256 _bits, uint64 _branch) internal pure returns (Position move_) {
         assembly {
             move_ := shl(_bits, or(_branch, _position))
         }
