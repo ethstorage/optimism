@@ -47,7 +47,7 @@ import { Config } from "scripts/Config.sol";
 import { IBigStepper } from "src/dispute/interfaces/IBigStepper.sol";
 import { IPreimageOracle } from "src/cannon/interfaces/IPreimageOracle.sol";
 import { AlphabetVM } from "test/mocks/AlphabetVM.sol";
-import "src/libraries/DisputeTypes.sol";
+import "src/dispute/lib/Types.sol";
 import { ChainAssertions } from "scripts/ChainAssertions.sol";
 import { Types } from "scripts/Types.sol";
 import { LibStateDiff } from "scripts/libraries/LibStateDiff.sol";
@@ -273,7 +273,7 @@ contract Deploy is Deployer {
     /// @notice Internal function containing the deploy logic.
     function _run() internal {
         console.log("start of L1 Deploy!");
-        deploySafe();
+        deploySafe("SystemOwnerSafe");
         console.log("deployed Safe!");
         setupSuperchain();
         console.log("set up superchain!");
@@ -414,7 +414,7 @@ contract Deploy is Deployer {
     ////////////////////////////////////////////////////////////////
 
     /// @notice Deploy the Safe
-    function deploySafe() public broadcast returns (address addr_) {
+    function deploySafe(string memory _name) public broadcast returns (address addr_) {
         console.log("Deploying Safe");
         (SafeProxyFactory safeProxyFactory, Safe safeSingleton) = _getSafeFactory();
 
@@ -426,8 +426,11 @@ contract Deploy is Deployer {
         );
         address safe = address(safeProxyFactory.createProxyWithNonce(address(safeSingleton), initData, block.timestamp));
 
-        save("SystemOwnerSafe", address(safe));
-        console.log("New SystemOwnerSafe deployed at %s", address(safe));
+        save(_name, address(safe));
+        console.log(
+            string.concat("New safe: ", _name, " deployed at %s\n    Note that this safe is owned by the deployer key"),
+            address(safe)
+        );
         addr_ = safe;
     }
 
