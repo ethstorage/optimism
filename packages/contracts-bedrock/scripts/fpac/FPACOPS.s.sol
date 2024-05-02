@@ -3,7 +3,10 @@ pragma solidity 0.8.15;
 
 import { Proxy } from "src/universal/Proxy.sol";
 import { IDisputeGame } from "src/dispute/interfaces/IDisputeGame.sol";
+import { AnchorStateRegistry, IAnchorStateRegistry } from "src/dispute/AnchorStateRegistry.sol";
+import { IDelayedWETH } from "src/dispute/interfaces/IDelayedWETH.sol";
 import { StdAssertions } from "forge-std/StdAssertions.sol";
+import "src/dispute/lib/Types.sol";
 import "scripts/Deploy.s.sol";
 
 /// @notice Deploys the Fault Proof Alpha Chad contracts.
@@ -22,10 +25,12 @@ contract FPACOPS is Deploy, StdAssertions {
         // Deploy the proxies.
         deployERC1967Proxy("DisputeGameFactoryProxy");
         deployERC1967Proxy("DelayedWETHProxy");
+        deployERC1967Proxy("AnchorStateRegistryProxy");
 
         // Deploy implementations.
         deployDisputeGameFactory();
         deployDelayedWETH();
+        deployAnchorStateRegistry();
         deployPreimageOracle();
         deployMips();
 
@@ -35,6 +40,7 @@ contract FPACOPS is Deploy, StdAssertions {
         // Initialize the proxies.
         initializeDisputeGameFactoryProxy();
         initializeDelayedWETHProxy();
+        initializeAnchorStateRegistryProxy();
 
         // Deploy the Cannon Fault game implementation and set it as game ID = 0.
         setCannonFaultGameImplementation({ _allowUpgrade: false });
@@ -45,6 +51,7 @@ contract FPACOPS is Deploy, StdAssertions {
         // of the DisputeGameFactoryProxy to the ProxyAdmin.
         transferDGFOwnershipFinal({ _proxyAdmin: _proxyAdmin, _systemOwnerSafe: _systemOwnerSafe });
         transferWethOwnershipFinal({ _proxyAdmin: _proxyAdmin, _systemOwnerSafe: _systemOwnerSafe });
+        transferAnchorStateOwnershipFinal({ _proxyAdmin: _proxyAdmin });
 
         // Run post-deployment assertions.
         postDeployAssertions({ _proxyAdmin: _proxyAdmin, _systemOwnerSafe: _systemOwnerSafe });
@@ -65,6 +72,11 @@ contract FPACOPS is Deploy, StdAssertions {
         Proxy(payable(dgfProxy)).upgradeToAndCall(
             mustGetAddress("DisputeGameFactory"), abi.encodeCall(DisputeGameFactory.initialize, msg.sender)
         );
+
+        // Set the initialization bonds for the FaultDisputeGame and PermissionedDisputeGame.
+        DisputeGameFactory dgf = DisputeGameFactory(dgfProxy);
+        dgf.setInitBond(GameTypes.CANNON, 0.08 ether);
+        dgf.setInitBond(GameTypes.PERMISSIONED_CANNON, 0.08 ether);
     }
 
     function initializeDelayedWETHProxy() internal broadcast {
@@ -75,6 +87,31 @@ contract FPACOPS is Deploy, StdAssertions {
         Proxy(payable(wethProxy)).upgradeToAndCall(
             mustGetAddress("DelayedWETH"),
             abi.encodeCall(DelayedWETH.initialize, (msg.sender, SuperchainConfig(superchainConfigProxy)))
+        );
+    }
+
+    function initializeAnchorStateRegistryProxy() internal broadcast {
+        console.log("Initializing AnchorStateRegistryProxy with AnchorStateRegistry.");
+
+        AnchorStateRegistry.StartingAnchorRoot[] memory roots = new AnchorStateRegistry.StartingAnchorRoot[](2);
+        roots[0] = AnchorStateRegistry.StartingAnchorRoot({
+            gameType: GameTypes.CANNON,
+            outputRoot: OutputRoot({
+                root: Hash.wrap(cfg.faultGameGenesisOutputRoot()),
+                l2BlockNumber: cfg.faultGameGenesisBlock()
+            })
+        });
+        roots[1] = AnchorStateRegistry.StartingAnchorRoot({
+            gameType: GameTypes.PERMISSIONED_CANNON,
+            outputRoot: OutputRoot({
+                root: Hash.wrap(cfg.faultGameGenesisOutputRoot()),
+                l2BlockNumber: cfg.faultGameGenesisBlock()
+            })
+        });
+
+        address asrProxy = mustGetAddress("AnchorStateRegistryProxy");
+        Proxy(payable(asrProxy)).upgradeToAndCall(
+            mustGetAddress("AnchorStateRegistry"), abi.encodeCall(AnchorStateRegistry.initialize, (roots))
         );
     }
 
@@ -104,8 +141,17 @@ contract FPACOPS is Deploy, StdAssertions {
         prox.changeAdmin(_proxyAdmin);
     }
 
+    /// @notice Transfers admin rights of the `AnchorStateRegistryProxy` to the `ProxyAdmin`.
+    function transferAnchorStateOwnershipFinal(address _proxyAdmin) internal broadcast {
+        AnchorStateRegistry asr = AnchorStateRegistry(mustGetAddress("AnchorStateRegistryProxy"));
+
+        // Transfer the admin rights of the AnchorStateRegistryProxy to the ProxyAdmin.
+        Proxy prox = Proxy(payable(address(asr)));
+        prox.changeAdmin(_proxyAdmin);
+    }
+
     /// @notice Checks that the deployed system is configured correctly.
-    function postDeployAssertions(address _proxyAdmin, address _systemOwnerSafe) internal {
+    function postDeployAssertions(address _proxyAdmin, address _systemOwnerSafe) internal view {
         Types.ContractSet memory contracts = _proxiesUnstrict();
         contracts.OptimismPortal2 = mustGetAddress("OptimismPortal2");
 
@@ -131,24 +177,39 @@ contract FPACOPS is Deploy, StdAssertions {
         MIPS mips = MIPS(mustGetAddress("Mips"));
         assertEq(address(mips.oracle()), address(oracle));
 
+        // Check the AnchorStateRegistry configuration.
+        AnchorStateRegistry asr = AnchorStateRegistry(mustGetAddress("AnchorStateRegistryProxy"));
+        (Hash root1, uint256 l2BlockNumber1) = asr.anchors(GameTypes.CANNON);
+        (Hash root2, uint256 l2BlockNumber2) = asr.anchors(GameTypes.PERMISSIONED_CANNON);
+        assertEq(root1.raw(), cfg.faultGameGenesisOutputRoot());
+        assertEq(root2.raw(), cfg.faultGameGenesisOutputRoot());
+        assertEq(l2BlockNumber1, cfg.faultGameGenesisBlock());
+        assertEq(l2BlockNumber2, cfg.faultGameGenesisBlock());
+
         // Check the FaultDisputeGame configuration.
         FaultDisputeGame gameImpl = FaultDisputeGame(payable(address(dgfProxy.gameImpls(GameTypes.CANNON))));
         assertEq(gameImpl.maxGameDepth(), cfg.faultGameMaxDepth());
         assertEq(gameImpl.splitDepth(), cfg.faultGameSplitDepth());
-        assertEq(gameImpl.gameDuration().raw(), cfg.faultGameMaxDuration());
+        assertEq(gameImpl.clockExtension().raw(), cfg.faultGameClockExtension());
+        assertEq(gameImpl.maxClockDuration().raw(), cfg.faultGameMaxClockDuration());
         assertEq(gameImpl.absolutePrestate().raw(), bytes32(cfg.faultGameAbsolutePrestate()));
-        assertEq(gameImpl.genesisBlockNumber(), cfg.faultGameGenesisBlock());
-        assertEq(gameImpl.genesisOutputRoot().raw(), cfg.faultGameGenesisOutputRoot());
+        assertEq(address(gameImpl.weth()), wethProxyAddr);
+        assertEq(address(gameImpl.anchorStateRegistry()), address(asr));
+        assertEq(address(gameImpl.vm()), address(mips));
 
         // Check the security override yoke configuration.
         PermissionedDisputeGame soyGameImpl =
             PermissionedDisputeGame(payable(address(dgfProxy.gameImpls(GameTypes.PERMISSIONED_CANNON))));
+        assertEq(soyGameImpl.proposer(), cfg.l2OutputOracleProposer());
+        assertEq(soyGameImpl.challenger(), cfg.l2OutputOracleChallenger());
         assertEq(soyGameImpl.maxGameDepth(), cfg.faultGameMaxDepth());
         assertEq(soyGameImpl.splitDepth(), cfg.faultGameSplitDepth());
-        assertEq(soyGameImpl.gameDuration().raw(), cfg.faultGameMaxDuration());
+        assertEq(soyGameImpl.clockExtension().raw(), cfg.faultGameClockExtension());
+        assertEq(soyGameImpl.maxClockDuration().raw(), cfg.faultGameMaxClockDuration());
         assertEq(soyGameImpl.absolutePrestate().raw(), bytes32(cfg.faultGameAbsolutePrestate()));
-        assertEq(soyGameImpl.genesisBlockNumber(), cfg.faultGameGenesisBlock());
-        assertEq(soyGameImpl.genesisOutputRoot().raw(), cfg.faultGameGenesisOutputRoot());
+        assertEq(address(soyGameImpl.weth()), wethProxyAddr);
+        assertEq(address(soyGameImpl.anchorStateRegistry()), address(asr));
+        assertEq(address(soyGameImpl.vm()), address(mips));
     }
 
     /// @notice Prints a review of the fault proof configuration section of the deploy config.
@@ -158,13 +219,14 @@ contract FPACOPS is Deploy, StdAssertions {
         console.log("    1. Absolute Prestate: %x", cfg.faultGameAbsolutePrestate());
         console.log("    2. Max Depth: %d", cfg.faultGameMaxDepth());
         console.log("    3. Output / Execution split Depth: %d", cfg.faultGameSplitDepth());
-        console.log("    4. Game Duration (seconds): %d", cfg.faultGameMaxDuration());
-        console.log("    5. L2 Genesis block number: %d", cfg.faultGameGenesisBlock());
-        console.log("    6. L2 Genesis output root: %x", uint256(cfg.faultGameGenesisOutputRoot()));
-        console.log("    7. Proof Maturity Delay (seconds): ", cfg.proofMaturityDelaySeconds());
-        console.log("    8. Dispute Game Finality Delay (seconds): ", cfg.disputeGameFinalityDelaySeconds());
-        console.log("    9. Respected Game Type: ", cfg.respectedGameType());
-        console.log("   10. Preimage Oracle Min Proposal Size (bytes): ", cfg.preimageOracleMinProposalSize());
-        console.log("   11. Preimage Oracle Challenge Period (seconds): ", cfg.preimageOracleChallengePeriod());
+        console.log("    4. Clock Extension (seconds): %d", cfg.faultGameClockExtension());
+        console.log("    5. Max Clock Duration (seconds): %d", cfg.faultGameMaxClockDuration());
+        console.log("    6. L2 Genesis block number: %d", cfg.faultGameGenesisBlock());
+        console.log("    7. L2 Genesis output root: %x", uint256(cfg.faultGameGenesisOutputRoot()));
+        console.log("    8. Proof Maturity Delay (seconds): ", cfg.proofMaturityDelaySeconds());
+        console.log("    9. Dispute Game Finality Delay (seconds): ", cfg.disputeGameFinalityDelaySeconds());
+        console.log("   10. Respected Game Type: ", cfg.respectedGameType());
+        console.log("   11. Preimage Oracle Min Proposal Size (bytes): ", cfg.preimageOracleMinProposalSize());
+        console.log("   12. Preimage Oracle Challenge Period (seconds): ", cfg.preimageOracleChallengePeriod());
     }
 }

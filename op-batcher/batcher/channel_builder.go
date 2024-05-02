@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -33,81 +32,6 @@ func (e *ChannelFullError) Error() string {
 
 func (e *ChannelFullError) Unwrap() error {
 	return e.Err
-}
-
-type ChannelConfig struct {
-	// Number of epochs (L1 blocks) per sequencing window, including the epoch
-	// L1 origin block itself
-	SeqWindowSize uint64
-	// The maximum number of L1 blocks that the inclusion transactions of a
-	// channel's frames can span.
-	ChannelTimeout uint64
-
-	// Builder Config
-
-	// MaxChannelDuration is the maximum duration (in #L1-blocks) to keep the
-	// channel open. This allows control over how long a channel is kept open
-	// during times of low transaction volume.
-	//
-	// If 0, duration checks are disabled.
-	MaxChannelDuration uint64
-	// The batcher tx submission safety margin (in #L1-blocks) to subtract from
-	// a channel's timeout and sequencing window, to guarantee safe inclusion of
-	// a channel on L1.
-	SubSafetyMargin uint64
-	// The maximum byte-size a frame can have.
-	MaxFrameSize uint64
-
-	// CompressorConfig contains the configuration for creating new compressors.
-	CompressorConfig compressor.Config
-
-	// BatchType indicates whether the channel uses SingularBatch or SpanBatch.
-	BatchType uint
-
-	// Whether to put all frames of a channel inside a single tx.
-	// Should only be used for blob transactions.
-	MultiFrameTxs bool
-}
-
-func (cc *ChannelConfig) MaxFramesPerTx() int {
-	if !cc.MultiFrameTxs {
-		return 1
-	}
-	return cc.CompressorConfig.TargetNumFrames
-}
-
-// Check validates the [ChannelConfig] parameters.
-func (cc *ChannelConfig) Check() error {
-	// The [ChannelTimeout] must be larger than the [SubSafetyMargin].
-	// Otherwise, new blocks would always be considered timed out.
-	if cc.ChannelTimeout < cc.SubSafetyMargin {
-		return ErrInvalidChannelTimeout
-	}
-
-	// If the [MaxFrameSize] is set to 0, the channel builder
-	// will infinitely loop when trying to create frames in the
-	// [ChannelBuilder.OutputFrames] function.
-	if cc.MaxFrameSize == 0 {
-		return errors.New("max frame size cannot be zero")
-	}
-
-	// If the [MaxFrameSize] is less than [FrameV0OverHeadSize], the channel
-	// out will underflow the maxSize variable in the [derive.ChannelOut].
-	// Since it is of type uint64, it will wrap around to a very large
-	// number, making the frame size extremely large.
-	if cc.MaxFrameSize < derive.FrameV0OverHeadSize {
-		return fmt.Errorf("max frame size %d is less than the minimum 23", cc.MaxFrameSize)
-	}
-
-	if cc.BatchType > derive.SpanBatchType {
-		return fmt.Errorf("unrecognized batch type: %d", cc.BatchType)
-	}
-
-	if nf := cc.CompressorConfig.TargetNumFrames; nf < 1 {
-		return fmt.Errorf("invalid number of frames %d", nf)
-	}
-
-	return nil
 }
 
 type frameID struct {
@@ -154,18 +78,20 @@ type ChannelBuilder struct {
 
 // newChannelBuilder creates a new channel builder or returns an error if the
 // channel out could not be created.
+// it acts as a factory for either a span or singular channel out
 func NewChannelBuilder(cfg ChannelConfig, rollupCfg rollup.Config, latestL1OriginBlockNum uint64) (*ChannelBuilder, error) {
 	c, err := cfg.CompressorConfig.NewCompressor()
 	if err != nil {
 		return nil, err
 	}
-	var spanBatchBuilder *derive.SpanBatchBuilder
+	var co derive.ChannelOut
 	if cfg.BatchType == derive.SpanBatchType {
-		spanBatchBuilder = derive.NewSpanBatchBuilder(rollupCfg.Genesis.L2Time, rollupCfg.L2ChainID)
+		co, err = derive.NewSpanChannelOut(rollupCfg.Genesis.L2Time, rollupCfg.L2ChainID, cfg.CompressorConfig.TargetOutputSize)
+	} else {
+		co, err = derive.NewSingularChannelOut(c)
 	}
-	co, err := derive.NewChannelOut(cfg.BatchType, c, spanBatchBuilder)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("creating channel out: %w", err)
 	}
 
 	cb := &ChannelBuilder{
@@ -230,7 +156,7 @@ func (c *ChannelBuilder) AddBlock(block *types.Block) (*derive.L1BlockInfo, erro
 		return l1info, fmt.Errorf("converting block to batch: %w", err)
 	}
 
-	if _, err = c.co.AddSingularBatch(batch, l1info.SequenceNumber); errors.Is(err, derive.ErrTooManyRLPBytes) || errors.Is(err, derive.CompressorFullErr) {
+	if err = c.co.AddSingularBatch(batch, l1info.SequenceNumber); errors.Is(err, derive.ErrTooManyRLPBytes) || errors.Is(err, derive.ErrCompressorFull) {
 		c.setFullErr(err)
 		return l1info, c.FullErr()
 	} else if err != nil {
@@ -329,7 +255,7 @@ func (c *ChannelBuilder) IsFull() bool {
 //
 // It returns a ChannelFullError wrapping one of the following possible reasons
 // for the channel being full:
-//   - derive.CompressorFullErr if the compressor target has been reached,
+//   - derive.ErrCompressorFull if the compressor target has been reached,
 //   - derive.MaxRLPBytesPerChannel if the general maximum amount of input data
 //     would have been exceeded by the latest AddBlock call,
 //   - ErrMaxFrameIndex if the maximum number of frames has been generated
@@ -371,9 +297,9 @@ func (c *ChannelBuilder) OutputFrames() error {
 // This is part of an optimization to already generate frames and send them off
 // as txs while still collecting blocks in the channel builder.
 func (c *ChannelBuilder) outputReadyFrames() error {
-	// TODO: Decide whether we want to fill frames to max size and use target
-	// only for estimation, or use target size.
-	for c.co.ReadyBytes() >= int(c.cfg.MaxFrameSize) {
+	// When creating a frame from the ready compression data, the frame overhead
+	// will be added to the total output size, so we can add it in the condition.
+	for c.co.ReadyBytes()+derive.FrameV0OverHeadSize >= int(c.cfg.MaxFrameSize) {
 		if err := c.outputFrame(); err == io.EOF {
 			return nil
 		} else if err != nil {

@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 
-	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-plasma/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 )
 
@@ -361,15 +361,16 @@ func (d *DA) decodeChallengeStatus(log *types.Log) (ChallengeStatus, Keccak256Co
 	if err != nil {
 		return 0, nil, err
 	}
-	d.log.Debug("decoded challenge status event", "log", log, "event", event)
 	comm, err := DecodeKeccak256(event.ChallengedCommitment)
 	if err != nil {
 		return 0, nil, err
 	}
+	d.log.Debug("decoded challenge status event", "log", log, "event", event, "comm", fmt.Sprintf("%x", comm.Encode()))
 
 	bn := event.ChallengedBlockNumber.Uint64()
-	// if we are not tracking the commitment from processing the l1 origin in derivation,
-	// i.e. someone challenged garbage data, this challenge is invalid.
+	// IsTracking just validates whether the commitment was challenged for the correct block number
+	// if it has been loaded from the batcher inbox before. Spam commitments will be tracked but
+	// ignored and evicted unless derivation encounters the commitment.
 	if !d.state.IsTracking(comm.Encode(), bn) {
 		return 0, nil, fmt.Errorf("%w: %x at block %d", ErrInvalidChallenge, comm.Encode(), bn)
 	}

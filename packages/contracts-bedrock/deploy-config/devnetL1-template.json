@@ -51,9 +51,10 @@
   "recommendedProtocolVersion": "0x0000000000000000000000000000000000000000000000000000000000000000",
   "faultGameAbsolutePrestate": "0x03c7ae758795765c6664a5d39bf63841c71ff191e9189522bad8ebff5d4eca98",
   "faultGameMaxDepth": 50,
-  "faultGameMaxDuration": 2400,
+  "faultGameClockExtension": 0,
+  "faultGameMaxClockDuration": 1200,
   "faultGameGenesisBlock": 0,
-  "faultGameGenesisOutputRoot": "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "faultGameGenesisOutputRoot": "0xDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEFDEADBEEF",
   "faultGameSplitDepth": 14,
   "faultGameWithdrawalDelay": 604800,
   "preimageOracleMinProposalSize": 10000,
@@ -63,8 +64,8 @@
   "respectedGameType": 0,
   "useFaultProofs": false,
   "usePlasma": false,
-  "daChallengeWindow": 6,
-  "daResolveWindow": 6,
+  "daChallengeWindow": 160,
+  "daResolveWindow": 160,
   "daBondSize": 1000000,
   "daResolverRefundPercentage": 0
 }

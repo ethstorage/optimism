@@ -4,17 +4,23 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	gstate "github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/state"
 )
+
+// PrecompileCount represents the number of precompile addresses
+// starting from `address(0)` to PrecompileCount that are funded
+// with a single wei in the genesis state.
+const PrecompileCount = 256
 
 var (
 	// uint128Max is type(uint128).max and is set in the init function.
@@ -76,9 +82,9 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 			memDB.CreateAccount(address)
 			memDB.SetNonce(address, account.Nonce)
 
-			balance, ok := math.ParseBig256(account.Balance)
-			if !ok {
-				return nil, fmt.Errorf("failed to parse balance for %s", address)
+			balance := &uint256.Int{}
+			if err := balance.UnmarshalText([]byte(account.Balance)); err != nil {
+				return nil, fmt.Errorf("failed to parse balance for %s: %w", address, err)
 			}
 			memDB.AddBalance(address, balance)
 			memDB.SetCode(address, account.Code)
@@ -90,4 +96,29 @@ func BuildL1DeveloperGenesis(config *DeployConfig, dump *gstate.Dump, l1Deployme
 	}
 
 	return memDB.Genesis(), nil
+}
+
+// CreateAccountNotExists creates the account in the `vm.StateDB` if it doesn't exist.
+func CreateAccountNotExists(db vm.StateDB, account common.Address) {
+	if !db.Exist(account) {
+		db.CreateAccount(account)
+	}
+}
+
+// FundDevAccounts will fund each of the development accounts.
+func FundDevAccounts(db vm.StateDB) {
+	for _, account := range DevAccounts {
+		CreateAccountNotExists(db, account)
+		db.AddBalance(account, uint256.MustFromBig(devBalance))
+	}
+}
+
+// SetPrecompileBalances will set a single wei at each precompile address.
+// This is an optimization to make calling them cheaper.
+func SetPrecompileBalances(db vm.StateDB) {
+	for i := 0; i < PrecompileCount; i++ {
+		addr := common.BytesToAddress([]byte{byte(i)})
+		CreateAccountNotExists(db, addr)
+		db.AddBalance(addr, uint256.NewInt(1))
+	}
 }

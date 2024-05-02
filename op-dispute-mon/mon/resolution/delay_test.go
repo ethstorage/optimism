@@ -12,49 +12,51 @@ import (
 )
 
 var (
-	maxGameDuration = uint64(960)
-	frozen          = time.Unix(int64(time.Hour.Seconds()), 0)
+	maxClockDuration = uint64(480)
+	frozen           = time.Unix(int64(time.Hour.Seconds()), 0)
 )
 
 func TestDelayCalculator_getOverflowTime(t *testing.T) {
 	t.Run("NoClock", func(t *testing.T) {
 		d, metrics, _ := setupDelayCalculatorTest(t)
-		claim := &types.Claim{
-			ClaimData: types.ClaimData{
-				Bond: monTypes.ResolvedBondAmount,
-			},
+		claim := &monTypes.EnrichedClaim{
+			Resolved: true,
 		}
-		delay := d.getOverflowTime(maxGameDuration, claim)
+		delay := d.getOverflowTime(maxClockDuration, claim)
 		require.Equal(t, uint64(0), delay)
 		require.Equal(t, 0, metrics.calls)
 	})
 
 	t.Run("RemainingTime", func(t *testing.T) {
 		d, metrics, cl := setupDelayCalculatorTest(t)
-		duration := uint64(3 * 60)
-		timestamp := uint64(cl.Now().Add(-time.Minute).Unix())
-		claim := &types.Claim{
-			ClaimData: types.ClaimData{
-				Bond: big.NewInt(5),
+		duration := 3 * time.Minute
+		timestamp := cl.Now().Add(-time.Minute)
+		claim := &monTypes.EnrichedClaim{
+			Claim: types.Claim{
+				ClaimData: types.ClaimData{
+					Bond: big.NewInt(5),
+				},
+				Clock: types.NewClock(duration, timestamp),
 			},
-			Clock: types.NewClock(duration, timestamp),
 		}
-		delay := d.getOverflowTime(maxGameDuration, claim)
+		delay := d.getOverflowTime(maxClockDuration, claim)
 		require.Equal(t, uint64(0), delay)
 		require.Equal(t, 0, metrics.calls)
 	})
 
 	t.Run("OverflowTime", func(t *testing.T) {
 		d, metrics, cl := setupDelayCalculatorTest(t)
-		duration := maxGameDuration / 2
-		timestamp := uint64(cl.Now().Add(4 * -time.Minute).Unix())
-		claim := &types.Claim{
-			ClaimData: types.ClaimData{
-				Bond: big.NewInt(5),
+		duration := time.Duration(maxClockDuration) * time.Second
+		timestamp := cl.Now().Add(4 * -time.Minute)
+		claim := &monTypes.EnrichedClaim{
+			Claim: types.Claim{
+				ClaimData: types.ClaimData{
+					Bond: big.NewInt(5),
+				},
+				Clock: types.NewClock(duration, timestamp),
 			},
-			Clock: types.NewClock(duration, timestamp),
 		}
-		delay := d.getOverflowTime(maxGameDuration, claim)
+		delay := d.getOverflowTime(maxClockDuration, claim)
 		require.Equal(t, uint64(240), delay)
 		require.Equal(t, 0, metrics.calls)
 	})
@@ -63,10 +65,10 @@ func TestDelayCalculator_getOverflowTime(t *testing.T) {
 func TestDelayCalculator_getMaxResolutionDelay(t *testing.T) {
 	tests := []struct {
 		name   string
-		claims []types.Claim
+		claims []monTypes.EnrichedClaim
 		want   uint64
 	}{
-		{"NoClaims", []types.Claim{}, 0},
+		{"NoClaims", []monTypes.EnrichedClaim{}, 0},
 		{"SingleClaim", createClaimList()[:1], 180},
 		{"MultipleClaims", createClaimList()[:2], 300},
 		{"ClaimsWithMaxUint128", createClaimList(), 300},
@@ -77,8 +79,8 @@ func TestDelayCalculator_getMaxResolutionDelay(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			d, metrics, _ := setupDelayCalculatorTest(t)
 			game := &monTypes.EnrichedGameData{
-				Claims:   test.claims,
-				Duration: maxGameDuration,
+				Claims:           test.claims,
+				MaxClockDuration: maxClockDuration,
 			}
 			got := d.getMaxResolutionDelay(game)
 			require.Equal(t, 0, metrics.calls)
@@ -119,51 +121,56 @@ func setupDelayCalculatorTest(t *testing.T) (*DelayCalculator, *mockDelayMetrics
 func createGameWithClaimsList() []*monTypes.EnrichedGameData {
 	return []*monTypes.EnrichedGameData{
 		{
-			Claims:   createClaimList()[:1],
-			Duration: maxGameDuration,
+			Claims:           createClaimList()[:1],
+			MaxClockDuration: maxClockDuration,
 		},
 		{
-			Claims:   createClaimList()[:2],
-			Duration: maxGameDuration,
+			Claims:           createClaimList()[:2],
+			MaxClockDuration: maxClockDuration,
 		},
 		{
-			Claims:   createClaimList(),
-			Duration: maxGameDuration,
+			Claims:           createClaimList(),
+			MaxClockDuration: maxClockDuration,
 		},
 	}
 }
 
-func createClaimList() []types.Claim {
-	newClock := func(multiplier int) *types.Clock {
-		duration := maxGameDuration / 2
-		timestamp := uint64(frozen.Add(-time.Minute * time.Duration(multiplier)).Unix())
-		return types.NewClock(duration, timestamp)
+func createClaimList() []monTypes.EnrichedClaim {
+	newClock := func(multiplier int) types.Clock {
+		duration := maxClockDuration
+		timestamp := frozen.Add(-time.Minute * time.Duration(multiplier))
+		return types.NewClock(time.Duration(duration)*time.Second, timestamp)
 	}
-	return []types.Claim{
+	return []monTypes.EnrichedClaim{
 		{
-			ClaimData: types.ClaimData{
-				Bond: big.NewInt(5),
+			Claim: types.Claim{
+				ClaimData: types.ClaimData{
+					Bond: big.NewInt(5),
+				},
+				Clock: newClock(3),
 			},
-			Clock: newClock(3),
 		},
 		{
-			ClaimData: types.ClaimData{
-				Bond: big.NewInt(10),
+			Claim: types.Claim{
+				ClaimData: types.ClaimData{
+					Bond: big.NewInt(10),
+				},
+				Clock: newClock(5),
 			},
-			Clock: newClock(5),
 		},
 		{
-			ClaimData: types.ClaimData{
-				Bond: big.NewInt(100),
+			Claim: types.Claim{
+				ClaimData: types.ClaimData{
+					Bond: big.NewInt(100),
+				},
+				Clock: newClock(2),
 			},
-			Clock: newClock(2),
 		},
 		{
-			// This claim should be skipped because it's resolved.
-			ClaimData: types.ClaimData{
-				Bond: monTypes.ResolvedBondAmount,
+			Claim: types.Claim{
+				Clock: newClock(10),
 			},
-			Clock: newClock(10),
+			Resolved: true,
 		},
 	}
 }

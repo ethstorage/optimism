@@ -2,8 +2,10 @@ package test
 
 import (
 	"context"
+	"math"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,10 +15,11 @@ import (
 var DefaultClaimant = common.Address{0xba, 0xdb, 0xad, 0xba, 0xdb, 0xad}
 
 type claimCfg struct {
-	value        common.Hash
-	invalidValue bool
-	claimant     common.Address
-	parentIdx    int
+	value         common.Hash
+	invalidValue  bool
+	claimant      common.Address
+	parentIdx     int
+	clockDuration time.Duration
 }
 
 func newClaimCfg(opts ...ClaimOpt) *claimCfg {
@@ -58,6 +61,12 @@ func WithClaimant(claimant common.Address) ClaimOpt {
 func WithParent(claim types.Claim) ClaimOpt {
 	return claimOptFn(func(cfg *claimCfg) {
 		cfg.parentIdx = claim.ContractIndex
+	})
+}
+
+func WithExpiredClock(maxClockDuration time.Duration) ClaimOpt {
+	return claimOptFn(func(cfg *claimCfg) {
+		cfg.clockDuration = maxClockDuration
 	})
 }
 
@@ -123,6 +132,10 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 			Position: pos,
 		},
 		Claimant: DefaultClaimant,
+		Clock: types.Clock{
+			Duration:  cfg.clockDuration,
+			Timestamp: time.Unix(math.MaxInt64-1, 0),
+		},
 	}
 	if cfg.claimant != (common.Address{}) {
 		claim.Claimant = cfg.claimant
