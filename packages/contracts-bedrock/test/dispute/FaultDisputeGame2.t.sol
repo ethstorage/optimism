@@ -1475,7 +1475,7 @@ contract FaultDisputeGame2_Test is FaultDisputeGame_Init {
     }
 }
 
-contract FaultDispute_1v1_Actors_Test is FaultDisputeGame_Init {
+contract FaultDispute2_1v1_Actors_Test is FaultDisputeGame_Init {
     /// @dev The honest actor
     DisputeActor internal honest;
     /// @dev The dishonest actor

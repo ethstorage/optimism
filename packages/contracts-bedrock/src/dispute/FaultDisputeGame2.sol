@@ -76,6 +76,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     /// @notice Flag for the `initialize` function to prevent re-initialization.
     bool internal initialized;
 
+    /// @notice Bits of N-ary search
+    uint256 nBits;
+
     /// @notice An append-only array of all claims made during the dispute game.
     ClaimData[] public claimData;
 
@@ -201,6 +204,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             })
         );
 
+        nBits = 1;
+
         // Set the game as initialized.
         initialized = true;
 
@@ -240,8 +245,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         if (stepPos.depth() != MAX_GAME_DEPTH + 1) revert InvalidParent();
 
         // Determine the expected pre & post states of the step.
-        Claim preStateClaim;
-        ClaimData storage postState;
+        Claim postStateClaim_;
+        Position postStatePosition_;
         if (_isAttack) {
             // If the step position's index at depth is 0, the prestate is the absolute
             // prestate.
@@ -251,17 +256,17 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             //       the remainder of the index at depth divided by 2 ** (MAX_GAME_DEPTH - SPLIT_DEPTH),
             //       which is the number of leaves in each execution trace subgame. This is so that we can
             //       determine whether or not the step position is represents the `ABSOLUTE_PRESTATE`.
-            preStateClaim = (stepPos.indexAtDepth() % (1 << (MAX_GAME_DEPTH - SPLIT_DEPTH))) == 0
-                ? ABSOLUTE_PRESTATE
-                : _findTraceAncestor(Position.wrap(parentPos.raw() - 1), parent.parentIndex, false).claim;
             // For all attacks, the poststate is the parent claim.
-            postState = parent;
+            postStateClaim_ = parent.claim;
+            postStatePosition_ = parent.position;
         } else {
             // If the step is a defense, the poststate exists elsewhere in the game state,
             // and the parent claim is the expected pre-state.
-            preStateClaim = parent.claim;
-            postState = _findTraceAncestor(Position.wrap(parentPos.raw() + 1), parent.parentIndex, false);
+            (postStatePosition_, postStateClaim_) = findPostStateClaim(1 << nBits, stepPos, _claimIndex -1);
         }
+        Claim preStateClaim = (stepPos.indexAtDepth() % (1 << (MAX_GAME_DEPTH - SPLIT_DEPTH))) == 0
+            ? ABSOLUTE_PRESTATE
+            : findPreStateClaim(1 << nBits, stepPos, _claimIndex);
 
         // INVARIANT: The prestate is always invalid if the passed `_stateData` is not the
         //            preimage of the prestate claim hash.
@@ -284,8 +289,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // SAFETY:    While the `attack` path does not need an extra check for the post
         //            state's depth in relation to the parent, we don't need another
         //            branch because (n - n) % 2 == 0.
-        bool validStep = VM.step(_stateData, _proof, uuid.raw()) == postState.claim.raw();
-        bool parentPostAgree = (parentPos.depth() - postState.position.depth()) % 2 == 0;
+        bool validStep = VM.step(_stateData, _proof, uuid.raw()) == postStateClaim_.raw();
+        bool parentPostAgree = (parentPos.depth() - postStatePosition_.depth()) % 2 == 0;
         if (parentPostAgree == validStep) revert ValidStep();
 
         // INVARIANT: A step cannot be made against a claim for a second time.
@@ -941,5 +946,44 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         uuid_ = _startingPos.raw() == 0
             ? Hash.wrap(keccak256(abi.encode(_disputed, _disputedPos)))
             : Hash.wrap(keccak256(abi.encode(_starting, _startingPos, _disputed, _disputedPos)));
+    }
+
+    function findPreStateClaim(
+        uint256 _nary,
+        Position _pos,
+        uint256 _start
+    ) public view returns (Claim claim_) {
+        ClaimData storage ancestor_ = claimData[_start];
+        uint256 pos = _pos.raw();
+        while (pos % _nary == 0 && pos != 1) {
+            if (pos != _pos.raw()) {
+                ancestor_ = claimData[ancestor_.parentIndex];
+            }
+            pos = pos / _nary;
+        }
+        if (pos == 1) {
+            // S_0
+            claim_ = ABSOLUTE_PRESTATE;
+        } else {
+            claim_ = ancestor_.claim;
+        }
+        return claim_;
+    }
+
+    function findPostStateClaim(
+        uint256 _nary,
+        Position _pos,
+        uint256 _start
+    ) public view returns (Position pos_, Claim claim_) {
+        ClaimData storage ancestor_ = claimData[_start];
+        uint256 pos = _pos.raw();
+        pos = pos / _nary;
+        while ((pos + 1) % _nary == 0 && pos != 1) {
+            if (pos != _pos.raw() / _nary) {
+                ancestor_ = claimData[ancestor_.parentIndex];
+            }
+            pos = pos / _nary;
+        }
+        return (ancestor_.position, ancestor_.claim);
     }
 }
