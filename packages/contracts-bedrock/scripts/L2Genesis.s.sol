@@ -105,12 +105,7 @@ contract L2Genesis is Deployer {
         super.setUp();
     }
 
-    function name() public pure override returns (string memory) {
-        return "L2Genesis";
-    }
-
     function artifactDependencies() internal view returns (L1Dependencies memory l1Dependencies_) {
-        console.log("retrieving L1 deployments from artifacts");
         return L1Dependencies({
             l1CrossDomainMessengerProxy: mustGetAddress("L1CrossDomainMessengerProxy"),
             l1StandardBridgeProxy: mustGetAddress("L1StandardBridgeProxy"),
@@ -197,7 +192,7 @@ contract L2Genesis is Deployer {
             vm.etch(addr, code);
             EIP1967Helper.setAdmin(addr, Predeploys.PROXY_ADMIN);
 
-            if (Predeploys.isSupportedPredeploy(addr)) {
+            if (Predeploys.isSupportedPredeploy(addr, cfg.useInterop())) {
                 address implementation = Predeploys.predeployToCodeNamespace(addr);
                 console.log("Setting proxy %s implementation: %s", addr, implementation);
                 EIP1967Helper.setImplementation(addr, implementation);
@@ -209,15 +204,15 @@ contract L2Genesis is Deployer {
     ///      sets the deployed bytecode at their expected predeploy address.
     ///      LEGACY_ERC20_ETH and L1_MESSAGE_SENDER are deprecated and are not set.
     function setPredeployImplementations(L1Dependencies memory _l1Dependencies) internal {
-        console.log("Setting predeploy implementations, with L1 contract dependencies:");
-        console.log("- l1CrossDomainMessengerProxy: %s", _l1Dependencies.l1CrossDomainMessengerProxy);
-        console.log("- l1StandardBridgeProxy: %s", _l1Dependencies.l1StandardBridgeProxy);
-        console.log("- l1ERC721BridgeProxy: %s", _l1Dependencies.l1ERC721BridgeProxy);
+        console.log("Setting predeploy implementations with L1 contract dependencies:");
+        console.log("- L1CrossDomainMessengerProxy: %s", _l1Dependencies.l1CrossDomainMessengerProxy);
+        console.log("- L1StandardBridgeProxy: %s", _l1Dependencies.l1StandardBridgeProxy);
+        console.log("- L1ERC721BridgeProxy: %s", _l1Dependencies.l1ERC721BridgeProxy);
         setLegacyMessagePasser(); // 0
         // 01: legacy, not used in OP-Stack
         setDeployerWhitelist(); // 2
         // 3,4,5: legacy, not used in OP-Stack.
-        setWETH9(); // 6: WETH9 (not behind a proxy)
+        setWETH(); // 6: WETH (not behind a proxy)
         setL2CrossDomainMessenger(_l1Dependencies.l1CrossDomainMessengerProxy); // 7
         // 8,9,A,B,C,D,E: legacy, not used in OP-Stack.
         setGasPriceOracle(); // f
@@ -236,6 +231,10 @@ contract L2Genesis is Deployer {
         setSchemaRegistry(); // 20
         setEAS(); // 21
         setGovernanceToken(); // 42: OP (not behind a proxy)
+        if (cfg.useInterop()) {
+            setCrossL2Inbox(); // 22
+            setL2ToL2CrossDomainMessenger(); // 23
+        }
     }
 
     function setProxyAdmin() public {
@@ -347,31 +346,9 @@ contract L2Genesis is Deployer {
     /// @notice This predeploy is following the safety invariant #1.
     ///         This contract is NOT proxied and the state that is set
     ///         in the constructor is set manually.
-    function setWETH9() public {
-        console.log("Setting %s implementation at: %s", "WETH9", Predeploys.WETH9);
-        vm.etch(Predeploys.WETH9, vm.getDeployedCode("WETH9.sol:WETH9"));
-
-        vm.store(
-            Predeploys.WETH9,
-            /// string public name
-            hex"0000000000000000000000000000000000000000000000000000000000000000",
-            /// "Wrapped Ether"
-            hex"577261707065642045746865720000000000000000000000000000000000001a"
-        );
-        vm.store(
-            Predeploys.WETH9,
-            /// string public symbol
-            hex"0000000000000000000000000000000000000000000000000000000000000001",
-            /// "WETH"
-            hex"5745544800000000000000000000000000000000000000000000000000000008"
-        );
-        vm.store(
-            Predeploys.WETH9,
-            // uint8 public decimals
-            hex"0000000000000000000000000000000000000000000000000000000000000002",
-            /// 18
-            hex"0000000000000000000000000000000000000000000000000000000000000012"
-        );
+    function setWETH() public {
+        console.log("Setting %s implementation at: %s", "WETH", Predeploys.WETH);
+        vm.etch(Predeploys.WETH, vm.getDeployedCode("WETH.sol:WETH"));
     }
 
     /// @notice This predeploy is following the safety invariant #1.
@@ -468,6 +445,18 @@ contract L2Genesis is Deployer {
         vm.resetNonce(address(eas));
     }
 
+    /// @notice This predeploy is following the saftey invariant #2.
+    ///         This contract has no initializer.
+    function setCrossL2Inbox() internal {
+        _setImplementationCode(Predeploys.CROSS_L2_INBOX);
+    }
+
+    /// @notice This predeploy is following the saftey invariant #2.
+    ///         This contract has no initializer.
+    function setL2ToL2CrossDomainMessenger() internal {
+        _setImplementationCode(Predeploys.L2_TO_L2_CROSS_DOMAIN_MESSENGER);
+    }
+
     /// @notice Sets all the preinstalls.
     ///         Warning: the creator-accounts of the preinstall contracts have 0 nonce values.
     ///         When performing a regular user-initiated contract-creation of a preinstall,
@@ -497,9 +486,8 @@ contract L2Genesis is Deployer {
         require(Preinstalls.BeaconBlockRoots.code.length > 0, "L2Genesis: must have beacon-block-roots contract");
         console.log("Activating ecotone in GasPriceOracle contract");
 
-        vm.startPrank(L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT());
+        vm.prank(L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT());
         GasPriceOracle(Predeploys.GAS_PRICE_ORACLE).setEcotone();
-        vm.stopPrank();
     }
 
     /// @notice Sets the bytecode in state
