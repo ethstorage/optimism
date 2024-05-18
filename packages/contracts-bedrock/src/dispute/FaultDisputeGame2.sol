@@ -76,6 +76,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     /// @notice Flag for the `initialize` function to prevent re-initialization.
     bool internal initialized;
 
+    /// @notice Bits of N-ary search
+    uint256 nBits;
+
     /// @notice An append-only array of all claims made during the dispute game.
     ClaimData[] public claimData;
 
@@ -204,6 +207,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // Set the game as initialized.
         initialized = true;
 
+        // nBits ** 2 = N-ary
+        nBits = 1;
+
         // Deposit the bond.
         WETH.deposit{ value: msg.value }();
 
@@ -285,7 +291,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         //            state's depth in relation to the parent, we don't need another
         //            branch because (n - n) % 2 == 0.
         bool validStep = VM.step(_stateData, _proof, uuid.raw()) == postState.claim.raw();
-        bool parentPostAgree = (parentPos.depth() - postState.position.depth()) % 2 == 0;
+        bool parentPostAgree = ((parentPos.depth() - postState.position.depth()) / nBits) % 2 == 0;
         if (parentPostAgree == validStep) revert ValidStep();
 
         // INVARIANT: A step cannot be made against a claim for a second time.
@@ -833,7 +839,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         returns (ClaimData storage ancestor_)
     {
         // Grab the trace ancestor's expected position.
-        Position traceAncestorPos = _global ? _pos.traceAncestor() : _pos.traceAncestorBounded(SPLIT_DEPTH);
+        Position traceAncestorPos = _global ? _pos.traceAncestorBounded(nBits - 1) : _pos.traceAncestorBounded(SPLIT_DEPTH);
 
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
         // guaranteed that such a claim exists.
