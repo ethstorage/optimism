@@ -967,6 +967,6 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     }
 
     function findFirstValueDepth(uint256 minDepth) public view returns (uint256 depth) {
-        return ((minDepth + nBits -1)/nBits) * nBits;
+        return ((minDepth + nBits - 1) / nBits) * nBits;
     }
 }
