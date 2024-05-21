@@ -291,6 +291,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         //            state's depth in relation to the parent, we don't need another
         //            branch because (n - n) % 2 == 0.
         bool validStep = VM.step(_stateData, _proof, uuid.raw()) == postState.claim.raw();
+        // With adjacent height as nBits, B challenges A, the difference between B.depth() and A.depth() equals nBits.
         bool parentPostAgree = ((parentPos.depth() - postState.position.depth()) / nBits) % 2 == 0;
         if (parentPostAgree == validStep) revert ValidStep();
 
@@ -839,7 +840,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         returns (ClaimData storage ancestor_)
     {
         // Grab the trace ancestor's expected position.
-        Position traceAncestorPos = _global ? _pos.traceAncestorBounded(nBits - 1) : _pos.traceAncestorBounded(SPLIT_DEPTH);
+        Position traceAncestorPos = _global
+            ? traceAncestorV2(_pos) : _pos.traceAncestorBounded(findFirstValueDepth(SPLIT_DEPTH));
 
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
         // guaranteed that such a claim exists.
@@ -947,5 +949,24 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         uuid_ = _startingPos.raw() == 0
             ? Hash.wrap(keccak256(abi.encode(_disputed, _disputedPos)))
             : Hash.wrap(keccak256(abi.encode(_starting, _startingPos, _disputed, _disputedPos)));
+    }
+
+    function traceAncestorV2(Position _position) public view returns (Position ancestor_) {
+        if (_position.depth() < nBits) {
+            revert ClaimAboveSplit();
+        }
+        ancestor_ = _position.traceAncestor();
+        // Position 1 is not the value submitted by the Actors.
+        if (1 == ancestor_.raw()) {
+            return ancestor_;
+        }
+        // The depth of the ancestor must not be less than the depth of the first attack position.
+        for (uint64 start = ancestor_.depth(); start < nBits; start++) {
+            ancestor_ = Position.wrap(ancestor_.raw() * 2 + 1);
+        }
+    }
+
+    function findFirstValueDepth(uint256 minDepth) public view returns (uint256 depth) {
+        return ((minDepth + nBits -1)/nBits) * nBits;
     }
 }
