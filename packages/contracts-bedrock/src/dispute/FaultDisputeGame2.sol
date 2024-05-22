@@ -841,7 +841,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     {
         // Grab the trace ancestor's expected position.
         Position traceAncestorPos = _global
-            ? traceAncestorV2(_pos) : _pos.traceAncestorBounded(findFirstValueDepth(SPLIT_DEPTH));
+            ? _traceAncestorV2(_pos, nBits)
+            : _firstValidPosition(_pos.traceAncestorBounded(SPLIT_DEPTH), nBits);
 
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
         // guaranteed that such a claim exists.
@@ -951,22 +952,34 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             : Hash.wrap(keccak256(abi.encode(_starting, _startingPos, _disputed, _disputedPos)));
     }
 
-    function traceAncestorV2(Position _position) public view returns (Position ancestor_) {
-        if (_position.depth() < nBits) {
-            revert ClaimAboveSplit();
+    function _traceAncestorV2(Position _position, uint256 _intervalDepth)
+        internal
+        pure
+        returns (Position ancestor_)
+    {
+        if (_position.depth() % _intervalDepth != 0 || _position.depth() < _intervalDepth) {
+            revert InvalidClaim();
         }
         ancestor_ = _position.traceAncestor();
         // Position 1 is not the value submitted by the Actors.
         if (1 == ancestor_.raw()) {
             return ancestor_;
         }
-        // The depth of the ancestor must not be less than the depth of the first attack position.
-        for (uint64 start = ancestor_.depth(); start < nBits; start++) {
-            ancestor_ = Position.wrap(ancestor_.raw() * 2 + 1);
-        }
+        return _firstValidPosition(ancestor_, _intervalDepth);
     }
 
-    function findFirstValueDepth(uint256 minDepth) public view returns (uint256 depth) {
-        return ((minDepth + nBits - 1) / nBits) * nBits;
+    /// @notice The position of the first claim submitted in the current location or subtree.
+    /// @param _position Current location
+    /// @param _intervalDepth The depth of the interval with each submission.
+    /// @return first_ First valid location
+    function _firstValidPosition(Position _position, uint256 _intervalDepth)
+        internal
+        pure
+        returns (Position first_)
+    {
+        first_ = _position;
+        for (uint64 start = first_.depth(); start % _intervalDepth != 0; start++) {
+            first_ = first_.right();
+        }
     }
 }
