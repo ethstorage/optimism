@@ -842,7 +842,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // Grab the trace ancestor's expected position.
         Position traceAncestorPos = _global
             ? _traceAncestorV2(_pos, nBits)
-            : _firstValidPosition(_pos.traceAncestorBounded(SPLIT_DEPTH), nBits);
+            : _firstValidRightIndex(_pos.traceAncestorBounded(SPLIT_DEPTH), nBits);
 
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
         // guaranteed that such a claim exists.
@@ -957,22 +957,18 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         pure
         returns (Position ancestor_)
     {
-        if (_position.depth() % _intervalDepth != 0 || _position.depth() < _intervalDepth) {
+        if (_position.depth() % _intervalDepth != 0) {
             revert InvalidClaim();
         }
         ancestor_ = _position.traceAncestor();
-        // Position 1 is not the value submitted by the Actors.
-        if (1 == ancestor_.raw()) {
-            return ancestor_;
-        }
-        return _firstValidPosition(ancestor_, _intervalDepth);
+        return _firstValidRightIndex(ancestor_, _intervalDepth);
     }
 
     /// @notice The position of the first claim submitted in the current location or subtree.
     /// @param _position Current location
     /// @param _intervalDepth The depth of the interval with each submission.
     /// @return first_ First valid location
-    function _firstValidPosition(Position _position, uint256 _intervalDepth)
+    function _firstValidRightIndex(Position _position, uint256 _intervalDepth)
         internal
         pure
         returns (Position first_)
