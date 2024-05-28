@@ -104,6 +104,48 @@ func TestForecast_Forecast_BasicTests(t *testing.T) {
 func TestForecast_Forecast_EndLogs(t *testing.T) {
 	t.Parallel()
 
+	t.Run("BlockNumberChallenged_AgreeWithChallenge", func(t *testing.T) {
+		forecast, m, logs := setupForecastTest(t)
+		expectedGame := monTypes.EnrichedGameData{
+			Status:                types.GameStatusInProgress,
+			BlockNumberChallenged: true,
+			L2BlockNumber:         6,
+			AgreeWithClaim:        false,
+		}
+		forecast.Forecast([]*monTypes.EnrichedGameData{&expectedGame}, 0, 0)
+		l := logs.FindLog(testlog.NewLevelFilter(log.LevelDebug), testlog.NewMessageFilter("Found game with challenged block number"))
+		require.NotNil(t, l)
+		require.Equal(t, expectedGame.Proxy, l.AttrValue("game"))
+		require.Equal(t, expectedGame.L2BlockNumber, l.AttrValue("blockNum"))
+		require.Equal(t, false, l.AttrValue("agreement"))
+
+		expectedMetrics := zeroGameAgreement()
+		// We disagree with the root claim and the challenger is ahead
+		expectedMetrics[metrics.DisagreeChallengerAhead] = 1
+		require.Equal(t, expectedMetrics, m.gameAgreement)
+	})
+
+	t.Run("BlockNumberChallenged_DisagreeWithChallenge", func(t *testing.T) {
+		forecast, m, logs := setupForecastTest(t)
+		expectedGame := monTypes.EnrichedGameData{
+			Status:                types.GameStatusInProgress,
+			BlockNumberChallenged: true,
+			L2BlockNumber:         6,
+			AgreeWithClaim:        true,
+		}
+		forecast.Forecast([]*monTypes.EnrichedGameData{&expectedGame}, 0, 0)
+		l := logs.FindLog(testlog.NewLevelFilter(log.LevelDebug), testlog.NewMessageFilter("Found game with challenged block number"))
+		require.NotNil(t, l)
+		require.Equal(t, expectedGame.Proxy, l.AttrValue("game"))
+		require.Equal(t, expectedGame.L2BlockNumber, l.AttrValue("blockNum"))
+		require.Equal(t, true, l.AttrValue("agreement"))
+
+		expectedMetrics := zeroGameAgreement()
+		// We agree with the root claim and the challenger is ahead
+		expectedMetrics[metrics.AgreeChallengerAhead] = 1
+		require.Equal(t, expectedMetrics, m.gameAgreement)
+	})
+
 	t.Run("AgreeDefenderWins", func(t *testing.T) {
 		forecast, _, logs := setupForecastTest(t)
 		games := []*monTypes.EnrichedGameData{{
@@ -221,8 +263,8 @@ func TestForecast_Forecast_MultipleGames(t *testing.T) {
 		{},
 		mockRootClaim,
 		{},
-		{}, // Expected latest invalid proposal (will have timestamp 7)
-		mockRootClaim,
+		{},            // Expected latest invalid proposal (will have timestamp 7)
+		mockRootClaim, // Expected latest valid proposal (will have timestamp 8)
 	}
 	games := make([]*monTypes.EnrichedGameData, 9)
 	for i := range games {
@@ -251,6 +293,7 @@ func TestForecast_Forecast_MultipleGames(t *testing.T) {
 	require.Equal(t, 3, m.ignoredGames)
 	require.Equal(t, 4, m.contractCreationFails)
 	require.EqualValues(t, 7, m.latestInvalidProposal)
+	require.EqualValues(t, 8, m.latestValidProposal)
 }
 
 func setupForecastTest(t *testing.T) (*Forecast, *mockForecastMetrics, *testlog.CapturingHandler) {
@@ -278,6 +321,7 @@ type mockForecastMetrics struct {
 	gameAgreement         map[metrics.GameAgreementStatus]int
 	ignoredGames          int
 	latestInvalidProposal uint64
+	latestValidProposal   uint64
 	contractCreationFails int
 }
 
@@ -289,8 +333,9 @@ func (m *mockForecastMetrics) RecordGameAgreement(status metrics.GameAgreementSt
 	m.gameAgreement[status] = count
 }
 
-func (m *mockForecastMetrics) RecordLatestInvalidProposal(timestamp uint64) {
-	m.latestInvalidProposal = timestamp
+func (m *mockForecastMetrics) RecordLatestProposals(valid, invalid uint64) {
+	m.latestValidProposal = valid
+	m.latestInvalidProposal = invalid
 }
 
 func (m *mockForecastMetrics) RecordIgnoredGames(count int) {

@@ -239,15 +239,18 @@ jobs:
             - ".devnet/allocs-l1.json"
             - ".devnet/allocs-l2.json"
             - ".devnet/allocs-l2-delta.json"
+            - ".devnet/allocs-l2-ecotone.json"
             - ".devnet/addresses.json"
             - ".devnet-fault-proofs/allocs-l1.json"
             - ".devnet-fault-proofs/addresses.json"
             - ".devnet-fault-proofs/allocs-l2.json"
             - ".devnet-fault-proofs/allocs-l2-delta.json"
+            - ".devnet-fault-proofs/allocs-l2-ecotone.json"
             - ".devnet-plasma/allocs-l1.json"
             - ".devnet-plasma/addresses.json"
             - ".devnet-plasma/allocs-l2.json"
             - ".devnet-plasma/allocs-l2-delta.json"
+            - ".devnet-plasma/allocs-l2-ecotone.json"
             - "packages/contracts-bedrock/deploy-config/devnetL1.json"
             - "packages/contracts-bedrock/deployments/devnetL1"
       - notify-failures-on-develop
@@ -333,20 +336,20 @@ jobs:
             echo "Tags at commit:\n$tags_at_commit"
 
             filtered_tags=$(echo "$tags_at_commit" | grep "^<<parameters.docker_name>>/" || true)
-            echo "Filtered tags:\n$filtered_tags"
+            echo "Filtered tags: $filtered_tags"
 
             if [ -z "$filtered_tags" ]; then
               export GIT_VERSION="untagged"
             else
               sorted_tags=$(echo "$filtered_tags" | sed "s/<<parameters.docker_name>>\///" | sort -V)
-              echo "Sorted tags:\n$sorted_tags"
+              echo "Sorted tags: $sorted_tags"
 
               # prefer full release tag over "-rc" release candidate tag if both exist
               full_release_tag=$(echo "$sorted_tags" | grep -v -- "-rc" || true)
               if [ -z "$full_release_tag" ]; then
                 export GIT_VERSION=$(echo "$sorted_tags" | tail -n 1)
               else
-                export GIT_VERSION=$(echo "$full_release_tag")
+                export GIT_VERSION=$(echo "$full_release_tag" | tail -n 1)
               fi
             fi
 
@@ -567,11 +570,21 @@ jobs:
       - run:
           name: Install dependencies
           command: pnpm install:ci
-      # Note: this step needs to come first because one of the later steps modifies the cache & forces a contracts rebuild
       - run:
           name: forge version
           command: forge --version
       - run:
+          # The solc warnings check must be the first step to build the contracts, that way the
+          # warnings are output here. On subsequent runs, forge will read artifacts from the cache
+          # so warnings would not occur.
+          name: solc warnings check
+          command: |
+            forge build --deny-warnings || echo "export SOLC_WARNINGS_CHECK=1" >> "$BASH_ENV"
+          environment:
+            FOUNDRY_PROFILE: ci
+          working_directory: packages/contracts-bedrock
+      - run:
+        # Semver lock must come second because one of the later steps may modify the cache & force a contracts rebuild.
           name: semver lock
           command: |
             pnpm semver-lock
@@ -585,16 +598,6 @@ jobs:
           name: lint
           command: |
             pnpm lint:check || echo "export LINT_STATUS=1" >> "$BASH_ENV"
-          working_directory: packages/contracts-bedrock
-      - run:
-          # The solc warnings check must be the first step to build the contracts, that way the
-          # warnings are output here. On subsequent runs, forge will read artifacts from the cache
-          # so warnings would not occur.
-          name: solc warnings check
-          command: |
-            forge build --deny-warnings || echo "export SOLC_WARNINGS_CHECK=1" >> "$BASH_ENV"
-          environment:
-            FOUNDRY_PROFILE: ci
           working_directory: packages/contracts-bedrock
       - run:
           name: gas snapshot
@@ -722,28 +725,6 @@ jobs:
           name: Upload coverage
           command: codecov --verbose --clean --flags <<parameters.coverage_flag>>
 
-  contracts-ts-tests:
-    docker:
-      - image: <<pipeline.parameters.ci_builder_image>>
-    resource_class: medium
-    steps:
-      - checkout
-      - attach_workspace: { at: "." }
-      - restore_cache:
-          name: Restore pnpm Package Cache
-          keys:
-            - pnpm-packages-v2-{{ checksum "pnpm.lock.yaml" }}
-      - check-changed:
-          patterns: sdk,contracts-bedrock,contracts
-      # populate node modules from the cache
-      - run:
-          name: Install dependencies
-          command: pnpm install:ci
-      - run:
-          name: Check generated and build
-          command: pnpm generate:check
-          working_directory: packages/contracts-ts
-
   sdk-next-tests:
     docker:
       - image: <<pipeline.parameters.ci_builder_image>>
@@ -860,14 +841,6 @@ jobs:
             - pnpm-packages-v2-{{ checksum "pnpm-lock.yaml" }}
       - check-changed:
           patterns: packages
-      - run:
-          name: Check common-ts
-          command: npx depcheck
-          working_directory: packages/common-ts
-      - run:
-          name: Check core-utils
-          command: npx depcheck
-          working_directory: packages/core-utils
       - run:
           name: Check sdk
           command: npx depcheck
@@ -1018,6 +991,7 @@ jobs:
             mkdir -p .devnet
             cp /tmp/workspace/.devnet<<parameters.fpac>>/allocs-l2.json .devnet/allocs-l2.json
             cp /tmp/workspace/.devnet<<parameters.fpac>>/allocs-l2-delta.json .devnet/allocs-l2-delta.json
+            cp /tmp/workspace/.devnet<<parameters.fpac>>/allocs-l2-ecotone.json .devnet/allocs-l2-ecotone.json
             cp /tmp/workspace/.devnet<<parameters.fpac>>/allocs-l1.json .devnet/allocs-l1.json
             cp /tmp/workspace/.devnet<<parameters.fpac>>/addresses.json .devnet/addresses.json
             cp /tmp/workspace/packages/contracts-bedrock/deploy-config/devnetL1.json packages/contracts-bedrock/deploy-config/devnetL1.json
@@ -1216,6 +1190,8 @@ jobs:
               echo 'export EXPECTED_PRESTATE_HASH="0x034c8cc69f22c35ae386a97136715dd48aaf97fd190942a111bfa680c2f2f421"' >> $BASH_ENV
             elif [[ "<<parameters.version>>" == "1.0.0" ]]; then
               echo 'export EXPECTED_PRESTATE_HASH="0x037ef3c1a487960b0e633d3e513df020c43432769f41a634d18a9595cbf53c55"' >> $BASH_ENV
+            elif [[ "<<parameters.version>>" == "1.1.0" ]]; then
+              echo 'export EXPECTED_PRESTATE_HASH="0x03e69d3de5155f4a80da99dd534561cbddd4f9dd56c9ecc704d6886625711d2b"' >> $BASH_ENV
             else
               echo "Unknown prestate version <<parameters.version>>"
               exit 1
@@ -1260,6 +1236,7 @@ jobs:
           paths:
             - ".devnet/allocs-l2.json"
             - ".devnet/allocs-l2-delta.json"
+            - ".devnet/allocs-l2-ecotone.json"
             - ".devnet/allocs-l1.json"
             - ".devnet/addresses.json"
             - "packages/contracts-bedrock/deploy-config/devnetL1.json"
@@ -1643,7 +1620,7 @@ jobs:
           command: make submodules
       - check-changed:
           no_go_deps: "true"
-          patterns: contracts-bedrock/test/kontrol,contracts-bedrock/src/L1/OptimismPortal\.sol,contracts-bedrock/src/L1/L1CrossDomainMessenger\.sol,contracts-bedrock/src/L1/L1ERC721Bridge\.sol,contracts-bedrock/src/L1/L1StandardBridge\.sol,contracts-bedrock/src/L1/ResourceMetering\.sol,contracts-bedrock/src/universal/StandardBridge\.sol,contracts-bedrock/src/universal/ERC721Bridge\.sol,contracts-bedrock/src/universal/CrossDomainMessenger\.sol
+          patterns: contracts-bedrock/test/kontrol,contracts-bedrock/src/L1/OptimismPortal\.sol,contracts-bedrock/src/L1/OptimismPortal2\.sol,contracts-bedrock/src/L1/L1CrossDomainMessenger\.sol,contracts-bedrock/src/L1/L1ERC721Bridge\.sol,contracts-bedrock/src/L1/L1StandardBridge\.sol,contracts-bedrock/src/L1/ResourceMetering\.sol,contracts-bedrock/src/universal/StandardBridge\.sol,contracts-bedrock/src/universal/ERC721Bridge\.sol,contracts-bedrock/src/universal/CrossDomainMessenger\.sol
       - setup_remote_docker:
           docker_layer_caching: true
       - run:
@@ -1670,18 +1647,6 @@ workflows:
     jobs:
       - pnpm-monorepo:
           name: pnpm-monorepo
-      - js-lint-test:
-          name: common-ts-tests
-          coverage_flag: common-ts-tests
-          package_name: common-ts
-          requires:
-            - pnpm-monorepo
-      - js-lint-test:
-          name: core-utils-tests
-          coverage_flag: core-utils-tests
-          package_name: core-utils
-          requires:
-            - pnpm-monorepo
       - contracts-bedrock-tests:
           requires:
             - pnpm-monorepo
@@ -1696,21 +1661,14 @@ workflows:
           name: chain-mon-tests
           coverage_flag: chain-mon-tests
           package_name: chain-mon
-          dependencies: "(common-ts|contracts-bedrock|core-utils|sdk)"
-          requires:
-            - pnpm-monorepo
-      - js-lint-test:
-          name: contracts-ts-tests
-          coverage_flag: contracts-ts-tests
-          package_name: contracts-ts
-          dependencies: '(contracts-bedrock|contracts-ts)'
+          dependencies: "(contracts-bedrock|sdk)"
           requires:
             - pnpm-monorepo
       - js-lint-test:
           name: sdk-tests
           coverage_flag: sdk-tests
           package_name: sdk
-          dependencies: "(contracts-bedrock|core-utils)"
+          dependencies: "contracts-bedrock"
           requires:
             - pnpm-monorepo
       - depcheck:
@@ -1745,12 +1703,18 @@ workflows:
       - fuzz-golang:
           name: op-chain-ops-fuzz
           package_name: op-chain-ops
-          on_changes: op-chain-ops,op-bindings
+          on_changes: op-chain-ops
           requires: ["go-mod-download"]
       - fuzz-golang:
           name: cannon-fuzz
           package_name: cannon
           on_changes: cannon,packages/contracts-bedrock/src/cannon
+          uses_artifacts: true
+          requires: ["go-mod-download", "pnpm-monorepo"]
+      - fuzz-golang:
+          name: op-e2e-fuzz
+          package_name: op-e2e
+          on_changes: op-e2e,packages/contracts-bedrock/src
           uses_artifacts: true
           requires: ["go-mod-download", "pnpm-monorepo"]
       - go-test:
@@ -1760,10 +1724,6 @@ workflows:
       - go-test:
           name: op-batcher-tests
           module: op-batcher
-          requires: ["go-mod-download"]
-      - go-test:
-          name: op-bindings-tests
-          module: op-bindings
           requires: ["go-mod-download"]
       - go-test:
           name: op-chain-ops-tests
@@ -1852,7 +1812,6 @@ workflows:
             - check-generated-mocks-op-service
             - go-mod-download
             - op-batcher-tests
-            - op-bindings-tests
             - op-chain-ops-tests
             - op-heartbeat-tests
             - op-node-tests
@@ -2434,6 +2393,6 @@ workflows:
       - preimage-reproducibility:
           matrix:
             parameters:
-              version: ["0.1.0", "0.2.0", "0.3.0", "1.0.0"]
+              version: ["0.1.0", "0.2.0", "0.3.0", "1.0.0", "1.1.0"]
           context:
             slack

@@ -99,6 +99,7 @@ var sepoliaCfg = rollup.Config{
 	CanyonTime:              u64Ptr(1699981200),
 	DeltaTime:               u64Ptr(1703203200),
 	EcotoneTime:             u64Ptr(1708534800),
+	FjordTime:               u64Ptr(1716998400),
 	ProtocolVersionsAddress: common.HexToAddress("0x79ADD5713B383DAa0a138d3C4780C7A1804a8090"),
 }
 
@@ -133,6 +134,7 @@ var sepoliaDev0Cfg = rollup.Config{
 	CanyonTime:              u64Ptr(0),
 	DeltaTime:               u64Ptr(0),
 	EcotoneTime:             u64Ptr(1706634000),
+	FjordTime:               u64Ptr(1715961600),
 	ProtocolVersionsAddress: common.HexToAddress("0x252CbE9517F731C618961D890D534183822dcC8d"),
 }
 

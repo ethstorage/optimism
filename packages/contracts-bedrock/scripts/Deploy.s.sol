@@ -7,8 +7,9 @@ import { Script } from "forge-std/Script.sol";
 import { console2 as console } from "forge-std/console2.sol";
 import { stdJson } from "forge-std/StdJson.sol";
 
-import { Safe } from "safe-contracts/Safe.sol";
-import { SafeProxyFactory } from "safe-contracts/proxies/SafeProxyFactory.sol";
+import { GnosisSafe as Safe } from "safe-contracts/GnosisSafe.sol";
+import { OwnerManager } from "safe-contracts/base/OwnerManager.sol";
+import { GnosisSafeProxyFactory as SafeProxyFactory } from "safe-contracts/proxies/GnosisSafeProxyFactory.sol";
 import { Enum as SafeOps } from "safe-contracts/common/Enum.sol";
 
 import { Deployer } from "scripts/Deployer.sol";
@@ -20,6 +21,7 @@ import { L1StandardBridge } from "src/L1/L1StandardBridge.sol";
 import { StandardBridge } from "src/universal/StandardBridge.sol";
 import { OptimismPortal } from "src/L1/OptimismPortal.sol";
 import { OptimismPortal2 } from "src/L1/OptimismPortal2.sol";
+import { OptimismPortalInterop } from "src/L1/OptimismPortalInterop.sol";
 import { L1ChugSplashProxy } from "src/legacy/L1ChugSplashProxy.sol";
 import { ResolvedDelegateProxy } from "src/legacy/ResolvedDelegateProxy.sol";
 import { L1CrossDomainMessenger } from "src/L1/L1CrossDomainMessenger.sol";
@@ -27,6 +29,7 @@ import { L2OutputOracle } from "src/L1/L2OutputOracle.sol";
 import { OptimismMintableERC20Factory } from "src/universal/OptimismMintableERC20Factory.sol";
 import { SuperchainConfig } from "src/L1/SuperchainConfig.sol";
 import { SystemConfig } from "src/L1/SystemConfig.sol";
+import { SystemConfigInterop } from "src/L1/SystemConfigInterop.sol";
 import { ResourceMetering } from "src/L1/ResourceMetering.sol";
 import { DataAvailabilityChallenge } from "src/L1/DataAvailabilityChallenge.sol";
 import { Constants } from "src/libraries/Constants.sol";
@@ -426,6 +429,13 @@ contract Deploy is Deployer {
         addr_ = deploySafe(_name, owners, 1, true);
     }
 
+    /// @notice Deploy a new Safe contract. If the keepDeployer option is used to enable further setup actions, then
+    ///         the removeDeployerFromSafe() function should be called on that safe after setup is complete.
+    ///         Note this function does not have the broadcast modifier.
+    /// @param _name The name of the Safe to deploy.
+    /// @param _owners The owners of the Safe.
+    /// @param _threshold The threshold of the Safe.
+    /// @param _keepDeployer Wether or not the deployer address will be added as an owner of the Safe.
     function deploySafe(
         string memory _name,
         address[] memory _owners,
@@ -460,6 +470,24 @@ contract Deploy is Deployer {
 
         save(_name, addr_);
         console.log("New safe: %s deployed at %s\n    Note that this safe is owned by the deployer key", _name, addr_);
+    }
+
+    /// @notice If the keepDeployer option was used with deploySafe(), this function can be used to remove the deployer.
+    ///         Note this function does not have the broadcast modifier.
+    function removeDeployerFromSafe(string memory _name, uint256 _newThreshold) public {
+        Safe safe = Safe(mustGetAddress(_name));
+
+        // The sentinel address is used to mark the start and end of the linked list of owners in the Safe.
+        address sentinelOwners = address(0x1);
+
+        // Because deploySafe() always adds msg.sender first (if keepDeployer is true), we know that the previousOwner
+        // will be sentinelOwners.
+        _callViaSafe({
+            _safe: safe,
+            _target: address(safe),
+            _data: abi.encodeCall(OwnerManager.removeOwner, (sentinelOwners, msg.sender, _newThreshold))
+        });
+        console.log("Removed deployer owner from ", _name);
     }
 
     /// @notice Deploy the AddressManager
@@ -610,20 +638,20 @@ contract Deploy is Deployer {
     /// @notice Deploy the OptimismPortal
     function deployOptimismPortal() public broadcast returns (address addr_) {
         console.log("Deploying OptimismPortal implementation");
-
-        OptimismPortal portal = new OptimismPortal{ salt: _implSalt() }();
-
-        save("OptimismPortal", address(portal));
-        console.log("OptimismPortal deployed at %s", address(portal));
+        if (cfg.useInterop()) {
+            addr_ = address(new OptimismPortalInterop{ salt: _implSalt() }());
+        } else {
+            addr_ = address(new OptimismPortal{ salt: _implSalt() }());
+        }
+        save("OptimismPortal", addr_);
+        console.log("OptimismPortal deployed at %s", addr_);
 
         // Override the `OptimismPortal` contract to the deployed implementation. This is necessary
         // to check the `OptimismPortal` implementation alongside dependent contracts, which
         // are always proxies.
         Types.ContractSet memory contracts = _proxiesUnstrict();
-        contracts.OptimismPortal = address(portal);
+        contracts.OptimismPortal = addr_;
         ChainAssertions.checkOptimismPortal({ _contracts: contracts, _cfg: cfg, _isProxy: false });
-
-        addr_ = address(portal);
     }
 
     /// @notice Deploy the OptimismPortal2
@@ -785,19 +813,20 @@ contract Deploy is Deployer {
     /// @notice Deploy the SystemConfig
     function deploySystemConfig() public broadcast returns (address addr_) {
         console.log("Deploying SystemConfig implementation");
-        SystemConfig config = new SystemConfig{ salt: _implSalt() }();
-
-        save("SystemConfig", address(config));
-        console.log("SystemConfig deployed at %s", address(config));
+        if (cfg.useInterop()) {
+            addr_ = address(new SystemConfigInterop{ salt: _implSalt() }());
+        } else {
+            addr_ = address(new SystemConfig{ salt: _implSalt() }());
+        }
+        save("SystemConfig", addr_);
+        console.log("SystemConfig deployed at %s", addr_);
 
         // Override the `SystemConfig` contract to the deployed implementation. This is necessary
         // to check the `SystemConfig` implementation alongside dependent contracts, which
         // are always proxies.
         Types.ContractSet memory contracts = _proxiesUnstrict();
-        contracts.SystemConfig = address(config);
+        contracts.SystemConfig = addr_;
         ChainAssertions.checkSystemConfig({ _contracts: contracts, _cfg: cfg, _isProxy: false });
-
-        addr_ = address(config);
     }
 
     /// @notice Deploy the L1StandardBridge
@@ -985,8 +1014,8 @@ contract Deploy is Deployer {
                 SystemConfig.initialize,
                 (
                     cfg.finalSystemOwner(),
-                    cfg.gasPriceOracleOverhead(),
-                    cfg.gasPriceOracleScalar(),
+                    cfg.basefeeScalar(),
+                    cfg.blobbasefeeScalar(),
                     batcherHash,
                     uint64(cfg.l2GenesisBlockGasLimit()),
                     cfg.p2pSequencerAddress(),

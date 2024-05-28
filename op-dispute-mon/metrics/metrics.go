@@ -126,11 +126,13 @@ type Metricer interface {
 
 	RecordGameAgreement(status GameAgreementStatus, count int)
 
-	RecordLatestInvalidProposal(timestamp uint64)
+	RecordLatestProposals(latestValid, latestInvalid uint64)
 
 	RecordIgnoredGames(count int)
 
 	RecordBondCollateral(addr common.Address, required *big.Int, available *big.Int)
+
+	RecordL2Challenges(agreement bool, count int)
 
 	caching.Metrics
 	contractMetrics.ContractMetricer
@@ -165,10 +167,11 @@ type Metrics struct {
 
 	lastOutputFetch prometheus.Gauge
 
-	gamesAgreement        prometheus.GaugeVec
-	latestInvalidProposal prometheus.Gauge
-	ignoredGames          prometheus.Gauge
-	failedGames           prometheus.Gauge
+	gamesAgreement  prometheus.GaugeVec
+	latestProposals prometheus.GaugeVec
+	ignoredGames    prometheus.Gauge
+	failedGames     prometheus.Gauge
+	l2Challenges    prometheus.GaugeVec
 
 	requiredCollateral  prometheus.GaugeVec
 	availableCollateral prometheus.GaugeVec
@@ -274,11 +277,12 @@ func NewMetrics() *Metrics {
 			"result_correctness",
 			"root_agreement",
 		}),
-		latestInvalidProposal: factory.NewGauge(prometheus.GaugeOpts{
+		latestProposals: *factory.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: Namespace,
-			Name:      "latest_invalid_proposal",
-			Help:      "Timestamp of the most recent game with an invalid root claim in unix seconds",
-		}),
+			Name:      "latest_proposal",
+			Help:      "Timestamp of the most recent game with a valid or invalid root claim in unix seconds",
+		},
+			[]string{"root_agreement"}),
 		ignoredGames: factory.NewGauge(prometheus.GaugeOpts{
 			Namespace: Namespace,
 			Name:      "ignored_games",
@@ -308,6 +312,15 @@ func NewMetrics() *Metrics {
 			// additional DelayedWETH contracts to be used by dispute games
 			"delayedWETH",
 			"balance",
+		}),
+		l2Challenges: *factory.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: Namespace,
+			Name:      "l2_block_challenges",
+			Help:      "Number of games where the L2 block number has been successfully challenged",
+		}, []string{
+			// Agreement with the root claim, not the actual l2 block number challenge.
+			// An l2 block number challenge with an agreement means the challenge was invalid.
+			"root_agreement",
 		}),
 	}
 }
@@ -440,8 +453,9 @@ func (m *Metrics) RecordGameAgreement(status GameAgreementStatus, count int) {
 	m.gamesAgreement.WithLabelValues(labelValuesFor(status)...).Set(float64(count))
 }
 
-func (m *Metrics) RecordLatestInvalidProposal(timestamp uint64) {
-	m.latestInvalidProposal.Set(float64(timestamp))
+func (m *Metrics) RecordLatestProposals(latestValid, latestInvalid uint64) {
+	m.latestProposals.WithLabelValues("agree").Set(float64(latestValid))
+	m.latestProposals.WithLabelValues("disagree").Set(float64(latestInvalid))
 }
 
 func (m *Metrics) RecordIgnoredGames(count int) {
@@ -453,12 +467,26 @@ func (m *Metrics) RecordFailedGames(count int) {
 }
 
 func (m *Metrics) RecordBondCollateral(addr common.Address, required *big.Int, available *big.Int) {
-	balance := "sufficient"
+	balanceLabel := "sufficient"
+	zeroBalanceLabel := "insufficient"
 	if required.Cmp(available) > 0 {
-		balance = "insufficient"
+		balanceLabel = "insufficient"
+		zeroBalanceLabel = "sufficient"
 	}
-	m.requiredCollateral.WithLabelValues(addr.Hex(), balance).Set(weiToEther(required))
-	m.availableCollateral.WithLabelValues(addr.Hex(), balance).Set(weiToEther(available))
+	m.requiredCollateral.WithLabelValues(addr.Hex(), balanceLabel).Set(weiToEther(required))
+	m.availableCollateral.WithLabelValues(addr.Hex(), balanceLabel).Set(weiToEther(available))
+
+	// If the balance is sufficient, make sure the insufficient label is zeroed out and vice versa.
+	m.requiredCollateral.WithLabelValues(addr.Hex(), zeroBalanceLabel).Set(0)
+	m.availableCollateral.WithLabelValues(addr.Hex(), zeroBalanceLabel).Set(0)
+}
+
+func (m *Metrics) RecordL2Challenges(agreement bool, count int) {
+	agree := "disagree"
+	if agreement {
+		agree = "agree"
+	}
+	m.l2Challenges.WithLabelValues(agree).Set(float64(count))
 }
 
 const (

@@ -39,11 +39,13 @@ struct L1Dependencies {
 /// @notice Enum representing different ways of outputting genesis allocs.
 /// @custom:value DEFAULT_LATEST Represents only latest L2 allocs, written to output path.
 /// @custom:value LOCAL_LATEST   Represents latest L2 allocs, not output anywhere, but kept in-process.
+/// @custom:value LOCAL_ECOTONE  Represents Ecotone-upgrade L2 allocs, not output anywhere, but kept in-process.
 /// @custom:value LOCAL_DELTA    Represents Delta-upgrade L2 allocs, not output anywhere, but kept in-process.
 /// @custom:value OUTPUT_ALL     Represents creation of one L2 allocs file for every upgrade.
 enum OutputMode {
     DEFAULT_LATEST,
     LOCAL_LATEST,
+    LOCAL_ECOTONE,
     LOCAL_DELTA,
     OUTPUT_ALL
 }
@@ -154,6 +156,16 @@ contract L2Genesis is Deployer {
         }
 
         activateEcotone();
+
+        if (_mode == OutputMode.LOCAL_ECOTONE) {
+            return;
+        }
+        if (_mode == OutputMode.OUTPUT_ALL) {
+            writeGenesisAllocs(Config.stateDumpPath("-ecotone"));
+        }
+
+        activateFjord();
+
         if (_mode == OutputMode.OUTPUT_ALL || _mode == OutputMode.DEFAULT_LATEST) {
             writeGenesisAllocs(Config.stateDumpPath(""));
         }
@@ -328,9 +340,16 @@ contract L2Genesis is Deployer {
 
     /// @notice This predeploy is following the safety invariant #1.
     function setL1Block() public {
-        _setImplementationCode(Predeploys.L1_BLOCK_ATTRIBUTES);
-        // Note: L1 block attributes are set to 0.
-        // Before the first user-tx the state is overwritten with actual L1 attributes.
+        if (cfg.useInterop()) {
+            string memory cname = "L1BlockInterop";
+            address impl = Predeploys.predeployToCodeNamespace(Predeploys.L1_BLOCK_ATTRIBUTES);
+            console.log("Setting %s implementation at: %s", cname, impl);
+            vm.etch(impl, vm.getDeployedCode(string.concat(cname, ".sol:", cname)));
+        } else {
+            _setImplementationCode(Predeploys.L1_BLOCK_ATTRIBUTES);
+            // Note: L1 block attributes are set to 0.
+            // Before the first user-tx the state is overwritten with actual L1 attributes.
+        }
     }
 
     /// @notice This predeploy is following the safety invariant #1.
@@ -488,6 +507,12 @@ contract L2Genesis is Deployer {
 
         vm.prank(L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT());
         GasPriceOracle(Predeploys.GAS_PRICE_ORACLE).setEcotone();
+    }
+
+    function activateFjord() public {
+        console.log("Activating fjord in GasPriceOracle contract");
+        vm.prank(L1Block(Predeploys.L1_BLOCK_ATTRIBUTES).DEPOSITOR_ACCOUNT());
+        GasPriceOracle(Predeploys.GAS_PRICE_ORACLE).setFjord();
     }
 
     /// @notice Sets the bytecode in state
