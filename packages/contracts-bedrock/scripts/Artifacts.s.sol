@@ -9,7 +9,7 @@ import { Predeploys } from "src/libraries/Predeploys.sol";
 import { Config } from "scripts/Config.sol";
 import { StorageSlot } from "scripts/ForgeArtifacts.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
-import { LibString } from "solady/utils/LibString.sol";
+import { LibString } from "@solady/utils/LibString.sol";
 import { ForgeArtifacts } from "scripts/ForgeArtifacts.sol";
 import { IAddressManager } from "scripts/interfaces/IAddressManager.sol";
 
@@ -129,8 +129,8 @@ abstract contract Artifacts {
             return payable(Predeploys.L1_MESSAGE_SENDER);
         } else if (digest == keccak256(bytes("DeployerWhitelist"))) {
             return payable(Predeploys.DEPLOYER_WHITELIST);
-        } else if (digest == keccak256(bytes("WETH9"))) {
-            return payable(Predeploys.WETH9);
+        } else if (digest == keccak256(bytes("WETH"))) {
+            return payable(Predeploys.WETH);
         } else if (digest == keccak256(bytes("LegacyERC20ETH"))) {
             return payable(Predeploys.LEGACY_ERC20_ETH);
         } else if (digest == keccak256(bytes("L1BlockNumber"))) {

@@ -12,28 +12,22 @@ import (
 	"golang.org/x/exp/maps"
 )
 
+var _ Enricher = (*BondEnricher)(nil)
+
 var ErrIncorrectCreditCount = errors.New("incorrect credit count")
 
 type BondCaller interface {
 	GetCredits(context.Context, rpcblock.Block, ...common.Address) ([]*big.Int, error)
 }
-type BondEnricher struct {
-}
+
+type BondEnricher struct{}
 
 func NewBondEnricher() *BondEnricher {
 	return &BondEnricher{}
 }
 
 func (b *BondEnricher) Enrich(ctx context.Context, block rpcblock.Block, caller GameCaller, game *monTypes.EnrichedGameData) error {
-	recipients := make(map[common.Address]bool)
-	for _, claim := range game.Claims {
-		recipients[claim.Claimant] = true
-		if claim.CounteredBy != (common.Address{}) {
-			recipients[claim.CounteredBy] = true
-		}
-	}
-
-	recipientAddrs := maps.Keys(recipients)
+	recipientAddrs := maps.Keys(game.Recipients)
 	credits, err := caller.GetCredits(ctx, block, recipientAddrs...)
 	if err != nil {
 		return err

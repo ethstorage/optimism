@@ -11,6 +11,7 @@ import { ResourceMetering } from "src/L1/ResourceMetering.sol";
 import { OptimismPortal } from "src/L1/OptimismPortal.sol";
 import { ForgeArtifacts } from "scripts/ForgeArtifacts.sol";
 import "src/L1/ProtocolVersions.sol";
+import "src/dispute/lib/Types.sol";
 import "scripts/Deployer.sol";
 
 /// @title Initializer_Test
@@ -59,7 +60,9 @@ contract Initializer_Test is Bridge_Initializer {
         contracts.push(
             InitializeableContract({
                 target: deploy.mustGetAddress("L1CrossDomainMessenger"),
-                initCalldata: abi.encodeCall(l1CrossDomainMessenger.initialize, (superchainConfig, optimismPortal)),
+                initCalldata: abi.encodeCall(
+                    l1CrossDomainMessenger.initialize, (superchainConfig, optimismPortal, systemConfig)
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("L1CrossDomainMessenger")
             })
         );
@@ -67,7 +70,9 @@ contract Initializer_Test is Bridge_Initializer {
         contracts.push(
             InitializeableContract({
                 target: address(l1CrossDomainMessenger),
-                initCalldata: abi.encodeCall(l1CrossDomainMessenger.initialize, (superchainConfig, optimismPortal)),
+                initCalldata: abi.encodeCall(
+                    l1CrossDomainMessenger.initialize, (superchainConfig, optimismPortal, systemConfig)
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("L1CrossDomainMessengerProxy")
             })
         );
@@ -132,8 +137,14 @@ contract Initializer_Test is Bridge_Initializer {
             InitializeableContract({
                 target: deploy.mustGetAddress("OptimismPortal2"),
                 initCalldata: abi.encodeCall(
-                    optimismPortal2.initialize, (disputeGameFactory, systemConfig, superchainConfig)
-                    ),
+                    optimismPortal2.initialize,
+                    (
+                        disputeGameFactory,
+                        systemConfig,
+                        superchainConfig,
+                        GameType.wrap(uint32(deploy.cfg().respectedGameType()))
+                    )
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("OptimismPortal2")
             })
         );
@@ -171,12 +182,13 @@ contract Initializer_Test is Bridge_Initializer {
                             l1CrossDomainMessenger: address(0),
                             l1ERC721Bridge: address(0),
                             l1StandardBridge: address(0),
-                            l2OutputOracle: address(0),
+                            disputeGameFactory: address(0),
                             optimismPortal: address(0),
-                            optimismMintableERC20Factory: address(0)
+                            optimismMintableERC20Factory: address(0),
+                            gasPayingToken: Constants.ETHER
                         })
                     )
-                    ),
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("SystemConfig")
             })
         );
@@ -206,12 +218,13 @@ contract Initializer_Test is Bridge_Initializer {
                             l1CrossDomainMessenger: address(0),
                             l1ERC721Bridge: address(0),
                             l1StandardBridge: address(0),
-                            l2OutputOracle: address(0),
+                            disputeGameFactory: address(0),
                             optimismPortal: address(0),
-                            optimismMintableERC20Factory: address(0)
+                            optimismMintableERC20Factory: address(0),
+                            gasPayingToken: Constants.ETHER
                         })
                     )
-                    ),
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("SystemConfigProxy")
             })
         );
@@ -221,7 +234,7 @@ contract Initializer_Test is Bridge_Initializer {
                 target: deploy.mustGetAddress("ProtocolVersions"),
                 initCalldata: abi.encodeCall(
                     protocolVersions.initialize, (address(0), ProtocolVersion.wrap(1), ProtocolVersion.wrap(2))
-                    ),
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("ProtocolVersions")
             })
         );
@@ -231,7 +244,7 @@ contract Initializer_Test is Bridge_Initializer {
                 target: address(protocolVersions),
                 initCalldata: abi.encodeCall(
                     protocolVersions.initialize, (address(0), ProtocolVersion.wrap(1), ProtocolVersion.wrap(2))
-                    ),
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("ProtocolVersionsProxy")
             })
         );
@@ -247,7 +260,9 @@ contract Initializer_Test is Bridge_Initializer {
         contracts.push(
             InitializeableContract({
                 target: deploy.mustGetAddress("L1StandardBridge"),
-                initCalldata: abi.encodeCall(l1StandardBridge.initialize, (l1CrossDomainMessenger, superchainConfig)),
+                initCalldata: abi.encodeCall(
+                    l1StandardBridge.initialize, (l1CrossDomainMessenger, superchainConfig, systemConfig)
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("L1StandardBridge")
             })
         );
@@ -255,7 +270,9 @@ contract Initializer_Test is Bridge_Initializer {
         contracts.push(
             InitializeableContract({
                 target: address(l1StandardBridge),
-                initCalldata: abi.encodeCall(l1StandardBridge.initialize, (l1CrossDomainMessenger, superchainConfig)),
+                initCalldata: abi.encodeCall(
+                    l1StandardBridge.initialize, (l1CrossDomainMessenger, superchainConfig, systemConfig)
+                ),
                 initializedSlotVal: deploy.loadInitializedSlot("L1StandardBridgeProxy")
             })
         );
@@ -334,7 +351,7 @@ contract Initializer_Test is Bridge_Initializer {
         // Ensure that all L1, L2 `Initializable` contracts are accounted for, in addition to
         // OptimismMintableERC20FactoryImpl, OptimismMintableERC20FactoryProxy, OptimismPortal2,
         // DisputeGameFactoryImpl, DisputeGameFactoryProxy, DelayedWETHImpl, DelayedWETHProxy.
-        assertEq(_getNumInitializable() + 5, contracts.length);
+        assertEq(_getNumInitializable() + 1, contracts.length);
 
         // Attempt to re-initialize all contracts within the `contracts` array.
         for (uint256 i; i < contracts.length; i++) {
