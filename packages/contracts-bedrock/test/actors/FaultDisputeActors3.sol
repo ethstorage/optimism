@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import { CommonBase } from "forge-std/Base.sol";
 
-import { FaultDisputeGame } from "src/dispute/FaultDisputeGame2.sol";
+import { FaultDisputeGame } from "src/dispute/FaultDisputeGame3.sol";
 import { IFaultDisputeGame } from "src/dispute/interfaces/IFaultDisputeGame.sol";
 
 import "src/dispute/lib/Types.sol";
@@ -218,11 +218,12 @@ contract HonestGameSolver is GameSolver {
         bool isAttack = _direction == Direction.Attack;
 
         uint256 bond = GAME.getRequiredBond(_movePos);
+        (,,,, Claim disputed,,) = GAME.claimData(_challengeIndex);
 
         move_ = Move({
             kind: isAttack ? MoveKind.Attack : MoveKind.Defend,
             value: bond,
-            data: abi.encodeCall(FaultDisputeGame.move, (_challengeIndex, claimAt(_movePos), isAttack))
+            data: abi.encodeCall(FaultDisputeGame.move, (disputed, _challengeIndex, claimAt(_movePos), isAttack))
         });
     }
 
