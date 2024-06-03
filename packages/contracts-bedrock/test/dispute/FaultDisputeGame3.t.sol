@@ -803,6 +803,7 @@ contract FaultDisputeGame3_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
         (,,,, disputed,,) = gameProxy.claimData(4);
+
         gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
         (,,,, disputed,,) = gameProxy.claimData(5);
         gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, _dummyClaim());
@@ -815,6 +816,31 @@ contract FaultDisputeGame3_Test is FaultDisputeGame_Init {
 
         vm.expectRevert(DuplicateStep.selector);
         gameProxy.step(8, true, absolutePrestateData, hex"");
+    }
+
+    /// @dev Tests that a claim cannot be stepped against twice.
+    function test_step_duplicateStep_reverts_bill() public {
+        // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
+
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
+        gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
+
+        vm.expectRevert(DuplicateStep.selector);
+        gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
     }
 
     /// @dev Tests that successfully step with true attacking claim when there is a true defend claim(claim5) in the
@@ -1780,6 +1806,13 @@ contract FaultDisputeGame3_Test is FaultDisputeGame_Init {
     function _getRequiredBond(uint256 _claimIndex) internal view returns (uint256 bond_) {
         (,,,,, Position parent,) = gameProxy.claimData(_claimIndex);
         Position pos = parent.move(true);
+        bond_ = gameProxy.getRequiredBond(pos);
+    }
+
+    /// @dev Helper to get the required bond for the given claim index.
+    function _getRequiredBondV2(uint256 _claimIndex, uint64 _attackBranch) internal view returns (uint256 bond_) {
+        (,,,,, Position parent,) = gameProxy.claimData(_claimIndex);
+        Position pos = parent.moveN(2, _attackBranch);
         bond_ = gameProxy.getRequiredBond(pos);
     }
 

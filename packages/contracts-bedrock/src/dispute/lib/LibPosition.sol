@@ -193,6 +193,12 @@ library LibPosition {
         }
     }
 
+    function moveN(Position _position, uint256 _bits, uint64 _branch) internal pure returns (Position move_) {
+        assembly {
+            move_ := shl(_bits, or(_branch, _position))
+        }
+    }
+
     /// @notice Get the value of a `Position` type in the form of the underlying uint128.
     /// @param _position The position to get the value of.
     /// @return raw_ The value of the `position` as a uint128 type.

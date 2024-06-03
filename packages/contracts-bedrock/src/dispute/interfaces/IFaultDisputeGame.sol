@@ -19,6 +19,11 @@ interface IFaultDisputeGame is IDisputeGame {
         Clock clock;
     }
 
+    struct ClaimDataOffset {
+        ClaimData claimData;
+        uint128 claimOffset;
+    }
+
     /// @notice The `ResolutionCheckpoint` struct represents the data associated with an in-progress claim resolution.
     struct ResolutionCheckpoint {
         bool initialCheckpointComplete;
