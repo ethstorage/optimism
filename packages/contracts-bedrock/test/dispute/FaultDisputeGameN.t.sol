@@ -5,7 +5,7 @@ import { Test } from "forge-std/Test.sol";
 import { Vm } from "forge-std/Vm.sol";
 import { DisputeGameFactory_Init } from "test/dispute/DisputeGameFactory.t.sol";
 import { DisputeGameFactory } from "src/dispute/DisputeGameFactory.sol";
-import { FaultDisputeGame, IDisputeGame } from "src/dispute/FaultDisputeGame3.sol";
+import { FaultDisputeGame, IDisputeGame } from "src/dispute/FaultDisputeGameN.sol";
 import { DelayedWETH } from "src/dispute/weth/DelayedWETH.sol";
 import { PreimageOracle } from "src/cannon/PreimageOracle.sol";
 
@@ -20,7 +20,7 @@ import { IPreimageOracle } from "src/dispute/interfaces/IBigStepper.sol";
 import { IAnchorStateRegistry } from "src/dispute/interfaces/IAnchorStateRegistry.sol";
 import { AlphabetVM } from "test/mocks/AlphabetVM.sol";
 
-import { DisputeActor, HonestDisputeActor } from "test/actors/FaultDisputeActors3.sol";
+import { DisputeActor, HonestDisputeActor } from "test/actors/FaultDisputeActorsN.sol";
 
 contract FaultDisputeGame_Init is DisputeGameFactory_Init {
     /// @dev The type of the game being tested.
@@ -86,7 +86,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
     receive() external payable { }
 }
 
-contract FaultDisputeGame3_Test is FaultDisputeGame_Init {
+contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev The root claim of the game.
     Claim internal constant ROOT_CLAIM = Claim.wrap(bytes32((uint256(1) << 248) | uint256(10)));
 
@@ -790,36 +790,6 @@ contract FaultDisputeGame3_Test is FaultDisputeGame_Init {
 
     /// @dev Tests that a claim cannot be stepped against twice.
     function test_step_duplicateStep_reverts() public {
-        // Give the test contract some ether
-        vm.deal(address(this), 1000 ether);
-
-        // Make claims all the way down the tree.
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: _getRequiredBond(2) }(disputed, 2, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(4);
-
-        gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
-        (,,,, disputed,,) = gameProxy.claimData(5);
-        gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(6);
-        gameProxy.attack{ value: _getRequiredBond(6) }(disputed, 6, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(7);
-        gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, _dummyClaim());
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
-        gameProxy.step(8, true, absolutePrestateData, hex"");
-
-        vm.expectRevert(DuplicateStep.selector);
-        gameProxy.step(8, true, absolutePrestateData, hex"");
-    }
-
-    /// @dev Tests that a claim cannot be stepped against twice.
-    function test_step_duplicateStep_reverts_bill() public {
         // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
@@ -1828,7 +1798,7 @@ contract FaultDisputeGame3_Test is FaultDisputeGame_Init {
     }
 }
 
-contract FaultDispute3_1v1_Actors_Test is FaultDisputeGame_Init {
+contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
     /// @dev The honest actor
     DisputeActor internal honest;
     /// @dev The dishonest actor

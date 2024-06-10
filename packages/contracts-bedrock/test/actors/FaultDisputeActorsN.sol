@@ -3,7 +3,7 @@ pragma solidity ^0.8.15;
 
 import { CommonBase } from "forge-std/Base.sol";
 
-import { FaultDisputeGame } from "src/dispute/FaultDisputeGame3.sol";
+import { FaultDisputeGame } from "src/dispute/FaultDisputeGameN.sol";
 import { IFaultDisputeGame } from "src/dispute/interfaces/IFaultDisputeGame.sol";
 
 import "src/dispute/lib/Types.sol";
