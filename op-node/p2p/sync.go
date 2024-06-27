@@ -385,6 +385,9 @@ const (
 )
 
 func (s *SyncClient) mainLoop() {
+	ticker := time.NewTicker(time.Second * 10)
+	defer ticker.Stop()
+
 	defer s.wg.Done()
 	for {
 		select {
@@ -402,6 +405,14 @@ func (s *SyncClient) mainLoop() {
 		case <-s.resCtx.Done():
 			s.log.Info("stopped P2P req-resp L2 block sync client")
 			return
+		case <-ticker.C:
+			s.peersLock.Lock()
+			peerIDs := make([]peer.ID, 0, len(s.peers))
+			for peerID := range s.peers {
+				peerIDs = append(peerIDs, peerID)
+			}
+			s.peersLock.Unlock()
+			s.log.Info("peerstat", "#peers", len(peerIDs), "peerIDs", peerIDs)
 		}
 	}
 }
