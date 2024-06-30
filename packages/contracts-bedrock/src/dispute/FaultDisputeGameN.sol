@@ -93,6 +93,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     /// @notice Bits of N-ary search
     uint256 internal immutable N_BITS;
 
+    /// @notice Bits of N-ary search
+    uint256 internal immutable MAX_ATTACK_BRANCH;
+
     /// @notice Flag for whether or not the L2 block number claim has been invalidated via `challengeRootL2Block`.
     bool public l2BlockNumberChallenged;
 
@@ -162,6 +165,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         L2_CHAIN_ID = _l2ChainId;
         // N_BITS ** 2 = N-ary
         N_BITS = 2;
+        MAX_ATTACK_BRANCH = (1 << N_BITS) - 1;
     }
 
     /// @inheritdoc IInitializable
@@ -255,7 +259,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         public
         virtual
     {
-        require(_attackBranch < (1 << N_BITS));
+        require(_attackBranch <= MAX_ATTACK_BRANCH);
         // INVARIANT: Steps cannot be made unless the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
 
@@ -275,7 +279,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         Position preStatePos;
         Claim postStateClaim;
         Position postStatePos;
-        if ((1 << N_BITS) - 1 != _attackBranch) {
+        if (MAX_ATTACK_BRANCH != _attackBranch) {
             // If the step position's index at depth is 0, the prestate is the absolute
             // prestate.
             // If the step is an attack at a trace index > 0, the prestate exists elsewhere in
@@ -348,7 +352,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // 2. _attackBranch == 1 (attack)
         // 3. _attackBranch == 2 (attack)
         // 4. _attackBranch == 3 (defend)
-        require(_attackBranch < (1 << N_BITS));
+        require(_attackBranch <= MAX_ATTACK_BRANCH);
         // INVARIANT: Moves cannot be made unless the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
 
@@ -910,12 +914,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
         // If the move is a defense, the disputed output could have been made by either party. In this case, we
         // need to search for the parent output to determine what the expected status byte should be.
-        Position disputedLeafPos = Position.wrap(_parentPos.raw() + 1);
+        Position disputedLeafPos = Position.wrap(_parentPos.raw() + _attackBranch);
         (Claim disputedClaim, Position disputedPos) =
             _findTraceAncestorV2({ _pos: disputedLeafPos, _start: _parentIdx, _global: true });
         uint8 vmStatus = uint8(_rootClaim.raw()[0]);
 
-        if ((0 != _attackBranch) || (disputedPos.depth() / N_BITS) % 2 == (SPLIT_DEPTH / N_BITS) % 2) {
+        if ((MAX_ATTACK_BRANCH != _attackBranch) || (disputedPos.depth() / N_BITS) % 2 == (SPLIT_DEPTH / N_BITS) % 2) {
             // If the move is an attack, the parent output is always deemed to be disputed. In this case, we only need
             // to check that the root claim signals that the VM panicked or resulted in an invalid transition.
             // If the move is a defense, and the disputed output and creator of the execution trace subgame disagree,
@@ -1070,7 +1074,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             : _firstValidRightIndex(_pos.traceAncestorBounded(SPLIT_DEPTH), N_BITS);
 
         uint256 offset = ancestorPos_.raw() % (1 << N_BITS);
-        if (1 << N_BITS - 1 == offset) {
+        if (MAX_ATTACK_BRANCH == offset) {
             offset = 0;
         }
         uint256 traceAncestorPosValue = ancestorPos_.raw() - offset;
