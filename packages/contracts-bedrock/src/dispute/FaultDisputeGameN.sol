@@ -1005,27 +1005,30 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // above. This is important because it determines which claim is the starting output root and which
         // is the disputed output root.
         (Position execRootPos, Position outputPos) = (execRootClaim.position, claim.position);
-        bool wasAttack = execRootPos.parent().raw() == outputPos.raw();
+        uint64 attackBranch = uint64(execRootPos.raw() % outputPos.raw() / (1 << N_BITS));
 
         // Determine the starting and disputed output root indices.
         // 1. If it was an attack, the disputed output root is `claim`, and the starting output root is
         //    elsewhere in the DAG (it must commit to the block # index at depth of `outputPos - 1`).
         // 2. If it was a defense, the starting output root is `claim`, and the disputed output root is
         //    elsewhere in the DAG (it must commit to the block # index at depth of `outputPos + 1`).
-        if (wasAttack) {
+        if (attackBranch != MAX_ATTACK_BRANCH) {
             // If this is an attack on the first output root (the block directly after the starting
             // block number), the starting claim nor position exists in the tree. We leave these as
             // 0, which can be easily identified due to 0 being an invalid Gindex.
             if (outputPos.indexAtDepth() > 0) {
                 (startingClaim_, startingPos_) =
-                    _findTraceAncestorV2(Position.wrap(outputPos.raw() - 1), claimIdx, true);
+                    _findTraceAncestorV2(Position.wrap(outputPos.raw() - 1 + attackBranch), claimIdx, true);
             } else {
                 startingClaim_ = Claim.wrap(startingOutputRoot.root.raw());
             }
-            (disputedClaim_, disputedPos_) = (claim.claim, claim.position);
+            disputedPos_ = Position.wrap(claim.position.raw() + attackBranch);
+            disputedClaim_ = getClaim(claim, disputedPos_);
         } else {
-            (startingClaim_, startingPos_) = (claim.claim, claim.position);
-            (disputedClaim_, disputedPos_) = _findTraceAncestorV2(Position.wrap(outputPos.raw() + 1), claimIdx, true);
+            startingPos_ = Position.wrap(claim.position.raw() + attackBranch);
+            startingClaim_ = getClaim(claim, startingPos_);
+            (disputedClaim_, disputedPos_) =
+                _findTraceAncestorV2(Position.wrap(outputPos.raw() + 1 + attackBranch), claimIdx, true);
         }
     }
 
