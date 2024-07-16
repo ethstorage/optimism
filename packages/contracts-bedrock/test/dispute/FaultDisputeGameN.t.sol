@@ -584,29 +584,43 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     ///      byte reverts with the `UnexpectedRootClaim` error.
     function test_move_incorrectStatusExecRoot_reverts() public {
         Claim disputed;
-        for (uint256 i; i < 4; i++) {
+        for (uint256 i; i < 2; i++) {
             (,,,, disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: _getRequiredBond(i) }(disputed, i, _dummyClaim());
+            gameProxy.attackV2{ value: _getRequiredBondV2(i, 0) }(disputed, i, _dummyClaim(), 0);
         }
 
-        uint256 bond = _getRequiredBond(4);
-        (,,,, disputed,,) = gameProxy.claimData(4);
+        uint256 bond = _getRequiredBondV2(2, 2);
+        (,,,, disputed,,) = gameProxy.claimData(2);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRootClaim.selector, bytes32(0)));
-        gameProxy.attack{ value: bond }(disputed, 4, Claim.wrap(bytes32(0)));
+        gameProxy.attackV2{ value: bond }(disputed, 2, Claim.wrap(bytes32(0)), 2);
     }
 
     /// @dev Tests that making a claim at the execution trace bisection root level with a valid status
     ///      byte succeeds.
     function test_move_correctStatusExecRoot_succeeds() public {
         Claim disputed;
-        for (uint256 i; i < 4; i++) {
-            uint256 bond = _getRequiredBond(i);
+        for (uint256 i; i < 2; i++) {
+            uint256 bond = _getRequiredBondV2(i, 0);
             (,,,, disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: bond }(disputed, i, _dummyClaim());
+            gameProxy.attackV2{ value: bond }(disputed, i, _dummyClaim(), 0);
         }
-        uint256 lastBond = _getRequiredBond(4);
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: lastBond }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
+        uint256 lastBond = _getRequiredBondV2(2, 0);
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: lastBond }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 2);
+    }
+
+    /// @dev Tests that making a claim at the execution trace quadsection root level with a valid status
+    ///      byte succeeds when the attack branch is the last branch.
+    function test_move_correctStatusExecRootForLastAttackBranch_succeeds() public {
+        Claim disputed;
+        for (uint256 i; i < 2; i++) {
+            uint256 bond = _getRequiredBondV2(i, 0);
+            (,,,, disputed,,) = gameProxy.claimData(i);
+            gameProxy.attackV2{ value: bond }(disputed, i, _dummyClaim(), 0);
+        }
+        uint256 lastBond = _getRequiredBondV2(2, 0);
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: lastBond }(disputed, 2, Claim.wrap(bytes32(0)), 3);
     }
 
     /// @dev Static unit test asserting that a move reverts when the bonded amount is incorrect.
