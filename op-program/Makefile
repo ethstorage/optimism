@@ -6,7 +6,7 @@ LDFLAGSSTRING +=-X main.GitCommit=$(GITCOMMIT)
 LDFLAGSSTRING +=-X main.GitDate=$(GITDATE)
 LDFLAGSSTRING +=-X github.com/ethereum-optimism/optimism/op-program/version.Version=$(VERSION)
 LDFLAGSSTRING +=-X github.com/ethereum-optimism/optimism/op-program/version.Meta=$(VERSION_META)
-LDFLAGS := -ldflags "$(LDFLAGSSTRING)"
+LDFLAGS := -ldflags "$(LDFLAGSSTRING) -s -w"
 
 op-program: \
 	op-program-host \
@@ -32,10 +32,10 @@ op-program-smoke-test:\
 	op-program-client-wasm-smoke-test \
 
 op-program-client-smoke-test:
-	env GO111MODULE=on GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test ./client/cmd/main.go
+	env GO111MODULE=on GOMEMLIMIT=30MiB GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test ./client/cmd/main.go
 
 op-program-client-wasm-smoke-test:
-	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test.wasm ./client/cmd/main.go
+	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm GOMEMLIMIT=30MiB go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test.wasm ./client/cmd/main.go
 
 clean:
 	rm -rf bin
