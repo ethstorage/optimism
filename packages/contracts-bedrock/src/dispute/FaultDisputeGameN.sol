@@ -19,6 +19,7 @@ import { Hashing } from "src/libraries/Hashing.sol";
 import { RLPReader } from "src/libraries/rlp/RLPReader.sol";
 import "src/dispute/lib/Types.sol";
 import "src/dispute/lib/Errors.sol";
+import "src/dispute/lib/LibDA.sol";
 
 /// @notice Thrown when an attempt is made to submit an incorrect position
 error InvalidPosition();
@@ -250,11 +251,17 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     //                  `IFaultDisputeGame` impl                  //
     ////////////////////////////////////////////////////////////////
 
+    struct StepProof {
+        LibDA.DAItem _preStateItem;
+        LibDA.DAItem _postStateItem;
+        bytes _vmProof;
+    }
+
     function stepV2(
         uint256 _claimIndex,
         uint64 _attackBranch,
         bytes calldata _stateData,
-        bytes calldata _proof
+        StepProof calldata _proof
     )
         public
         virtual
@@ -268,18 +275,17 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
         // Pull the parent position out of storage.
         Position parentPos = parent.position;
-        // Determine the position of the step.
-        Position stepPos = parentPos.moveN(N_BITS, _attackBranch);
-
         // INVARIANT: A step cannot be made unless the move position is 1 below the `MAX_GAME_DEPTH`
-        if (stepPos.depth() != MAX_GAME_DEPTH + N_BITS) revert InvalidParent();
+        if (parentPos.depth() != MAX_GAME_DEPTH) revert InvalidParent();
 
         // Determine the expected pre & post states of the step.
         Claim preStateClaim;
-        Position preStatePos;
         Claim postStateClaim;
         Position postStatePos;
         if (MAX_ATTACK_BRANCH != _attackBranch) {
+            uint256 claimIndex = _claimIndex;
+            Position preStatePos;
+
             // If the step position's index at depth is 0, the prestate is the absolute
             // prestate.
             // If the step is an attack at a trace index > 0, the prestate exists elsewhere in
@@ -288,20 +294,34 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             //       the remainder of the index at depth divided by 2 ** (MAX_GAME_DEPTH - SPLIT_DEPTH),
             //       which is the number of leaves in each execution trace subgame. This is so that we can
             //       determine whether or not the step position is represents the `ABSOLUTE_PRESTATE`.
+            // Determine the position of the step.
+            Position stepPos = parentPos.moveN(N_BITS, _attackBranch);
             if (stepPos.indexAtDepth() % (1 << (MAX_GAME_DEPTH - SPLIT_DEPTH)) == 0) {
                 preStateClaim = ABSOLUTE_PRESTATE;
             } else {
                 (preStateClaim, preStatePos) =
-                    _findTraceAncestorV2(Position.wrap(parentPos.raw() - 1), parent.parentIndex, false);
+                    _findTraceAncestorV2(
+                        Position.wrap(parentPos.raw() - 1 + _attackBranch),
+                        claimIndex,
+                        false,
+                        _proof._preStateItem);
             }
             // For all attacks, the poststate is the parent claim.
-            (postStateClaim, postStatePos) = (parent.claim, parent.position);
+            postStatePos = Position.wrap(parent.position.raw() + _attackBranch);
+            postStateClaim = getClaim(parent.claim.raw(), postStatePos, _proof._postStateItem);
         } else {
+            uint256 claimIndex = _claimIndex;
+            Position preStatePos;
+
             // If the step is a defense, the poststate exists elsewhere in the game state,
             // and the parent claim is the expected pre-state.
-            preStateClaim = parent.claim;
+            preStatePos = Position.wrap(parent.position.raw() + _attackBranch - 1);
+            preStateClaim = getClaim(parent.claim.raw(), preStatePos, _proof._preStateItem);
             (postStateClaim, postStatePos) =
-                _findTraceAncestorV2(Position.wrap(parentPos.raw() + 1), parent.parentIndex, false);
+                _findExecTraceAncestor(
+                    Position.wrap(parentPos.raw() + _attackBranch),
+                    claimIndex,
+                    _proof._postStateItem);
         }
 
         // INVARIANT: The prestate is always invalid if the passed `_stateData` is not the
@@ -325,7 +345,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // SAFETY:    While the `attack` path does not need an extra check for the post
         //            state's depth in relation to the parent, we don't need another
         //            branch because (n - n) % 2 == 0.
-        bool validStep = VM.step(_stateData, _proof, uuid.raw()) == postStateClaim.raw();
+        bool validStep = VM.step(_stateData, _proof._vmProof, uuid.raw()) == postStateClaim.raw();
         bool parentPostAgree = ((parentPos.depth() - postStatePos.depth()) / N_BITS) % 2 == 0;
         if (parentPostAgree == validStep) revert ValidStep();
 
@@ -915,8 +935,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // If the move is a defense, the disputed output could have been made by either party. In this case, we
         // need to search for the parent output to determine what the expected status byte should be.
         Position disputedLeafPos = Position.wrap(_parentPos.raw() + _attackBranch);
-        (Claim disputedClaim, Position disputedPos) =
-            _findTraceAncestorV2({ _pos: disputedLeafPos, _start: _parentIdx, _global: true });
+        (, Position disputedPos) =
+            _findTraceAncestorRoot({ _pos: disputedLeafPos, _start: _parentIdx, _global: true });
         uint8 vmStatus = uint8(_rootClaim.raw()[0]);
 
         if ((MAX_ATTACK_BRANCH != _attackBranch) || (disputedPos.depth() / N_BITS) % 2 == (SPLIT_DEPTH / N_BITS) % 2) {
@@ -1015,15 +1035,17 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             // block number), the starting claim nor position exists in the tree. We leave these as
             // 0, which can be easily identified due to 0 being an invalid Gindex.
             if (outputPos.indexAtDepth() > 0) {
+                // TOOD: replace by _findTraceAncestorV2
                 (startingClaim_, startingPos_) =
-                    _findTraceAncestorV2(Position.wrap(outputPos.raw() - 1), claimIdx, true);
+                    _findTraceAncestorRoot(Position.wrap(outputPos.raw() - 1), claimIdx, true);
             } else {
                 startingClaim_ = Claim.wrap(startingOutputRoot.root.raw());
             }
             (disputedClaim_, disputedPos_) = (claim.claim, claim.position);
         } else {
             (startingClaim_, startingPos_) = (claim.claim, claim.position);
-            (disputedClaim_, disputedPos_) = _findTraceAncestorV2(Position.wrap(outputPos.raw() + 1), claimIdx, true);
+            // TOOD: replace by _findTraceAncestorV2
+            (disputedClaim_, disputedPos_) = _findTraceAncestorRoot(Position.wrap(outputPos.raw() + 1), claimIdx, true);
         }
     }
 
@@ -1059,14 +1081,48 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             : Hash.wrap(keccak256(abi.encode(_starting, _startingPos, _disputed, _disputedPos)));
     }
 
+    function _findExecTraceAncestor(
+        Position _pos,
+        uint256 _start,
+        LibDA.DAItem memory _daItem
+    )
+        internal
+        view
+        returns (Claim ancestorClaim_, Position ancestorPos_)
+    {
+        Claim ancestorClaimRoot;
+        (ancestorClaimRoot, ancestorPos_) = _findTraceAncestorRoot(_pos, _start, false);
+        // If the ancestor is the root claim, then return the claim directly
+        if (ancestorPos_.depth() == SPLIT_DEPTH + N_BITS) {
+            ancestorClaim_ = ancestorClaimRoot;
+        } else {
+            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), _pos, _daItem);
+        }
+    }
+
     function _findTraceAncestorV2(
+        Position _pos,
+        uint256 _start,
+        bool _global,
+        LibDA.DAItem memory _daItem
+    )
+        internal
+        view
+        returns (Claim ancestorClaim_, Position ancestorPos_)
+    {
+        Claim ancestorClaimRoot;
+        (ancestorClaimRoot, ancestorPos_) = _findTraceAncestorRoot(_pos, _start, _global);
+        ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), _pos, _daItem);
+    }
+
+    function _findTraceAncestorRoot(
         Position _pos,
         uint256 _start,
         bool _global
     )
         internal
         view
-        returns (Claim ancestorClaim_, Position ancestorPos_)
+        returns (Claim ancestorClaimRoot_, Position ancestorPos_)
     {
         // Grab the trace ancestor's expected position.
         ancestorPos_ = _global
@@ -1084,7 +1140,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         while (ancestor_.position.raw() != traceAncestorPosValue) {
             ancestor_ = claimData[ancestor_.parentIndex];
         }
-        ancestorClaim_ = getClaim(ancestor_, ancestorPos_);
+        ancestorClaimRoot_ = ancestor_.claim;
     }
 
     function _traceAncestorV2(Position _position, uint256 _intervalDepth) internal pure returns (Position ancestor_) {
@@ -1133,8 +1189,8 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         revert NotSupported();
     }
 
-    function getClaim(ClaimData storage _data, Position _pos) internal view returns (Claim claim_) {
-        // TODO: libDA will be integrated here in the future
-        claim_ = _data.claim;
+    function getClaim(bytes32 _claimRoot, Position _pos, LibDA.DAItem memory _daItem) internal view returns (Claim claim_) {
+        LibDA.verifyClaimHash(_daItem.daType, _claimRoot, MAX_ATTACK_BRANCH, _pos.raw() % (MAX_ATTACK_BRANCH + 1), _daItem.dataHash, _daItem.proof);
+        claim_ = Claim.wrap(_daItem.dataHash);
     }
 }
