@@ -251,10 +251,14 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     //                  `IFaultDisputeGame` impl                  //
     ////////////////////////////////////////////////////////////////
 
+    /// @notice Represents the proofs to verify preState/postState and transition in stepV2().
+    /// @custom:field preStateItem      preState with its proof from DA.
+    /// @custom:field postStateItem     postState with its proof from DA.
+    /// @custom:field vmProof           Proof for VM step.
     struct StepProof {
-        LibDA.DAItem _preStateItem;
-        LibDA.DAItem _postStateItem;
-        bytes _vmProof;
+        LibDA.DAItem preStateItem;
+        LibDA.DAItem postStateItem;
+        bytes vmProof;
     }
 
     function stepV2(
@@ -304,11 +308,11 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
                         Position.wrap(parentPos.raw() - 1 + _attackBranch),
                         claimIndex,
                         false,
-                        _proof._preStateItem);
+                        _proof.preStateItem);
             }
             // For all attacks, the poststate is the parent claim.
             postStatePos = Position.wrap(parent.position.raw() + _attackBranch);
-            postStateClaim = getClaim(parent.claim.raw(), postStatePos, _proof._postStateItem);
+            postStateClaim = getClaim(parent.claim.raw(), postStatePos, _proof.postStateItem);
         } else {
             uint256 claimIndex = _claimIndex;
             Position preStatePos;
@@ -316,12 +320,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             // If the step is a defense, the poststate exists elsewhere in the game state,
             // and the parent claim is the expected pre-state.
             preStatePos = Position.wrap(parent.position.raw() + _attackBranch - 1);
-            preStateClaim = getClaim(parent.claim.raw(), preStatePos, _proof._preStateItem);
+            preStateClaim = getClaim(parent.claim.raw(), preStatePos, _proof.preStateItem);
             (postStateClaim, postStatePos) =
                 _findExecTraceAncestor(
                     Position.wrap(parentPos.raw() + _attackBranch),
                     claimIndex,
-                    _proof._postStateItem);
+                    _proof.postStateItem);
         }
 
         // INVARIANT: The prestate is always invalid if the passed `_stateData` is not the
@@ -345,7 +349,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // SAFETY:    While the `attack` path does not need an extra check for the post
         //            state's depth in relation to the parent, we don't need another
         //            branch because (n - n) % 2 == 0.
-        bool validStep = VM.step(_stateData, _proof._vmProof, uuid.raw()) == postStateClaim.raw();
+        bool validStep = VM.step(_stateData, _proof.vmProof, uuid.raw()) == postStateClaim.raw();
         bool parentPostAgree = ((parentPos.depth() - postStatePos.depth()) / N_BITS) % 2 == 0;
         if (parentPostAgree == validStep) revert ValidStep();
 

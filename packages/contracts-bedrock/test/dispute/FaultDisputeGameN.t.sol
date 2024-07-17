@@ -898,9 +898,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: abi.encodePacked(claim2, claim3)
         });
         FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            _preStateItem: preStateItem,
-            _postStateItem: postStateItem,
-            _vmProof: hex""
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
         });
 
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof});
@@ -946,9 +946,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: abi.encodePacked(claim1, claim3)
         });
         FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            _preStateItem: preStateItem,
-            _postStateItem: postStateItem,
-            _vmProof: hex""
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
         });
 
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof});
@@ -994,9 +994,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
         FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            _preStateItem: preStateItem,
-            _postStateItem: postStateItem,
-            _vmProof: hex""
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
         });
 
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
@@ -1043,9 +1043,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: hex""
         });
         FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            _preStateItem: preStateItem,
-            _postStateItem: postStateItem,
-            _vmProof: hex""
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
         });
 
         vm.expectRevert(ValidStep.selector);

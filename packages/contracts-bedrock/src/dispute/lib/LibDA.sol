@@ -3,6 +3,11 @@ pragma solidity ^0.8.15;
 
 library LibDA {
     /// @notice The `ClaimData` struct represents the data associated with a Claim.
+
+    /// @notice Represents a leaf DA item that can be verified against its root.
+    /// @custom:field daType        Type of DA (either 4844 or calldata).
+    /// @custom:field dataHash      Leaf hash (claim hash).
+    /// @custom:field proof         Inclusion proof of the item.
     struct DAItem {
         uint256 daType;
         bytes32 dataHash;
