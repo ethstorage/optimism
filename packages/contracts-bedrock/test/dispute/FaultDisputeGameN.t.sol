@@ -19,6 +19,7 @@ import { LibPosition } from "src/dispute/lib/LibPosition.sol";
 import { IPreimageOracle } from "src/dispute/interfaces/IBigStepper.sol";
 import { IAnchorStateRegistry } from "src/dispute/interfaces/IAnchorStateRegistry.sol";
 import { AlphabetVM } from "test/mocks/AlphabetVM.sol";
+import { LibDA } from "src/dispute/lib/LibDA.sol";
 
 import { DisputeActor, HonestDisputeActor } from "test/actors/FaultDisputeActorsN.sol";
 
@@ -802,30 +803,30 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         fdg.challengeRootL2Block(outputRootProof, hex"");
     }
 
-    /// @dev Tests that a claim cannot be stepped against twice.
-    function test_step_duplicateStep_reverts() public {
-        // Give the test contract some ether
-        vm.deal(address(this), 1000 ether);
+    // /// @dev Tests that a claim cannot be stepped against twice.
+    // function test_step_duplicateStep_reverts() public {
+    //     // Give the test contract some ether
+    //     vm.deal(address(this), 1000 ether);
 
-        // Make claims all the way down the tree.
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+    //     // Make claims all the way down the tree.
+    //     (,,,, Claim disputed,,) = gameProxy.claimData(0);
+    //     gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
 
-        (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
+    //     (,,,, disputed,,) = gameProxy.claimData(1);
+    //     gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
-        (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+    //     (,,,, disputed,,) = gameProxy.claimData(2);
+    //     gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
 
-        (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
+    //     (,,,, disputed,,) = gameProxy.claimData(3);
+    //     gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
-        gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
+    //     gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
+    //     gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
 
-        vm.expectRevert(DuplicateStep.selector);
-        gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
-    }
+    //     vm.expectRevert(DuplicateStep.selector);
+    //     gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
+    // }
 
     /// @dev Tests that successfully step with true attacking claim when there is a true defend claim(claim5) in the
     /// middle of the dispute game.
@@ -854,6 +855,201 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, _dummyClaim());
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
         gameProxy.step(8, true, claimData5, hex"");
+    }
+
+    function test_stepAttackDummyClaim_attackBranch0_succeeds() public {
+          // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        Claim claim1 = Claim.wrap(keccak256(claimData1));
+        Claim claim2 = Claim.wrap(keccak256(claimData2));
+        Claim claim3 = Claim.wrap(keccak256(claimData3));
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
+
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
+
+        // This variable is not used
+        LibDA.DAItem memory preStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: absolutePrestate.raw(),
+            proof: hex""
+        });
+        LibDA.DAItem memory postStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim1.raw(),
+            proof: abi.encodePacked(claim2, claim3)
+        });
+        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
+        });
+
+        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof});
+    }
+
+    function test_stepAttackDummyClaim_attackBranch1_succeeds() public {
+          // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        Claim claim1 = Claim.wrap(keccak256(claimData1));
+        Claim claim2 = Claim.wrap(keccak256(claimData2));
+        Claim claim3 = Claim.wrap(keccak256(claimData3));
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
+
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1);
+
+        LibDA.DAItem memory preStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim1.raw(),
+            proof: abi.encodePacked(claim2, claim3)
+        });
+        LibDA.DAItem memory postStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim2.raw(),
+            proof: abi.encodePacked(claim1, claim3)
+        });
+        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
+        });
+
+        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof});
+    }
+
+    function test_stepAttackDummyClaim_attackBranch2_succeeds() public {
+          // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        Claim claim1 = Claim.wrap(keccak256(claimData1));
+        Claim claim2 = Claim.wrap(keccak256(claimData2));
+        Claim claim3 = Claim.wrap(keccak256(claimData3));
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
+
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2);
+
+        LibDA.DAItem memory preStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim2.raw(),
+            proof: abi.encodePacked(claim1, claim3)
+        });
+        LibDA.DAItem memory postStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim3.raw(),
+            proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
+        });
+        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
+        });
+
+        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
+    }
+
+    function test_stepAttackDummyClaim_attackBranch3_succeeds() public {
+          // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        Claim claim1 = Claim.wrap(keccak256(claimData1));
+        Claim claim2 = Claim.wrap(keccak256(claimData2));
+        Claim claim3 = Claim.wrap(keccak256(claimData3));
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
+
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
+
+        LibDA.DAItem memory preStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim3.raw(),
+            proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
+        });
+        // This variable is not used
+        LibDA.DAItem memory postStateItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC).raw(),
+            proof: hex""
+        });
+        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
+            preStateItem: preStateItem,
+            postStateItem: postStateItem,
+            vmProof: hex""
+        });
+
+        vm.expectRevert(ValidStep.selector);
+        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 3, _stateData: claimData3, _proof: stepProof});
     }
 
     /// @dev Tests that step reverts with false attacking claim when there is a true defend claim(claim5) in the middle

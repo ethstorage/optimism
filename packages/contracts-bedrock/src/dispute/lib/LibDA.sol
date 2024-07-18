@@ -2,15 +2,28 @@
 pragma solidity ^0.8.15;
 
 library LibDA {
+    /// @notice The `ClaimData` struct represents the data associated with a Claim.
+
+    /// @notice Represents a leaf DA item that can be verified against its root.
+    /// @custom:field daType        Type of DA (either 4844 or calldata).
+    /// @custom:field dataHash      Leaf hash (claim hash).
+    /// @custom:field proof         Inclusion proof of the item.
+    struct DAItem {
+        uint256 daType;
+        bytes32 dataHash;
+        bytes proof;
+    }
+
     uint256 constant DA_TYPE_CALLDATA = 0;
     uint256 constant DA_TYPE_EIP4844 = 1;
 
     function getClaimsHash(uint256 daType, uint256 nelemebts, bytes memory data) internal view returns (bytes32 root)  {
         if (daType == DA_TYPE_EIP4844) {
             // TODO: may specify which blob?
-            root = blobhash(0);
-            require(root != bytes32(0), "root must not zero");
-            return root;
+            // root = blobhash(0);
+            // require(root != bytes32(0), "root must not zero");
+            // return root;
+            revert("EIP4844 not supported");
         }
 
         require(daType == DA_TYPE_CALLDATA, "unsupported DA type");

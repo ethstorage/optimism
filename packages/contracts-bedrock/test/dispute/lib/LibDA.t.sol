@@ -33,6 +33,23 @@ contract LibDA_Test is Test {
         )));
     }
 
+    function test_calldata_three1() public view {
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        bytes32 claim1 = keccak256(claimData1);
+        bytes32 claim2 = keccak256(claimData2);
+        bytes32 claim3 = keccak256(claimData3);
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3);
+
+        bytes32 root = LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input);
+        assertEq(root, keccak256(abi.encode(
+            keccak256(abi.encode(claim1, claim2)),
+            claim3
+        )));
+    }
+
     function test_calldata_seven() public view {
         bytes32 root;
         bytes memory input = "00000000000000000000000000000000100000000000000000000000000000012000000000000000000000000000000230000000000000000000000000000003400000000000000000000000000000045000000000000000000000000000000560000000000000000000000000000006";
