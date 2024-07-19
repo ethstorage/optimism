@@ -1100,7 +1100,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         if (ancestorPos_.depth() == SPLIT_DEPTH + N_BITS) {
             ancestorClaim_ = ancestorClaimRoot;
         } else {
-            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), _pos, _daItem);
+            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), Position.wrap(_pos.raw() - 1), _daItem);
         }
     }
 
