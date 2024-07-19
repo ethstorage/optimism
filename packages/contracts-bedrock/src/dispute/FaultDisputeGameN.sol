@@ -518,8 +518,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         } else if (_ident == LocalPreimageKey.DISPUTED_OUTPUT_ROOT) {
             // Load the disputed proposal's output root
             Claim disputed;
+            // If the pos is 1, then the rootclaim itself is the output hash.
             if (disputedPos.raw() == 1) {
-                disputed = rootClaim();
+                disputed = disputedRoot;
             } else {
                 disputed = getClaim(disputedRoot.raw(), disputedPos, _daItem);
             }
@@ -1120,7 +1121,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         if (ancestorPos_.depth() == SPLIT_DEPTH + N_BITS) {
             ancestorClaim_ = ancestorClaimRoot;
         } else {
-            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), Position.wrap(_pos.raw() - 1), _daItem);
+            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), _pos, _daItem);
         }
     }
 
@@ -1154,21 +1155,18 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             : _firstValidRightIndex(_pos.traceAncestorBounded(SPLIT_DEPTH), N_BITS);
 
         uint256 offset = ancestorPos_.raw() % (1 << N_BITS);
-        if (MAX_ATTACK_BRANCH == offset) {
-            offset = 0;
+        // If ancestorPos_.raw() == 1, the rootClaim is returned
+        if (ancestorPos_.raw() == 1) {
+            return (rootClaim(), ancestorPos_);
         }
         uint256 traceAncestorPosValue = ancestorPos_.raw() - offset;
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
         // guaranteed that such a claim exists.
         ClaimData storage ancestor_ = claimData[_start];
-        if (traceAncestorPosValue == 0) {
-            ancestorClaimRoot_ = rootClaim();
-        } else {
-            while (ancestor_.position.raw() != traceAncestorPosValue) {
-                ancestor_ = claimData[ancestor_.parentIndex];
-            }
-            ancestorClaimRoot_ = ancestor_.claim;
+        while (ancestor_.position.raw() != traceAncestorPosValue) {
+            ancestor_ = claimData[ancestor_.parentIndex];
         }
+        ancestorClaimRoot_ = ancestor_.claim;
     }
 
     function _traceAncestorV2(Position _position, uint256 _intervalDepth) internal pure returns (Position ancestor_) {
