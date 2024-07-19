@@ -1266,6 +1266,90 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         assertEq(disputedOutputRoot, claim1.raw());
     }
 
+function test_addLocalKey_AttackRightMidBranch_succeeds() public {
+          // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        Claim claim1 = Claim.wrap(keccak256(claimData1));
+        Claim claim2 = Claim.wrap(keccak256(claimData2));
+        Claim claim3 = Claim.wrap(keccak256(claimData3));
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, root, 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 2);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
+
+        // This variable is not used
+        LibDA.DAItem memory startingDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim3.raw(),
+            proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
+        });
+        LibDA.DAItem memory disputedDataItem = startingDataItem;
+        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
+        assertEq(startingOutputRoot, claim3.raw());
+        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
+        assertEq(disputedOutputRoot, claim3.raw());
+    }
+
+   function test_addLocalKey_AttackRightMostBranch_succeeds() public {
+          // Give the test contract some ether
+        vm.deal(address(this), 1000 ether);
+
+        bytes memory claimData1 = abi.encode(1, 1);
+        bytes memory claimData2 = abi.encode(2, 2);
+        bytes memory claimData3 = abi.encode(3, 3);
+        Claim claim1 = Claim.wrap(keccak256(claimData1));
+        Claim claim2 = Claim.wrap(keccak256(claimData2));
+        Claim claim3 = Claim.wrap(keccak256(claimData3));
+
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, root, 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 3);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.PANIC), 3);
+
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
+
+        // This variable is not used
+        LibDA.DAItem memory startingDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claim3.raw(),
+            proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
+        });
+        LibDA.DAItem memory disputedDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: ROOT_CLAIM.raw(),
+            proof: hex""
+        });
+        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
+        assertEq(startingOutputRoot, claim3.raw());
+        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
+        assertEq(disputedOutputRoot, ROOT_CLAIM.raw());
+    }
+
     /// @dev Tests that step reverts with false defending claim when there is a true defend claim(postState_) in the
     /// middle of the dispute game.
     function test_stepDefendDummyClaim_defendTrueClaimInTheMiddle_reverts() public {

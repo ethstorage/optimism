@@ -517,7 +517,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             value_ = starting.raw();
         } else if (_ident == LocalPreimageKey.DISPUTED_OUTPUT_ROOT) {
             // Load the disputed proposal's output root
-            Claim disputed = getClaim(disputedRoot.raw(), disputedPos, _daItem);
+            Claim disputed;
+            if (disputedPos.raw() == 1) {
+                disputed = rootClaim();
+            } else {
+                disputed = getClaim(disputedRoot.raw(), disputedPos, _daItem);
+            }
             oracle.loadLocalData(_ident, uuid_.raw(), disputed.raw(), 32, _partOffset);
             value_ = disputed.raw();
         } else if (_ident == LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER) {
@@ -1115,7 +1120,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         if (ancestorPos_.depth() == SPLIT_DEPTH + N_BITS) {
             ancestorClaim_ = ancestorClaimRoot;
         } else {
-            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), _pos, _daItem);
+            ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), Position.wrap(_pos.raw() - 1), _daItem);
         }
     }
 
@@ -1156,10 +1161,14 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
         // guaranteed that such a claim exists.
         ClaimData storage ancestor_ = claimData[_start];
-        while (ancestor_.position.raw() != traceAncestorPosValue) {
-            ancestor_ = claimData[ancestor_.parentIndex];
+        if (traceAncestorPosValue == 0) {
+            ancestorClaimRoot_ = rootClaim();
+        } else {
+            while (ancestor_.position.raw() != traceAncestorPosValue) {
+                ancestor_ = claimData[ancestor_.parentIndex];
+            }
+            ancestorClaimRoot_ = ancestor_.claim;
         }
-        ancestorClaimRoot_ = ancestor_.claim;
     }
 
     function _traceAncestorV2(Position _position, uint256 _intervalDepth) internal pure returns (Position ancestor_) {
