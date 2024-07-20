@@ -489,23 +489,43 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
     /// @inheritdoc IFaultDisputeGame
     function addLocalData(uint256 _ident, uint256 _execLeafIdx, uint256 _partOffset) external {
+    }
+
+    function addLocalData(uint256 _ident, uint256 _execLeafIdx, uint256 _partOffset, LibDA.DAItem memory _daItem) external returns (Hash uuid_, bytes32 value_) {
         // INVARIANT: Local data can only be added if the game is currently in progress.
         if (status != GameStatus.IN_PROGRESS) revert GameNotInProgress();
 
-        (Claim starting, Position startingPos, Claim disputed, Position disputedPos) =
-            _findStartingAndDisputedOutputs(_execLeafIdx);
-        Hash uuid = _computeLocalContext(starting, startingPos, disputed, disputedPos);
+        (Claim startingRoot, Position startingPos, Claim disputedRoot, Position disputedPos) =
+            _findStartingAndDisputedOutputRoots(_execLeafIdx);
+        uuid_ = _computeLocalContext(startingRoot, startingPos, disputedRoot, disputedPos);
 
         IPreimageOracle oracle = VM.oracle();
         if (_ident == LocalPreimageKey.L1_HEAD_HASH) {
             // Load the L1 head hash
-            oracle.loadLocalData(_ident, uuid.raw(), l1Head().raw(), 32, _partOffset);
+            oracle.loadLocalData(_ident, uuid_.raw(), l1Head().raw(), 32, _partOffset);
+            value_ = l1Head().raw();
         } else if (_ident == LocalPreimageKey.STARTING_OUTPUT_ROOT) {
             // Load the starting proposal's output root.
-            oracle.loadLocalData(_ident, uuid.raw(), starting.raw(), 32, _partOffset);
+            Claim starting;
+            // If the pos is 0, then the root itself is the output hash.
+            if (startingPos.raw() == 0) {
+                starting = startingRoot;
+            } else {
+                starting = getClaim(startingRoot.raw(), startingPos, _daItem);
+            }
+            oracle.loadLocalData(_ident, uuid_.raw(), starting.raw(), 32, _partOffset);
+            value_ = starting.raw();
         } else if (_ident == LocalPreimageKey.DISPUTED_OUTPUT_ROOT) {
             // Load the disputed proposal's output root
-            oracle.loadLocalData(_ident, uuid.raw(), disputed.raw(), 32, _partOffset);
+            Claim disputed;
+            // If the pos is 1, then the rootclaim itself is the output hash.
+            if (disputedPos.raw() == 1) {
+                disputed = disputedRoot;
+            } else {
+                disputed = getClaim(disputedRoot.raw(), disputedPos, _daItem);
+            }
+            oracle.loadLocalData(_ident, uuid_.raw(), disputed.raw(), 32, _partOffset);
+            value_ = disputed.raw();
         } else if (_ident == LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER) {
             // Load the disputed proposal's L2 block number as a big-endian uint64 in the
             // high order 8 bytes of the word.
@@ -514,10 +534,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             // block number.
             uint256 l2Number = startingOutputRoot.l2BlockNumber + disputedPos.traceIndex(SPLIT_DEPTH) + 1;
 
-            oracle.loadLocalData(_ident, uuid.raw(), bytes32(l2Number << 0xC0), 8, _partOffset);
+            oracle.loadLocalData(_ident, uuid_.raw(), bytes32(l2Number << 0xC0), 8, _partOffset);
+            value_ = bytes32(l2Number << 0xC0);
         } else if (_ident == LocalPreimageKey.CHAIN_ID) {
             // Load the chain ID as a big-endian uint64 in the high order 8 bytes of the word.
-            oracle.loadLocalData(_ident, uuid.raw(), bytes32(L2_CHAIN_ID << 0xC0), 8, _partOffset);
+            oracle.loadLocalData(_ident, uuid_.raw(), bytes32(L2_CHAIN_ID << 0xC0), 8, _partOffset);
+            value_ = bytes32(L2_CHAIN_ID << 0xC0);
         } else {
             revert InvalidLocalIdent();
         }
@@ -987,14 +1009,14 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     /// @notice Finds the starting and disputed output root for a given `ClaimData` within the DAG. This
     ///         `ClaimData` must be below the `SPLIT_DEPTH`.
     /// @param _start The index within `claimData` of the claim to start searching from.
-    /// @return startingClaim_ The starting output root claim.
+    /// @return startingClaimRoot_ The starting output root claim.
     /// @return startingPos_ The starting output root position.
-    /// @return disputedClaim_ The disputed output root claim.
+    /// @return disputedClaimRoot_ The disputed output root claim.
     /// @return disputedPos_ The disputed output root position.
-    function _findStartingAndDisputedOutputs(uint256 _start)
+    function _findStartingAndDisputedOutputRoots(uint256 _start)
         internal
         view
-        returns (Claim startingClaim_, Position startingPos_, Claim disputedClaim_, Position disputedPos_)
+        returns (Claim startingClaimRoot_, Position startingPos_, Claim disputedClaimRoot_, Position disputedPos_)
     {
         // Fatch the starting claim.
         uint256 claimIdx = _start;
@@ -1027,29 +1049,28 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // above. This is important because it determines which claim is the starting output root and which
         // is the disputed output root.
         (Position execRootPos, Position outputPos) = (execRootClaim.position, claim.position);
-        bool wasAttack = execRootPos.parent().raw() == outputPos.raw();
+        // Equation is (outputPos + attackBranch) * (1 << N_BITS) = execRootPos
+        uint64 attackBranch = uint64(execRootPos.raw() / (1 << N_BITS) - outputPos.raw());
 
         // Determine the starting and disputed output root indices.
         // 1. If it was an attack, the disputed output root is `claim`, and the starting output root is
         //    elsewhere in the DAG (it must commit to the block # index at depth of `outputPos - 1`).
         // 2. If it was a defense, the starting output root is `claim`, and the disputed output root is
         //    elsewhere in the DAG (it must commit to the block # index at depth of `outputPos + 1`).
-        if (wasAttack) {
+        if (attackBranch != MAX_ATTACK_BRANCH) {
             // If this is an attack on the first output root (the block directly after the starting
             // block number), the starting claim nor position exists in the tree. We leave these as
             // 0, which can be easily identified due to 0 being an invalid Gindex.
-            if (outputPos.indexAtDepth() > 0) {
-                // TOOD: replace by _findTraceAncestorV2
-                (startingClaim_, startingPos_) =
-                    _findTraceAncestorRoot(Position.wrap(outputPos.raw() - 1), claimIdx, true);
+            if (outputPos.indexAtDepth() > 0 || attackBranch > 0) {
+                (startingClaimRoot_, startingPos_) =
+                    _findTraceAncestorRoot(Position.wrap(outputPos.raw() - 1 + attackBranch), claimIdx, true);
             } else {
-                startingClaim_ = Claim.wrap(startingOutputRoot.root.raw());
+                startingClaimRoot_ = Claim.wrap(startingOutputRoot.root.raw());
             }
-            (disputedClaim_, disputedPos_) = (claim.claim, claim.position);
+            (disputedClaimRoot_, disputedPos_) = (claim.claim, Position.wrap(claim.position.raw() + attackBranch));
         } else {
-            (startingClaim_, startingPos_) = (claim.claim, claim.position);
-            // TOOD: replace by _findTraceAncestorV2
-            (disputedClaim_, disputedPos_) = _findTraceAncestorRoot(Position.wrap(outputPos.raw() + 1), claimIdx, true);
+            (startingClaimRoot_, startingPos_) = (claim.claim, Position.wrap(claim.position.raw() + attackBranch - 1));
+            (disputedClaimRoot_, disputedPos_) = _findTraceAncestorRoot(Position.wrap(outputPos.raw() + attackBranch), claimIdx, true);
         }
     }
 
@@ -1058,7 +1079,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     /// @return uuid_ The local context hash.
     function _findLocalContext(uint256 _claimIndex) internal view returns (Hash uuid_) {
         (Claim starting, Position startingPos, Claim disputed, Position disputedPos) =
-            _findStartingAndDisputedOutputs(_claimIndex);
+            _findStartingAndDisputedOutputRoots(_claimIndex);
         uuid_ = _computeLocalContext(starting, startingPos, disputed, disputedPos);
     }
 
@@ -1134,8 +1155,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             : _firstValidRightIndex(_pos.traceAncestorBounded(SPLIT_DEPTH), N_BITS);
 
         uint256 offset = ancestorPos_.raw() % (1 << N_BITS);
-        if (MAX_ATTACK_BRANCH == offset) {
-            offset = 0;
+        // If ancestorPos_.raw() == 1, the rootClaim is returned
+        if (ancestorPos_.raw() == 1) {
+            return (rootClaim(), ancestorPos_);
         }
         uint256 traceAncestorPosValue = ancestorPos_.raw() - offset;
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
