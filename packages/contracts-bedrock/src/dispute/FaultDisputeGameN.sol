@@ -517,7 +517,13 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             value_ = starting.raw();
         } else if (_ident == LocalPreimageKey.DISPUTED_OUTPUT_ROOT) {
             // Load the disputed proposal's output root
-            Claim disputed = getClaim(disputedRoot.raw(), disputedPos, _daItem);
+            Claim disputed;
+            // If the pos is 1, then the rootclaim itself is the output hash.
+            if (disputedPos.raw() == 1) {
+                disputed = disputedRoot;
+            } else {
+                disputed = getClaim(disputedRoot.raw(), disputedPos, _daItem);
+            }
             oracle.loadLocalData(_ident, uuid_.raw(), disputed.raw(), 32, _partOffset);
             value_ = disputed.raw();
         } else if (_ident == LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER) {
@@ -1149,8 +1155,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             : _firstValidRightIndex(_pos.traceAncestorBounded(SPLIT_DEPTH), N_BITS);
 
         uint256 offset = ancestorPos_.raw() % (1 << N_BITS);
-        if (MAX_ATTACK_BRANCH == offset) {
-            offset = 0;
+        // If ancestorPos_.raw() == 1, the rootClaim is returned
+        if (ancestorPos_.raw() == 1) {
+            return (rootClaim(), ancestorPos_);
         }
         uint256 traceAncestorPosValue = ancestorPos_.raw() - offset;
         // Walk up the DAG to find a claim that commits to the same trace index as `_pos`. It is
