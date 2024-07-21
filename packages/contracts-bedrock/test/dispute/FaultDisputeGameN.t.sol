@@ -430,10 +430,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     function test_move_clockTimeExceeded_reverts() public {
         // Warp ahead past the clock time for the first move (3 1/2 days)
         vm.warp(block.timestamp + 3 days + 12 hours + 1);
-        uint256 bond = _getRequiredBond(0);
+        uint256 bond = _getRequiredBondV2(0, 0);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
         vm.expectRevert(ClockTimeExceeded.selector);
-        gameProxy.attack{ value: bond }(disputed, 0, _dummyClaim());
+        gameProxy.attackV2{ value: bond }(disputed, 0, _dummyClaim(), 0);
     }
 
     /// @notice Static unit test for the correctness of the chess clock incrementation.
@@ -444,16 +444,16 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim = _dummyClaim();
 
         vm.warp(block.timestamp + 15);
-        uint256 bond = _getRequiredBond(0);
+        uint256 bond = _getRequiredBondV2(0, 0);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: bond }(disputed, 0, claim);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claim, 0);
         (,,,,,, clock) = gameProxy.claimData(1);
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(15), Timestamp.wrap(uint64(block.timestamp))).raw());
 
         vm.warp(block.timestamp + 10);
-        bond = _getRequiredBond(1);
+        bond = _getRequiredBondV2(1, 0);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: bond }(disputed, 1, claim);
+        gameProxy.attackV2{ value: bond }(disputed, 1, claim, 0);
         (,,,,,, clock) = gameProxy.claimData(2);
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(10), Timestamp.wrap(uint64(block.timestamp))).raw());
 
@@ -462,22 +462,22 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         claim = _changeClaimStatus(claim, VMStatuses.PANIC);
 
         vm.warp(block.timestamp + 10);
-        bond = _getRequiredBond(2);
+        bond = _getRequiredBondV2(2, 0);
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: bond }(disputed, 2, claim);
+        gameProxy.attackV2{ value: bond }(disputed, 2, claim, 0);
         (,,,,,, clock) = gameProxy.claimData(3);
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(25), Timestamp.wrap(uint64(block.timestamp))).raw());
 
         vm.warp(block.timestamp + 10);
-        bond = _getRequiredBond(3);
+        bond = _getRequiredBondV2(3, 0);
         (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attack{ value: bond }(disputed, 3, claim);
+        gameProxy.attackV2{ value: bond }(disputed, 3, claim, 0);
         (,,,,,, clock) = gameProxy.claimData(4);
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(20), Timestamp.wrap(uint64(block.timestamp))).raw());
     }
 
     /// @notice Static unit test that checks proper clock extension.
-    function test_move_clockExtensionCorrectness_succeeds() public {
+    function test_move_clockExtensionCorrectnessSplitGrandChild_succeeds() public {
         (,,,,,, Clock clock) = gameProxy.claimData(0);
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp))).raw());
 
@@ -486,34 +486,15 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         uint64 halfGameDuration = gameProxy.maxClockDuration().raw();
         uint64 clockExtension = gameProxy.clockExtension().raw();
 
-        // Make an initial attack against the root claim with 1 second left on the clock. The grandchild should be
-        // allocated exactly `clockExtension` seconds remaining on their potential clock.
-        vm.warp(block.timestamp + halfGameDuration - 1 seconds);
-        uint256 bond = _getRequiredBond(0);
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: bond }(disputed, 0, claim);
-        (,,,,,, clock) = gameProxy.claimData(1);
-        assertEq(clock.duration().raw(), halfGameDuration - clockExtension);
-
-        // Warp ahead to the last second of the root claim defender's clock, and bisect all the way down to the move
-        // above the `SPLIT_DEPTH`. This warp guarantees that all moves from here on out will have clock extensions.
-        vm.warp(block.timestamp + halfGameDuration - 1 seconds);
-        for (uint256 i = 1; i < splitDepth - 2; i++) {
-            bond = _getRequiredBond(i);
-            (,,,, disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: bond }(disputed, i, claim);
-        }
-
-        // Warp ahead 1 seconds to have `clockExtension - 1 seconds` left on the next move's clock.
-        vm.warp(block.timestamp + 1 seconds);
-
         // The move above the split depth's grand child is the execution trace bisection root. The grandchild should
         // be allocated `clockExtension * 2` seconds on their potential clock, if currently they have less than
         // `clockExtension` seconds left.
-        bond = _getRequiredBond(splitDepth - 2);
-        (,,,, disputed,,) = gameProxy.claimData(splitDepth - 2);
-        gameProxy.attack{ value: bond }(disputed, splitDepth - 2, claim);
-        (,,,,,, clock) = gameProxy.claimData(splitDepth - 1);
+        vm.warp(block.timestamp + halfGameDuration - 1 seconds);
+        uint256 bond = _getRequiredBondV2(0, 0);
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claim, 0);
+        (,,,,,, clock) = gameProxy.claimData(1);
+
         assertEq(clock.duration().raw(), halfGameDuration - clockExtension * 2);
     }
 
@@ -1285,7 +1266,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         assertEq(disputedOutputRoot, claim1.raw());
     }
 
-function test_addLocalKey_AttackRightMidBranch_succeeds() public {
+    function test_addLocalKey_AttackRightMidBranch_succeeds() public {
           // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
@@ -1325,7 +1306,7 @@ function test_addLocalKey_AttackRightMidBranch_succeeds() public {
         assertEq(disputedOutputRoot, claim3.raw());
     }
 
-   function test_addLocalKey_AttackRightMostBranch_succeeds() public {
+    function test_addLocalKey_AttackRightMostBranch_succeeds() public {
           // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
@@ -2460,6 +2441,27 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
+    }
+
+    /// @notice Static unit test that checks proper clock extension.
+    function test_move_clockExtensionCorrectnessOne_succeeds() public {
+        (,,,,,, Clock clock) = gameProxy.claimData(0);
+        assertEq(clock.raw(), LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp))).raw());
+
+        Claim claim = _dummyClaim();
+        uint256 splitDepth = gameProxy.splitDepth();
+        uint64 halfGameDuration = gameProxy.maxClockDuration().raw();
+        uint64 clockExtension = gameProxy.clockExtension().raw();
+
+        // Make an initial attack against the root claim with 1 second left on the clock. The grandchild should be
+        // allocated exactly `clockExtension` seconds remaining on their potential clock.
+        vm.warp(block.timestamp + halfGameDuration - 1 seconds);
+        uint256 bond = _getRequiredBondV2(0, 0);
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claim, 0);
+        (,,,,,, clock) = gameProxy.claimData(1);
+
+        assertEq(clock.duration().raw(), halfGameDuration - clockExtension);
     }
 }
 
