@@ -496,9 +496,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         uint64 halfGameDuration = gameProxy.maxClockDuration().raw();
         uint64 clockExtension = gameProxy.clockExtension().raw();
 
-        // The move above the split depth's grand child is the execution trace bisection root. The grandchild should
-        // be allocated `clockExtension * 2` seconds on their potential clock, if currently they have less than
-        // `clockExtension` seconds left.
+        // This specific move, located above the split depth, has a grandchild that acts as the multi-section root
+        // in the execution trace. Consequently, if the current move has less than clockExtension seconds remaining
+        // on its potential clock, the grandchild move should be allocated clockExtension * 2 seconds.
         vm.warp(block.timestamp + halfGameDuration - 1 seconds);
         uint256 bond = _getRequiredBondV2(0, 0);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
