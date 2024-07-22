@@ -1984,14 +1984,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Perform a bonded move.
         Claim claim = _dummyClaim();
-        uint256 firstBond = _getRequiredBond(0);
+        uint256 firstBond = _getRequiredBondV2(0, 0);
         vm.deal(address(reenter), firstBond);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: firstBond }(disputed, 0, claim);
-        uint256 secondBond = _getRequiredBond(1);
+        gameProxy.attackV2{ value: firstBond }(disputed, 0, claim, 0);
+        uint256 secondBond = _getRequiredBondV2(1, 0);
         vm.deal(address(reenter), secondBond);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: secondBond }(disputed, 1, claim);
+        gameProxy.attackV2{ value: secondBond }(disputed, 1, claim, 0);
         uint256 reenterBond = firstBond + secondBond;
 
         // Warp past the finalization period
