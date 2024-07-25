@@ -57,6 +57,8 @@ import { LibStateDiff } from "scripts/libraries/LibStateDiff.sol";
 import { EIP1967Helper } from "test/mocks/EIP1967Helper.sol";
 import { ForgeArtifacts } from "scripts/ForgeArtifacts.sol";
 
+import { Demo } from "src/dispute/Demo.sol";
+
 /// @title Deploy
 /// @notice Script used to deploy a bedrock system. The entire system is deployed within the `run` function.
 ///         To add a new contract to the system, add a public function that deploys that individual contract.
@@ -389,6 +391,9 @@ contract Deploy is Deployer {
         deployPreimageOracle();
         deployMips();
         deployAnchorStateRegistry();
+
+        // Demo contracts
+        depolyDemoContract();
     }
 
     /// @notice Initialize all of the implementations
@@ -775,6 +780,16 @@ contract Deploy is Deployer {
         ChainAssertions.checkProtocolVersions({ _contracts: contracts, _cfg: cfg, _isProxy: false });
 
         addr_ = address(versions);
+    }
+
+    // @notice Deploy the Demo contract
+    function depolyDemoContract() public broadcast returns (address addr_) {
+        console.log("Deploying DemoContract");
+        Demo d = new Demo{ salt: _implSalt() }();
+        save("Demo", address(d));
+        console.log("DemoContract deployed at %s", address(d));
+
+        addr_ = address(d);
     }
 
     /// @notice Deploy the PreimageOracle

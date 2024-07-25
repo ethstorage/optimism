@@ -277,3 +277,58 @@ func (h *FactoryHelper) StartChallenger(ctx context.Context, name string, option
 	})
 	return c
 }
+
+type DemoHelper struct {
+	T           *testing.T
+	Require     *require.Assertions
+	System      DisputeSystem
+	Client      *ethclient.Client
+	Opts        *bind.TransactOpts
+	FactoryAddr common.Address
+	Demo        *bindings.Demo
+}
+
+func NewDemoHelper(t *testing.T, ctx context.Context, system DisputeSystem) *DemoHelper {
+	require := require.New(t)
+	client := system.NodeClient("l1")
+	chainID, err := client.ChainID(ctx)
+	require.NoError(err)
+	opts, err := bind.NewKeyedTransactorWithChainID(TestKey, chainID)
+	require.NoError(err)
+
+	l1Deployments := system.L1Deployments()
+	demoAddr := l1Deployments.Demo
+	demo, err := bindings.NewDemo(demoAddr, client)
+	require.NoError(err)
+
+	return &DemoHelper{
+		T:           t,
+		Require:     require,
+		System:      system,
+		Client:      client,
+		Opts:        opts,
+		FactoryAddr: demoAddr,
+		Demo:        demo,
+	}
+}
+
+func (h *DemoHelper) Store(ctx context.Context, number *big.Int, opts ...GameOpt) {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
+	tx, err := transactions.PadGasEstimate(h.Opts, 2, func(opts *bind.TransactOpts) (*types.Transaction, error) {
+		h.T.Logf("building store txs....")
+		return h.Demo.Store(opts, number)
+	})
+	h.Require.NoError(err, "store number tx")
+	rcpt, err := wait.ForReceiptOK(ctx, h.Client, tx.Hash())
+	h.Require.NoError(err, "wait for store number to be OK")
+	h.Require.Len(rcpt.Logs, 0, "should have emitted a single DisputeGameCreated event")
+}
+
+func (h *DemoHelper) Retrieve(ctx context.Context) (*big.Int, error) {
+	ctx, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	defer cancel()
+
+	return h.Demo.Retrieve(&bind.CallOpts{})
+}
