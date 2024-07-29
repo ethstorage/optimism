@@ -489,6 +489,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
     /// @inheritdoc IFaultDisputeGame
     function addLocalData(uint256 _ident, uint256 _execLeafIdx, uint256 _partOffset) external {
+        revert NotSupported();
     }
 
     function addLocalData(uint256 _ident, uint256 _execLeafIdx, uint256 _partOffset, LibDA.DAItem memory _daItem) external returns (Hash uuid_, bytes32 value_) {

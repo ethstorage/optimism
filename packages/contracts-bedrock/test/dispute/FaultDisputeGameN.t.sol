@@ -2035,20 +2035,26 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     function testFuzz_addLocalData_oob_reverts(uint256 _ident) public {
         Claim disputed;
         // Get a claim below the split depth so that we can add local data for an execution trace subgame.
-        for (uint256 i; i < 4; i++) {
-            uint256 bond = _getRequiredBond(i);
+        for (uint256 i; i < 2; i++) {
+            uint256 bond = _getRequiredBondV2(i, 0);
             (,,,, disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: bond }(disputed, i, _dummyClaim());
+            gameProxy.attackV2{ value: bond }(disputed, i, _dummyClaim(), 0);
         }
-        uint256 lastBond = _getRequiredBond(4);
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: lastBond }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
+        uint256 lastBond = _getRequiredBondV2(2, 0);
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: lastBond }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
 
         // [1, 5] are valid local data identifiers.
         if (_ident <= 5) _ident = 0;
 
+        // This variable is not used
+        LibDA.DAItem memory localDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: '00000000000000000000000000000000',
+            proof: hex""
+        });
         vm.expectRevert(InvalidLocalIdent.selector);
-        gameProxy.addLocalData(_ident, 5, 0);
+        gameProxy.addLocalData(_ident, 3, 0, localDataItem);
     }
 
     /// @dev Tests that local data is loaded into the preimage oracle correctly in the subgame
@@ -2056,37 +2062,52 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     function test_addLocalDataGenesisTransition_static_succeeds() public {
         IPreimageOracle oracle = IPreimageOracle(address(gameProxy.vm().oracle()));
         Claim disputed;
+        Claim[] memory claims = generateClaims(3);
+        Claim disputedClaim = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, abi.encodePacked(claims[0], claims[1], claims[2])));
 
-        // Get a claim below the split depth so that we can add local data for an execution trace subgame.
-        for (uint256 i; i < 4; i++) {
-            uint256 bond = _getRequiredBond(i);
-            (,,,, disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: bond }(disputed, i, Claim.wrap(bytes32(i)));
-        }
-        uint256 lastBond = _getRequiredBond(4);
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: lastBond }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
+        (,,,, disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, disputedClaim, 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+
+        LibDA.DAItem memory startingDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: '00000000000000000000000000000000',
+            proof: hex""
+        });
+        LibDA.DAItem memory disputedDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claims[0].raw(),
+            proof: abi.encodePacked(claims[1], claims[2])
+        });
 
         // Expected start/disputed claims
         (Hash root,) = gameProxy.startingOutputRoot();
         bytes32 startingClaim = root.raw();
-        bytes32 disputedClaim = bytes32(uint256(3));
         Position disputedPos = LibPosition.wrap(4, 0);
 
         // Expected local data
         bytes32[5] memory data = [
             gameProxy.l1Head().raw(),
             startingClaim,
-            disputedClaim,
+            disputedDataItem.dataHash,
             bytes32(uint256(1) << 0xC0),
             bytes32(gameProxy.l2ChainId() << 0xC0)
         ];
 
         for (uint256 i = 1; i <= 5; i++) {
             uint256 expectedLen = i > 3 ? 8 : 32;
-            bytes32 key = _getKey(i, keccak256(abi.encode(disputedClaim, disputedPos)));
+            bytes32 key = _getKey(i, keccak256(abi.encode(disputedClaim.raw(), disputedPos)));
 
-            gameProxy.addLocalData(i, 5, 0);
+            if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
+                gameProxy.addLocalData(i, 3, 0, disputedDataItem);
+            } else {
+                gameProxy.addLocalData(i, 3, 0, startingDataItem);
+            }
             (bytes32 dat, uint256 datLen) = oracle.readPreimage(key, 0);
             assertEq(dat >> 0xC0, bytes32(expectedLen));
             // Account for the length prefix if i > 3 (the data stored
@@ -2096,7 +2117,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             // total.)
             assertEq(datLen, expectedLen + (i > 3 ? 8 : 0));
 
-            gameProxy.addLocalData(i, 5, 8);
+            if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
+                gameProxy.addLocalData(i, 3, 8, disputedDataItem);
+            } else {
+                gameProxy.addLocalData(i, 3, 8, startingDataItem);
+            }
             (dat, datLen) = oracle.readPreimage(key, 8);
             assertEq(dat, data[i - 1]);
             assertEq(datLen, expectedLen);
@@ -2106,38 +2131,51 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Tests that local data is loaded into the preimage oracle correctly.
     function test_addLocalDataMiddle_static_succeeds() public {
         IPreimageOracle oracle = IPreimageOracle(address(gameProxy.vm().oracle()));
-        Claim disputed;
+        Claim[] memory claims = generateClaims(3);
+        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, abi.encodePacked(claims[0], claims[1], claims[2])));
 
-        // Get a claim below the split depth so that we can add local data for an execution trace subgame.
-        for (uint256 i; i < 4; i++) {
-            uint256 bond = _getRequiredBond(i);
-            (,,,, disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: bond }(disputed, i, Claim.wrap(bytes32(i)));
-        }
-        uint256 lastBond = _getRequiredBond(4);
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.defend{ value: lastBond }(disputed, 4, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID));
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, root, 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 0);
+
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 3) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3);
+
+        LibDA.DAItem memory startingDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claims[2].raw(),
+            proof: bytes.concat(keccak256(abi.encode(claims[0].raw(), claims[1].raw())))
+        });
+        LibDA.DAItem memory disputedDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: claims[0].raw(),
+            proof: abi.encodePacked(claims[1], claims[2])
+        });
 
         // Expected start/disputed claims
-        bytes32 startingClaim = bytes32(uint256(3));
-        Position startingPos = LibPosition.wrap(4, 0);
-        bytes32 disputedClaim = bytes32(uint256(2));
-        Position disputedPos = LibPosition.wrap(3, 0);
+        Position startingPos = LibPosition.wrap(4, 2);
+        Position disputedPos = LibPosition.wrap(2, 0);
 
         // Expected local data
         bytes32[5] memory data = [
             gameProxy.l1Head().raw(),
-            startingClaim,
-            disputedClaim,
-            bytes32(uint256(2) << 0xC0),
+            startingDataItem.dataHash,
+            disputedDataItem.dataHash,
+            bytes32(uint256(4) << 0xC0),
             bytes32(gameProxy.l2ChainId() << 0xC0)
         ];
 
         for (uint256 i = 1; i <= 5; i++) {
             uint256 expectedLen = i > 3 ? 8 : 32;
-            bytes32 key = _getKey(i, keccak256(abi.encode(startingClaim, startingPos, disputedClaim, disputedPos)));
+            bytes32 key = _getKey(i, keccak256(abi.encode(root.raw(), startingPos, root.raw(), disputedPos)));
 
-            gameProxy.addLocalData(i, 5, 0);
+            if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
+                gameProxy.addLocalData(i, 3, 0, disputedDataItem);
+            } else {
+                gameProxy.addLocalData(i, 3, 0, startingDataItem);
+            }
             (bytes32 dat, uint256 datLen) = oracle.readPreimage(key, 0);
             assertEq(dat >> 0xC0, bytes32(expectedLen));
             // Account for the length prefix if i > 3 (the data stored
@@ -2147,7 +2185,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             // total.)
             assertEq(datLen, expectedLen + (i > 3 ? 8 : 0));
 
-            gameProxy.addLocalData(i, 5, 8);
+            if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
+                gameProxy.addLocalData(i, 3, 8, disputedDataItem);
+            } else {
+                gameProxy.addLocalData(i, 3, 8, startingDataItem);
+            }
             (dat, datLen) = oracle.readPreimage(key, 8);
             assertEq(dat, data[i - 1]);
             assertEq(datLen, expectedLen);
