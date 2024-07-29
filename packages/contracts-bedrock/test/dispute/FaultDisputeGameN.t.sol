@@ -492,7 +492,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp))).raw());
 
         Claim claim = _dummyClaim();
-        uint256 splitDepth = gameProxy.splitDepth();
         uint64 halfGameDuration = gameProxy.maxClockDuration().raw();
         uint64 clockExtension = gameProxy.clockExtension().raw();
 
@@ -2520,7 +2519,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(0), Timestamp.wrap(uint64(block.timestamp))).raw());
 
         Claim claim = _dummyClaim();
-        uint256 splitDepth = gameProxy.splitDepth();
         uint64 halfGameDuration = gameProxy.maxClockDuration().raw();
         uint64 clockExtension = gameProxy.clockExtension().raw();
 
