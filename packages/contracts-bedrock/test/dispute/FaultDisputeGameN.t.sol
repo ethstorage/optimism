@@ -27,6 +27,10 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
     /// @dev The type of the game being tested.
     GameType internal constant GAME_TYPE = GameType.wrap(0);
 
+    uint256 internal constant N_BITS = 2;
+
+    uint256 internal constant MAX_ATTACK_BRANCH = (1 << N_BITS) - 1;
+
     /// @dev The implementation of the game.
     FaultDisputeGame internal gameImpl;
     /// @dev The `Clone` proxy of the game.
@@ -105,7 +109,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         return Claim.wrap(keccak256(abi.encode(gasleft())));
     }
 
-    function generateClaims(uint256 total) public view returns (Claim[] memory) {
+    function generateClaims(uint256 total) public pure returns (Claim[] memory) {
         Claim[] memory newClaims = new Claim[](total);
         for (uint256 i = 0; i < total; i++) {
             bytes memory claimData = abi.encode(i + 1, i + 1);
@@ -391,14 +395,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, Claim root,,) = gameProxy.claimData(0);
         // Attempt to make a move. Should revert.
         vm.expectRevert(GameNotInProgress.selector);
-        gameProxy.attack(root, 0, Claim.wrap(0));
+        gameProxy.attackV2(root, 0, Claim.wrap(0), 0);
     }
 
     /// @dev Tests that an attempt to defend the root claim reverts with the `CannotDefendRootClaim` error.
     function test_move_defendRoot_reverts() public {
         (,,,, Claim root,,) = gameProxy.claimData(0);
         vm.expectRevert(CannotDefendRootClaim.selector);
-        gameProxy.defend(root, 0, _dummyClaim());
+        gameProxy.attackV2(root, 0, _dummyClaim(), uint64(MAX_ATTACK_BRANCH));
     }
 
     /// @dev Tests that an attempt to move against a claim that does not exist reverts with the
@@ -408,11 +412,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Expect an out of bounds revert for an attack
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x32));
-        gameProxy.attack(_dummyClaim(), 1, claim);
+        gameProxy.attackV2(_dummyClaim(), 1, claim, 0);
 
         // Expect an out of bounds revert for a defense
         vm.expectRevert(abi.encodeWithSignature("Panic(uint256)", 0x32));
-        gameProxy.defend(_dummyClaim(), 1, claim);
+        gameProxy.attackV2(_dummyClaim(), 1, claim, uint64(MAX_ATTACK_BRANCH));
     }
 
     /// @dev Tests that an attempt to move at the maximum game depth reverts with the
@@ -422,15 +426,15 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         uint256 maxDepth = gameProxy.maxGameDepth();
 
-        for (uint256 i = 0; i <= maxDepth; i++) {
+        for (uint256 i = 0; i * N_BITS <= maxDepth; i++) {
             (,,,, Claim disputed,,) = gameProxy.claimData(i);
             // At the max game depth, the `_move` function should revert with
             // the `GameDepthExceeded` error.
-            if (i == maxDepth) {
+            if (i * N_BITS == maxDepth) {
                 vm.expectRevert(GameDepthExceeded.selector);
-                gameProxy.attack{ value: 100 ether }(disputed, i, claim);
+                gameProxy.attackV2{ value: 100 ether }(disputed, i, claim, 0);
             } else {
-                gameProxy.attack{ value: _getRequiredBond(i) }(disputed, i, claim);
+                gameProxy.attackV2{ value: _getRequiredBondV2(i, 0) }(disputed, i, claim, 0);
             }
         }
     }
@@ -513,13 +517,13 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim = _dummyClaim();
 
         // Make the first move. This should succeed.
-        uint256 bond = _getRequiredBond(0);
+        uint256 bond = _getRequiredBondV2(0, 0);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: bond }(disputed, 0, claim);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claim, 0);
 
         // Attempt to make the same move again.
         vm.expectRevert(ClaimAlreadyExists.selector);
-        gameProxy.attack{ value: bond }(disputed, 0, claim);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claim, 0);
     }
 
     /// @dev Static unit test asserting that identical claims at the same position can be made in different subgames.
@@ -528,19 +532,19 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claimB = _dummyClaim();
 
         // Make the first moves. This should succeed.
-        uint256 bond = _getRequiredBond(0);
+        uint256 bond = _getRequiredBondV2(0, 0);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: bond }(disputed, 0, claimA);
-        gameProxy.attack{ value: bond }(disputed, 0, claimB);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claimA, 0);
+        gameProxy.attackV2{ value: bond }(disputed, 0, claimB, 0);
 
         // Perform an attack at the same position with the same claim value in both subgames.
         // These both should succeed.
-        bond = _getRequiredBond(1);
+        bond = _getRequiredBondV2(1, 0);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: bond }(disputed, 1, claimA);
-        bond = _getRequiredBond(2);
+        gameProxy.attackV2{ value: bond }(disputed, 1, claimA, 0);
+        bond = _getRequiredBondV2(2, 0);
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: bond }(disputed, 2, claimA);
+        gameProxy.attackV2{ value: bond }(disputed, 2, claimA, 0);
     }
 
     /// @dev Static unit test for the correctness of an opening attack.
@@ -551,11 +555,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim counter = _dummyClaim();
 
         // Perform the attack.
-        uint256 reqBond = _getRequiredBond(0);
+        uint256 reqBond = _getRequiredBondV2(0, 0);
         vm.expectEmit(true, true, true, false);
         emit Move(0, counter, address(this));
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: reqBond }(disputed, 0, counter);
+        gameProxy.attackV2{ value: reqBond }(disputed, 0, counter, 0);
 
         // Grab the claim data of the attack.
         (
@@ -574,7 +578,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         assertEq(claimant, address(this));
         assertEq(bond, reqBond);
         assertEq(claim.raw(), counter.raw());
-        assertEq(position.raw(), Position.wrap(1).move(true).raw());
+        assertEq(position.raw(), Position.wrap(1).moveN(N_BITS, 0).raw());
         assertEq(clock.raw(), LibClock.wrap(Duration.wrap(5), Timestamp.wrap(uint64(block.timestamp))).raw());
 
         // Grab the claim data of the parent.
@@ -630,7 +634,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         }
         uint256 lastBond = _getRequiredBondV2(2, 0);
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: lastBond }(disputed, 2, Claim.wrap(bytes32(0)), 3);
+        gameProxy.attackV2{ value: lastBond }(disputed, 2, Claim.wrap(bytes32(0)), uint64(MAX_ATTACK_BRANCH));
     }
 
     /// @dev Static unit test asserting that a move reverts when the bonded amount is incorrect.
@@ -643,10 +647,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test asserting that a move reverts when the disputed claim does not match its index.
     function test_move_incorrectDisputedIndex_reverts() public {
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        uint256 bond = _getRequiredBond(1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+        uint256 bond = _getRequiredBondV2(1, 0);
         vm.expectRevert(InvalidDisputedClaimIndex.selector);
-        gameProxy.attack{ value: bond }(disputed, 1, _dummyClaim());
+        gameProxy.attackV2{ value: bond }(disputed, 1, _dummyClaim(), 0);
     }
 
     /// @dev Tests that challenging the root claim's L2 block number by providing the real preimage of the output root
