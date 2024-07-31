@@ -1450,10 +1450,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     function test_resolve_multiPart_succeeds() public {
         vm.deal(address(this), 10_000 ether);
 
-        uint256 bond = _getRequiredBond(0);
+        uint256 bond = _getRequiredBondV2(0, 0);
         for (uint256 i = 0; i < 2048; i++) {
             (,,,, Claim disputed,,) = gameProxy.claimData(0);
-            gameProxy.attack{ value: bond }(disputed, 0, Claim.wrap(bytes32(i)));
+            gameProxy.attackV2{ value: bond }(disputed, 0, Claim.wrap(bytes32(i)), 0);
         }
 
         // Warp past the clock period.
@@ -1472,7 +1472,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             gameProxy.resolutionCheckpoints(0);
         assertTrue(initCheckpoint);
         assertEq(subgameIndex, 1024);
-        assertEq(leftmostPosition.raw(), Position.wrap(1).move(true).raw());
+        assertEq(leftmostPosition.raw(), Position.wrap(1).moveN(N_BITS, 0).raw());
         assertEq(counteredBy, address(this));
 
         // The root subgame should not be resolved.
@@ -1489,7 +1489,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (initCheckpoint, subgameIndex, leftmostPosition, counteredBy) = gameProxy.resolutionCheckpoints(0);
         assertTrue(initCheckpoint);
         assertEq(subgameIndex, 2048);
-        assertEq(leftmostPosition.raw(), Position.wrap(1).move(true).raw());
+        assertEq(leftmostPosition.raw(), Position.wrap(1).moveN(N_BITS, 0).raw());
         assertEq(counteredBy, address(this));
 
         // The root subgame should now be resolved
@@ -1525,7 +1525,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test for the correctness of resolving a single attack game state.
     function test_resolve_rootContested_succeeds() public {
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
@@ -1537,9 +1537,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test for the correctness of resolving a game with a contested challenge claim.
     function test_resolve_challengeContested_succeeds() public {
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.defend{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH));
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
@@ -1552,11 +1552,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test for the correctness of resolving a game with multiplayer moves.
     function test_resolve_teamDeathmatch_succeeds() public {
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.defend{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
-        gameProxy.defend{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, uint64(MAX_ATTACK_BRANCH)) }(disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH));
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, uint64(MAX_ATTACK_BRANCH)) }(disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH));
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
@@ -1571,20 +1571,20 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test for the correctness of resolving a game that reaches max game depth.
     function test_resolve_stepReached_succeeds() public {
         Claim claim = _dummyClaim();
-        for (uint256 i; i < gameProxy.splitDepth(); i++) {
+        for (uint256 i; i * N_BITS < gameProxy.splitDepth(); i++) {
             (,,,, Claim disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: _getRequiredBond(i) }(disputed, i, claim);
+            gameProxy.attackV2{ value: _getRequiredBondV2(i, 0) }(disputed, i, claim, 0);
         }
 
         claim = _changeClaimStatus(claim, VMStatuses.PANIC);
-        for (uint256 i = gameProxy.claimDataLen() - 1; i < gameProxy.maxGameDepth(); i++) {
+        for (uint256 i = gameProxy.claimDataLen() - 1; i * N_BITS < gameProxy.maxGameDepth(); i++) {
             (,,,, Claim disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: _getRequiredBond(i) }(disputed, i, claim);
+            gameProxy.attackV2{ value: _getRequiredBondV2(i, 0) }(disputed, i, claim, 0);
         }
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
-        for (uint256 i = 9; i > 0; i--) {
+        for (uint256 i = 5; i > 0; i--) {
             gameProxy.resolveClaim(i - 1, 0);
         }
         assertEq(uint8(gameProxy.resolve()), uint8(GameStatus.DEFENDER_WINS));
@@ -1593,14 +1593,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test asserting that resolve reverts when attempting to resolve a subgame multiple times
     function test_resolve_claimAlreadyResolved_reverts() public {
         Claim claim = _dummyClaim();
-        uint256 firstBond = _getRequiredBond(0);
+        uint256 firstBond = _getRequiredBondV2(0, 0);
         vm.deal(address(this), firstBond);
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: firstBond }(disputed, 0, claim);
-        uint256 secondBond = _getRequiredBond(1);
+        gameProxy.attackV2{ value: firstBond }(disputed, 0, claim, 0);
+        uint256 secondBond = _getRequiredBondV2(1, 0);
         vm.deal(address(this), secondBond);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: secondBond }(disputed, 1, claim);
+        gameProxy.attackV2{ value: secondBond }(disputed, 1, claim, 0);
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
@@ -1622,40 +1622,40 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test asserting that resolve reverts when attempting to resolve a subgame at max depth
     function test_resolve_claimAtMaxDepthAlreadyResolved_reverts() public {
         Claim claim = _dummyClaim();
-        for (uint256 i; i < gameProxy.splitDepth(); i++) {
+        for (uint256 i; i * N_BITS < gameProxy.splitDepth(); i++) {
             (,,,, Claim disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: _getRequiredBond(i) }(disputed, i, claim);
+            gameProxy.attackV2{ value: _getRequiredBondV2(i, 0) }(disputed, i, claim, 0);
         }
 
         vm.deal(address(this), 10000 ether);
         claim = _changeClaimStatus(claim, VMStatuses.PANIC);
-        for (uint256 i = gameProxy.claimDataLen() - 1; i < gameProxy.maxGameDepth(); i++) {
+        for (uint256 i = gameProxy.claimDataLen() - 1; i * N_BITS < gameProxy.maxGameDepth(); i++) {
             (,,,, Claim disputed,,) = gameProxy.claimData(i);
-            gameProxy.attack{ value: _getRequiredBond(i) }(disputed, i, claim);
+            gameProxy.attackV2{ value: _getRequiredBondV2(i, 0) }(disputed, i, claim, 0);
         }
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
         // Resolve to claim bond
         uint256 balanceBefore = address(this).balance;
-        gameProxy.resolveClaim(8, 0);
+        gameProxy.resolveClaim(4, 0);
 
         // Wait for the withdrawal delay.
         vm.warp(block.timestamp + delayedWeth.delay() + 1 seconds);
 
         gameProxy.claimCredit(address(this));
-        assertEq(address(this).balance, balanceBefore + _getRequiredBond(7));
+        assertEq(address(this).balance, balanceBefore + _getRequiredBondV2(3, 0));
 
         vm.expectRevert(ClaimAlreadyResolved.selector);
-        gameProxy.resolveClaim(8, 0);
+        gameProxy.resolveClaim(4, 0);
     }
 
     /// @dev Static unit test asserting that resolve reverts when attempting to resolve subgames out of order
     function test_resolve_outOfOrderResolution_reverts() public {
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
@@ -1965,7 +1965,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Challenge the claim and resolve it.
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
+        gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
         vm.warp(block.timestamp + 3 days + 12 hours);
         gameProxy.resolveClaim(1, 0);
         gameProxy.resolveClaim(0, 0);
