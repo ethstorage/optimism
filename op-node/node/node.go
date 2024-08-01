@@ -598,7 +598,7 @@ func (n *OpNode) OnUnsafeL2Payload(ctx context.Context, from peer.ID, envelope *
 
 func (n *OpNode) RequestL2Range(ctx context.Context, start, end eth.L2BlockRef) error {
 	if n.p2pNode != nil && n.p2pNode.AltSyncEnabled() {
-		if unixTimeStale(start.Time, 12*time.Hour) {
+		if unixTimeStale(start.Time, 42*time.Hour) {
 			n.log.Debug("ignoring request to sync L2 range, timestamp is too old for p2p", "start", start, "end", end, "start_time", start.Time)
 			return nil
 		}
