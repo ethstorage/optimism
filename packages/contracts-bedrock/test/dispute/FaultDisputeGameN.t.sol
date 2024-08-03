@@ -952,7 +952,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -970,6 +969,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             vmProof: hex""
         });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1, preStateItem);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof});
     }
 
@@ -1000,7 +1000,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -1018,6 +1017,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             vmProof: hex""
         });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, preStateItem);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
     }
 
@@ -1048,7 +1048,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -1067,6 +1066,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             vmProof: hex""
         });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         vm.expectRevert(ValidStep.selector);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 3, _stateData: claimData3, _proof: stepProof});
     }
