@@ -2392,7 +2392,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 2);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2403,6 +2402,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
 
@@ -2447,7 +2447,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 2);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2458,6 +2457,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         vm.expectRevert(ValidStep.selector);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
@@ -2499,7 +2499,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 3);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2515,6 +2514,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
 
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
 
