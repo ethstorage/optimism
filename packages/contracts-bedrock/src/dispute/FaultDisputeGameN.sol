@@ -92,10 +92,10 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     bool internal initialized;
 
     /// @notice Bits of N-ary search
-    uint256 internal immutable N_BITS;
+    uint256 public immutable N_BITS;
 
     /// @notice Bits of N-ary search
-    uint256 internal immutable MAX_ATTACK_BRANCH;
+    uint256 public immutable MAX_ATTACK_BRANCH;
 
     /// @notice Flag for whether or not the L2 block number claim has been invalidated via `challengeRootL2Block`.
     bool public l2BlockNumberChallenged;
