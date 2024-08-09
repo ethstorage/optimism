@@ -6,6 +6,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { DisputeGameFactory_Init } from "test/dispute/DisputeGameFactory.t.sol";
 import { DisputeGameFactory } from "src/dispute/DisputeGameFactory.sol";
 import { FaultDisputeGame, IDisputeGame } from "src/dispute/FaultDisputeGameN.sol";
+import { FaultDisputeGameTest } from "test/dispute/FaultDisputeGameNTest.sol";
 import { DelayedWETH } from "src/dispute/weth/DelayedWETH.sol";
 import { PreimageOracle } from "src/cannon/PreimageOracle.sol";
 
@@ -32,9 +33,9 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
     uint256 internal constant MAX_ATTACK_BRANCH = (1 << N_BITS) - 1;
 
     /// @dev The implementation of the game.
-    FaultDisputeGame internal gameImpl;
+    FaultDisputeGameTest internal gameImpl;
     /// @dev The `Clone` proxy of the game.
-    FaultDisputeGame internal gameProxy;
+    FaultDisputeGameTest internal gameProxy;
 
     /// @dev The extra data passed to the game for initialization.
     bytes internal extraData;
@@ -53,7 +54,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         AlphabetVM _vm = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
 
         // Deploy an implementation of the fault game
-        gameImpl = new FaultDisputeGame({
+        gameImpl = new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: 2 ** 3,
@@ -69,7 +70,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         // Register the game implementation with the factory.
         disputeGameFactory.setImplementation(GAME_TYPE, gameImpl);
         // Create a new game.
-        gameProxy = FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, rootClaim, extraData))));
+        gameProxy = FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, rootClaim, extraData))));
 
         // Check immutables
         assertEq(gameProxy.gameType().raw(), GAME_TYPE.raw());
@@ -141,14 +142,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     //            `IDisputeGame` Implementation Tests             //
     ////////////////////////////////////////////////////////////////
 
-    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `MAX_GAME_DEPTH` parameter is
+    /// @dev Tests that the constructor of the `FaultDisputeGameTest` reverts when the `MAX_GAME_DEPTH` parameter is
     ///      greater  than `LibPosition.MAX_POSITION_BITLEN - 1`.
     function testFuzz_constructor_maxDepthTooLarge_reverts(uint256 _maxGameDepth) public {
         AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
 
         _maxGameDepth = bound(_maxGameDepth, LibPosition.MAX_POSITION_BITLEN, type(uint256).max - 1);
         vm.expectRevert(MaxDepthTooLarge.selector);
-        new FaultDisputeGame({
+        new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: _maxGameDepth,
@@ -162,14 +163,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         });
     }
 
-    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `_splitDepth`
+    /// @dev Tests that the constructor of the `FaultDisputeGameTest` reverts when the `_splitDepth`
     ///      parameter is greater than or equal to the `MAX_GAME_DEPTH`
     function testFuzz_constructor_invalidSplitDepth_reverts(uint256 _splitDepth) public {
         AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
 
         _splitDepth = bound(_splitDepth, 2 ** 3, type(uint256).max);
         vm.expectRevert(InvalidSplitDepth.selector);
-        new FaultDisputeGame({
+        new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: 2 ** 3,
@@ -183,7 +184,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         });
     }
 
-    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when clock extension is greater than the
+    /// @dev Tests that the constructor of the `FaultDisputeGameTest` reverts when clock extension is greater than the
     ///      max clock duration.
     function testFuzz_constructor_clockExtensionTooLong_reverts(
         uint64 _maxClockDuration,
@@ -196,7 +197,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         _maxClockDuration = uint64(bound(_maxClockDuration, 0, type(uint64).max - 1));
         _clockExtension = uint64(bound(_clockExtension, _maxClockDuration + 1, type(uint64).max));
         vm.expectRevert(InvalidClockExtension.selector);
-        new FaultDisputeGame({
+        new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: 16,
@@ -252,7 +253,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim = _dummyClaim();
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRootClaim.selector, claim));
         gameProxy =
-            FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber)))));
+            FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber)))));
     }
 
     /// @dev Tests that the proxy receives ETH from the dispute game factory.
@@ -261,7 +262,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         vm.deal(address(this), _value);
 
         assertEq(address(gameProxy).balance, 0);
-        gameProxy = FaultDisputeGame(
+        gameProxy = FaultDisputeGameTest(
             payable(address(disputeGameFactory.create{ value: _value }(GAME_TYPE, ROOT_CLAIM, abi.encode(1))))
         );
         assertEq(address(gameProxy).balance, 0);
@@ -289,7 +290,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         Claim claim = _dummyClaim();
         vm.expectRevert(abi.encodeWithSelector(BadExtraData.selector));
-        gameProxy = FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, claim, _extraData))));
+        gameProxy = FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, claim, _extraData))));
     }
 
     /// @dev Tests that the game is initialized with the correct data.
@@ -671,7 +672,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber + 1));
 
         // Challenge the L2 block number.
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
         fdg.challengeRootL2Block(outputRootProof, headerRLP);
 
         // Ensure that a duplicate challenge reverts.
@@ -710,7 +711,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IDisputeGame game = disputeGameFactory.create{ value: 0.1 ether }(
             GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber + 1)
         );
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
 
         // Attack the root as 0xb0b
         uint256 bond = _getRequiredBondV2(0, 0);
@@ -767,7 +768,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber));
 
         // Challenge the L2 block number.
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
         vm.expectRevert(BlockNumberMatches.selector);
         fdg.challengeRootL2Block(outputRootProof, headerRLP);
 
@@ -797,7 +798,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Create the dispute game with the output root at the wrong L2 block number.
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(1));
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
 
         vm.expectRevert(InvalidHeaderRLP.selector);
         fdg.challengeRootL2Block(outputRootProof, hex"");
@@ -810,7 +811,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Create the dispute game with the output root at the wrong L2 block number.
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(1));
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
 
         vm.expectRevert(InvalidHeaderRLP.selector);
         fdg.challengeRootL2Block(outputRootProof, hex"");
@@ -2416,7 +2417,7 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
     DisputeActor internal dishonest;
 
     function setUp() public override {
-        // Setup the `FaultDisputeGame`
+        // Setup the `FaultDisputeGameTest`
         super.setUp();
     }
 
@@ -2952,10 +2953,10 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
 contract ClaimCreditReenter {
     Vm internal immutable vm;
-    FaultDisputeGame internal immutable GAME;
+    FaultDisputeGameTest internal immutable GAME;
     uint256 public numCalls;
 
-    constructor(FaultDisputeGame _gameProxy, Vm _vm) {
+    constructor(FaultDisputeGameTest _gameProxy, Vm _vm) {
         GAME = _gameProxy;
         vm = _vm;
     }
