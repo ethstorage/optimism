@@ -6,6 +6,7 @@ import { Vm } from "forge-std/Vm.sol";
 import { DisputeGameFactory_Init } from "test/dispute/DisputeGameFactory.t.sol";
 import { DisputeGameFactory } from "src/dispute/DisputeGameFactory.sol";
 import { FaultDisputeGame, IDisputeGame } from "src/dispute/FaultDisputeGameN.sol";
+import { FaultDisputeGameTest } from "test/dispute/FaultDisputeGameNTest.sol";
 import { DelayedWETH } from "src/dispute/weth/DelayedWETH.sol";
 import { PreimageOracle } from "src/cannon/PreimageOracle.sol";
 
@@ -32,9 +33,9 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
     uint256 internal constant MAX_ATTACK_BRANCH = (1 << N_BITS) - 1;
 
     /// @dev The implementation of the game.
-    FaultDisputeGame internal gameImpl;
+    FaultDisputeGameTest internal gameImpl;
     /// @dev The `Clone` proxy of the game.
-    FaultDisputeGame internal gameProxy;
+    FaultDisputeGameTest internal gameProxy;
 
     /// @dev The extra data passed to the game for initialization.
     bytes internal extraData;
@@ -53,7 +54,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         AlphabetVM _vm = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
 
         // Deploy an implementation of the fault game
-        gameImpl = new FaultDisputeGame({
+        gameImpl = new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: 2 ** 3,
@@ -69,7 +70,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         // Register the game implementation with the factory.
         disputeGameFactory.setImplementation(GAME_TYPE, gameImpl);
         // Create a new game.
-        gameProxy = FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, rootClaim, extraData))));
+        gameProxy = FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, rootClaim, extraData))));
 
         // Check immutables
         assertEq(gameProxy.gameType().raw(), GAME_TYPE.raw());
@@ -141,14 +142,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     //            `IDisputeGame` Implementation Tests             //
     ////////////////////////////////////////////////////////////////
 
-    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `MAX_GAME_DEPTH` parameter is
+    /// @dev Tests that the constructor of the `FaultDisputeGameTest` reverts when the `MAX_GAME_DEPTH` parameter is
     ///      greater  than `LibPosition.MAX_POSITION_BITLEN - 1`.
     function testFuzz_constructor_maxDepthTooLarge_reverts(uint256 _maxGameDepth) public {
         AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
 
         _maxGameDepth = bound(_maxGameDepth, LibPosition.MAX_POSITION_BITLEN, type(uint256).max - 1);
         vm.expectRevert(MaxDepthTooLarge.selector);
-        new FaultDisputeGame({
+        new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: _maxGameDepth,
@@ -162,14 +163,14 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         });
     }
 
-    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `_splitDepth`
+    /// @dev Tests that the constructor of the `FaultDisputeGameTest` reverts when the `_splitDepth`
     ///      parameter is greater than or equal to the `MAX_GAME_DEPTH`
     function testFuzz_constructor_invalidSplitDepth_reverts(uint256 _splitDepth) public {
         AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
 
         _splitDepth = bound(_splitDepth, 2 ** 3, type(uint256).max);
         vm.expectRevert(InvalidSplitDepth.selector);
-        new FaultDisputeGame({
+        new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: 2 ** 3,
@@ -183,7 +184,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         });
     }
 
-    /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when clock extension is greater than the
+    /// @dev Tests that the constructor of the `FaultDisputeGameTest` reverts when clock extension is greater than the
     ///      max clock duration.
     function testFuzz_constructor_clockExtensionTooLong_reverts(
         uint64 _maxClockDuration,
@@ -196,7 +197,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         _maxClockDuration = uint64(bound(_maxClockDuration, 0, type(uint64).max - 1));
         _clockExtension = uint64(bound(_clockExtension, _maxClockDuration + 1, type(uint64).max));
         vm.expectRevert(InvalidClockExtension.selector);
-        new FaultDisputeGame({
+        new FaultDisputeGameTest({
             _gameType: GAME_TYPE,
             _absolutePrestate: absolutePrestate,
             _maxGameDepth: 16,
@@ -252,7 +253,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim = _dummyClaim();
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRootClaim.selector, claim));
         gameProxy =
-            FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber)))));
+            FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber)))));
     }
 
     /// @dev Tests that the proxy receives ETH from the dispute game factory.
@@ -261,7 +262,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         vm.deal(address(this), _value);
 
         assertEq(address(gameProxy).balance, 0);
-        gameProxy = FaultDisputeGame(
+        gameProxy = FaultDisputeGameTest(
             payable(address(disputeGameFactory.create{ value: _value }(GAME_TYPE, ROOT_CLAIM, abi.encode(1))))
         );
         assertEq(address(gameProxy).balance, 0);
@@ -289,7 +290,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         Claim claim = _dummyClaim();
         vm.expectRevert(abi.encodeWithSelector(BadExtraData.selector));
-        gameProxy = FaultDisputeGame(payable(address(disputeGameFactory.create(GAME_TYPE, claim, _extraData))));
+        gameProxy = FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, claim, _extraData))));
     }
 
     /// @dev Tests that the game is initialized with the correct data.
@@ -671,7 +672,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber + 1));
 
         // Challenge the L2 block number.
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
         fdg.challengeRootL2Block(outputRootProof, headerRLP);
 
         // Ensure that a duplicate challenge reverts.
@@ -710,7 +711,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IDisputeGame game = disputeGameFactory.create{ value: 0.1 ether }(
             GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber + 1)
         );
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
 
         // Attack the root as 0xb0b
         uint256 bond = _getRequiredBondV2(0, 0);
@@ -767,7 +768,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(_l2BlockNumber));
 
         // Challenge the L2 block number.
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
         vm.expectRevert(BlockNumberMatches.selector);
         fdg.challengeRootL2Block(outputRootProof, headerRLP);
 
@@ -797,7 +798,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Create the dispute game with the output root at the wrong L2 block number.
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(1));
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
 
         vm.expectRevert(InvalidHeaderRLP.selector);
         fdg.challengeRootL2Block(outputRootProof, hex"");
@@ -810,7 +811,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         // Create the dispute game with the output root at the wrong L2 block number.
         IDisputeGame game = disputeGameFactory.create(GAME_TYPE, Claim.wrap(outputRoot), abi.encode(1));
-        FaultDisputeGame fdg = FaultDisputeGame(address(game));
+        FaultDisputeGameTest fdg = FaultDisputeGameTest(address(game));
 
         vm.expectRevert(InvalidHeaderRLP.selector);
         fdg.challengeRootL2Block(outputRootProof, hex"");
@@ -840,35 +841,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     //     vm.expectRevert(DuplicateStep.selector);
     //     gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
     // }
-
-    /// @dev Tests that successfully step with true attacking claim when there is a true defend claim(claim5) in the
-    /// middle of the dispute game.
-    function test_stepAttackDummyClaim_defendTrueClaimInTheMiddle_succeeds() public {
-        // Give the test contract some ether
-        vm.deal(address(this), 1000 ether);
-
-        // Make claims all the way down the tree.
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: _getRequiredBond(2) }(disputed, 2, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
-        bytes memory claimData5 = abi.encode(5, 5);
-        Claim claim5 = Claim.wrap(keccak256(claimData5));
-        (,,,, disputed,,) = gameProxy.claimData(5);
-        gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, claim5);
-        (,,,, disputed,,) = gameProxy.claimData(6);
-        gameProxy.defend{ value: _getRequiredBond(6) }(disputed, 6, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(7);
-        gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, _dummyClaim());
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
-        gameProxy.step(8, true, claimData5, hex"");
-    }
 
     function test_stepAttackDummyClaim_attackBranch0_succeeds() public {
           // Give the test contract some ether
@@ -952,7 +924,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -970,6 +941,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             vmProof: hex""
         });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1, preStateItem);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof});
     }
 
@@ -1000,7 +972,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -1018,6 +989,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             vmProof: hex""
         });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, preStateItem);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
     }
 
@@ -1048,7 +1020,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -1067,40 +1038,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             vmProof: hex""
         });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         vm.expectRevert(ValidStep.selector);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 3, _stateData: claimData3, _proof: stepProof});
-    }
-
-    /// @dev Tests that step reverts with false attacking claim when there is a true defend claim(claim5) in the middle
-    /// of the dispute game.
-    function test_stepAttackTrueClaim_defendTrueClaimInTheMiddle_reverts() public {
-        // Give the test contract some ether
-        vm.deal(address(this), 1000 ether);
-
-        // Make claims all the way down the tree.
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: _getRequiredBond(2) }(disputed, 2, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
-        bytes memory claimData5 = abi.encode(5, 5);
-        Claim claim5 = Claim.wrap(keccak256(claimData5));
-        (,,,, disputed,,) = gameProxy.claimData(5);
-        gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, claim5);
-        (,,,, disputed,,) = gameProxy.claimData(6);
-        gameProxy.defend{ value: _getRequiredBond(6) }(disputed, 6, _dummyClaim());
-        Claim postState_ = Claim.wrap(gameImpl.vm().step(claimData5, hex"", bytes32(0)));
-        (,,,, disputed,,) = gameProxy.claimData(7);
-        gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, postState_);
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
-
-        vm.expectRevert(ValidStep.selector);
-        gameProxy.step(8, true, claimData5, hex"");
     }
 
     function test_addLocalKey_AttackBranch0_succeeds() public {
@@ -1361,75 +1301,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         assertEq(startingOutputRoot, claim3.raw());
         (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
         assertEq(disputedOutputRoot, ROOT_CLAIM.raw());
-    }
-
-    /// @dev Tests that step reverts with false defending claim when there is a true defend claim(postState_) in the
-    /// middle of the dispute game.
-    function test_stepDefendDummyClaim_defendTrueClaimInTheMiddle_reverts() public {
-        // Give the test contract some ether
-        vm.deal(address(this), 1000 ether);
-
-        // Make claims all the way down the tree.
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: _getRequiredBond(2) }(disputed, 2, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
-
-        bytes memory claimData7 = abi.encode(5, 5);
-        Claim postState_ = Claim.wrap(gameImpl.vm().step(claimData7, hex"", bytes32(0)));
-
-        (,,,, disputed,,) = gameProxy.claimData(5);
-        gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, postState_);
-        (,,,, disputed,,) = gameProxy.claimData(6);
-        gameProxy.defend{ value: _getRequiredBond(6) }(disputed, 6, _dummyClaim());
-
-        bytes memory _dummyClaimData = abi.encode(gasleft(), gasleft());
-        Claim dummyClaim7 = Claim.wrap(keccak256(_dummyClaimData));
-        (,,,, disputed,,) = gameProxy.claimData(7);
-        gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, dummyClaim7);
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
-        vm.expectRevert(ValidStep.selector);
-        gameProxy.step(8, false, _dummyClaimData, hex"");
-    }
-
-    /// @dev Tests that step reverts with true defending claim when there is a true defend claim(postState_) in the
-    /// middle of the dispute game.
-    function test_stepDefendTrueClaim_defendTrueClaimInTheMiddle_reverts() public {
-        // Give the test contract some ether
-        vm.deal(address(this), 1000 ether);
-
-        // Make claims all the way down the tree.
-        (,,,, Claim disputed,,) = gameProxy.claimData(0);
-        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attack{ value: _getRequiredBond(2) }(disputed, 2, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(3);
-        gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(4);
-        gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
-
-        bytes memory claimData7 = abi.encode(5, 5);
-        Claim claim7 = Claim.wrap(keccak256(claimData7));
-        Claim postState_ = Claim.wrap(gameImpl.vm().step(claimData7, hex"", bytes32(0)));
-
-        (,,,, disputed,,) = gameProxy.claimData(5);
-        gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, postState_);
-        (,,,, disputed,,) = gameProxy.claimData(6);
-        gameProxy.defend{ value: _getRequiredBond(6) }(disputed, 6, _dummyClaim());
-        (,,,, disputed,,) = gameProxy.claimData(7);
-        gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, claim7);
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
-
-        vm.expectRevert(ValidStep.selector);
-        gameProxy.step(8, false, claimData7, hex"");
     }
 
     /// @dev Static unit test for the correctness an uncontested root resolution.
@@ -2392,7 +2263,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 2);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2403,6 +2273,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
 
@@ -2447,7 +2318,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 2);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2458,6 +2328,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         vm.expectRevert(ValidStep.selector);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
@@ -2499,7 +2370,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 3);
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2515,6 +2385,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
 
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
 
@@ -2546,7 +2417,7 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
     DisputeActor internal dishonest;
 
     function setUp() public override {
-        // Setup the `FaultDisputeGame`
+        // Setup the `FaultDisputeGameTest`
         super.setUp();
     }
 
@@ -3082,10 +2953,10 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
 contract ClaimCreditReenter {
     Vm internal immutable vm;
-    FaultDisputeGame internal immutable GAME;
+    FaultDisputeGameTest internal immutable GAME;
     uint256 public numCalls;
 
-    constructor(FaultDisputeGame _gameProxy, Vm _vm) {
+    constructor(FaultDisputeGameTest _gameProxy, Vm _vm) {
         GAME = _gameProxy;
         vm = _vm;
     }
