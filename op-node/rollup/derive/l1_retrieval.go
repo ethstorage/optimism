@@ -12,7 +12,7 @@ import (
 )
 
 type DataAvailabilitySource interface {
-	OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr common.Address) (DataIter, error)
+	OpenData(ctx context.Context, ref eth.L1BlockRef, batcherAddr, batchInbox common.Address) (DataIter, error)
 }
 
 type NextBlockProvider interface {
@@ -54,7 +54,8 @@ func (l1r *L1Retrieval) NextData(ctx context.Context) ([]byte, error) {
 		} else if err != nil {
 			return nil, err
 		}
-		if l1r.datas, err = l1r.dataSrc.OpenData(ctx, next, l1r.prev.SystemConfig().BatcherAddr); err != nil {
+		sysCfg := l1r.prev.SystemConfig()
+		if l1r.datas, err = l1r.dataSrc.OpenData(ctx, next, sysCfg.BatcherAddr, sysCfg.BatchInbox); err != nil {
 			return nil, fmt.Errorf("failed to open data source: %w", err)
 		}
 	}
@@ -77,7 +78,7 @@ func (l1r *L1Retrieval) NextData(ctx context.Context) ([]byte, error) {
 // internal invariants that later propagate up the derivation pipeline.
 func (l1r *L1Retrieval) Reset(ctx context.Context, base eth.L1BlockRef, sysCfg eth.SystemConfig) error {
 	var err error
-	if l1r.datas, err = l1r.dataSrc.OpenData(ctx, base, sysCfg.BatcherAddr); err != nil {
+	if l1r.datas, err = l1r.dataSrc.OpenData(ctx, base, sysCfg.BatcherAddr, sysCfg.BatchInbox); err != nil {
 		return fmt.Errorf("failed to open data source: %w", err)
 	}
 	l1r.log.Info("Reset of L1Retrieval done", "origin", base)

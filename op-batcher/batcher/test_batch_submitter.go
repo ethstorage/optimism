@@ -3,6 +3,7 @@ package batcher
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/core"
@@ -26,11 +27,15 @@ func (l *TestBatchSubmitter) JamTxPool(ctx context.Context) error {
 		return errors.New("tried to jam tx pool but batcher is already running")
 	}
 	var candidate *txmgr.TxCandidate
-	var err error
+
+	inbox, err := l.l1Inbox(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve l1 inbox: %w", err)
+	}
 	cc := l.state.cfgProvider.ChannelConfig()
 	if cc.UseBlobs {
-		candidate = l.calldataTxCandidate([]byte{})
-	} else if candidate, err = l.blobTxCandidate(emptyTxData); err != nil {
+		candidate = l.calldataTxCandidate(inbox, []byte{})
+	} else if candidate, err = l.blobTxCandidate(inbox, emptyTxData); err != nil {
 		return err
 	}
 	if candidate.GasLimit, err = core.IntrinsicGas(candidate.TxData, nil, false, true, true, false); err != nil {

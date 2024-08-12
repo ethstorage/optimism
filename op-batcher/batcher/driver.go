@@ -1,6 +1,7 @@
 package batcher
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -17,17 +18,24 @@ import (
 	plasma "github.com/ethereum-optimism/optimism/op-plasma"
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/retry"
+	"github.com/ethereum-optimism/optimism/op-service/solabi"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/txpool"
+
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
-	ErrBatcherNotRunning = errors.New("batcher is not running")
-	emptyTxData          = txData{
+	ErrBatcherNotRunning      = errors.New("batcher is not running")
+	ErrInboxTransactionFailed = errors.New("inbox transaction failed")
+	ErrInboxChanged           = errors.New("inbox changed")
+	ErrInvalidBatchTx         = errors.New("invalid batch transaction")
+	emptyTxData               = txData{
 		frames: []frameData{
 			{
 				data: []byte{},
@@ -45,6 +53,10 @@ type txRef struct {
 type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
+
+	StorageAt(ctx context.Context, address common.Address, storageSlot common.Hash, blockNumber *big.Int) ([]byte, error)
+	StorageAtHash(ctx context.Context, address common.Address, storageSlot common.Hash, blockHash common.Hash) ([]byte, error)
+	TransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error)
 }
 
 type L2Client interface {
@@ -538,10 +550,15 @@ func (l *BatchSubmitter) safeL1Origin(ctx context.Context) (eth.BlockID, error) 
 // of an empty one to avoid wasting the tx fee.
 func (l *BatchSubmitter) cancelBlockingTx(queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef], isBlockedBlob bool) {
 	var candidate *txmgr.TxCandidate
-	var err error
+
+	inbox, err := l.l1Inbox(l.killCtx, nil)
+	if err != nil {
+		l.Log.Warn("cancelBlockingTx failed when retrieving l1 inbox", "err", err)
+		return
+	}
 	if isBlockedBlob {
-		candidate = l.calldataTxCandidate([]byte{})
-	} else if candidate, err = l.blobTxCandidate(emptyTxData); err != nil {
+		candidate = l.calldataTxCandidate(inbox, []byte{})
+	} else if candidate, err = l.blobTxCandidate(inbox, emptyTxData); err != nil {
 		panic(err) // this error should not happen
 	}
 	l.Log.Warn("sending a cancellation transaction to unblock txpool", "blocked_blob", isBlockedBlob)
@@ -554,9 +571,17 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 	var err error
 	// Do the gas estimation offline. A value of 0 will cause the [txmgr] to estimate the gas limit.
 
+	inbox, err := l.l1Inbox(ctx, &l.lastL1Tip.Hash)
+	if err != nil {
+		// requeue frame if we fail to fetch the l1 inbox so it can be retried
+		l.recordFailedTx(txdata.ID(), err)
+		return fmt.Errorf("failed to fetch latest l1inbox: %w", err)
+	}
+
 	var candidate *txmgr.TxCandidate
+
 	if txdata.asBlob {
-		if candidate, err = l.blobTxCandidate(txdata); err != nil {
+		if candidate, err = l.blobTxCandidate(inbox, txdata); err != nil {
 			// We could potentially fall through and try a calldata tx instead, but this would
 			// likely result in the chain spending more in gas fees than it is tuned for, so best
 			// to just fail. We do not expect this error to trigger unless there is a serious bug
@@ -582,7 +607,8 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 			// signal plasma commitment tx with TxDataVersion1
 			data = comm.TxData()
 		}
-		candidate = l.calldataTxCandidate(data)
+
+		candidate = l.calldataTxCandidate(inbox, data)
 	}
 
 	l.queueTx(txdata, false, candidate, queue, receiptsCh)
@@ -590,18 +616,20 @@ func (l *BatchSubmitter) sendTransaction(ctx context.Context, txdata txData, que
 }
 
 func (l *BatchSubmitter) queueTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
-	intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, false, true, true, false)
-	if err != nil {
-		// we log instead of return an error here because txmgr can do its own gas estimation
-		l.Log.Error("Failed to calculate intrinsic gas", "err", err)
-	} else {
-		candidate.GasLimit = intrinsicGas
+	if isCancel {
+		intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, false, true, true, false)
+		if err != nil {
+			// we log instead of return an error here because txmgr can do its own gas estimation
+			l.Log.Error("Failed to calculate intrinsic gas", "err", err)
+		} else {
+			candidate.GasLimit = intrinsicGas
+		}
 	}
 
 	queue.Send(txRef{id: txdata.ID(), isCancel: isCancel, isBlob: txdata.asBlob}, *candidate, receiptsCh)
 }
 
-func (l *BatchSubmitter) blobTxCandidate(data txData) (*txmgr.TxCandidate, error) {
+func (l *BatchSubmitter) blobTxCandidate(inbox common.Address, data txData) (*txmgr.TxCandidate, error) {
 	blobs, err := data.Blobs()
 	if err != nil {
 		return nil, fmt.Errorf("generating blobs for tx data: %w", err)
@@ -612,15 +640,15 @@ func (l *BatchSubmitter) blobTxCandidate(data txData) (*txmgr.TxCandidate, error
 		"size", size, "last_size", lastSize, "num_blobs", len(blobs))
 	l.Metr.RecordBlobUsedBytes(lastSize)
 	return &txmgr.TxCandidate{
-		To:    &l.RollupConfig.BatchInboxAddress,
+		To:    &inbox,
 		Blobs: blobs,
 	}, nil
 }
 
-func (l *BatchSubmitter) calldataTxCandidate(data []byte) *txmgr.TxCandidate {
-	l.Log.Info("Building Calldata transaction candidate", "size", len(data))
+func (l *BatchSubmitter) calldataTxCandidate(inbox common.Address, data []byte) *txmgr.TxCandidate {
+	l.Log.Info("building Calldata transaction candidate", "size", len(data))
 	return &txmgr.TxCandidate{
-		To:     &l.RollupConfig.BatchInboxAddress,
+		To:     &inbox,
 		TxData: data,
 	}
 }
@@ -630,6 +658,17 @@ func (l *BatchSubmitter) handleReceipt(r txmgr.TxReceipt[txRef]) {
 	if r.Err != nil {
 		l.recordFailedTx(r.ID.id, r.Err)
 	} else {
+
+		// always check tx status
+		if r.Receipt.Status == types.ReceiptStatusFailed {
+			l.recordFailedTx(r.ID.id, ErrInboxTransactionFailed)
+			return
+		}
+		if err := l.checkL1Inbox(l.killCtx, r.Receipt); err != nil {
+			l.recordFailedTx(r.ID.id, ErrInboxChanged)
+			return
+		}
+
 		l.recordConfirmedTx(r.ID.id, r.Receipt)
 	}
 }
@@ -663,6 +702,55 @@ func (l *BatchSubmitter) l1Tip(ctx context.Context) (eth.L1BlockRef, error) {
 		return eth.L1BlockRef{}, fmt.Errorf("getting latest L1 block: %w", err)
 	}
 	return eth.InfoToL1BlockRef(eth.HeaderBlockInfo(head)), nil
+}
+
+var (
+
+	// InboxAddressSystemConfigStorageSlot is the storage slot identifier of the batchinbox
+	// `address` storage value in the SystemConfig L1 contract. Computed as `bytes32(uint256(keccak256("systemconfig.batchinbox")) - 1)`
+	InboxAddressSystemConfigStorageSlot = common.HexToHash("0x71ac12829d66ee73d8d95bff50b3589745ce57edae70a3fb111a2342464dc597")
+)
+
+func (l *BatchSubmitter) l1Inbox(ctx context.Context, blockHash *common.Hash) (inbox common.Address, err error) {
+	var inboxBytes []byte
+	if blockHash != nil {
+		inboxBytes, err = l.L1Client.StorageAtHash(ctx, l.RollupConfig.L1SystemConfigAddress, InboxAddressSystemConfigStorageSlot, *blockHash)
+	} else {
+		inboxBytes, err = l.L1Client.StorageAt(ctx, l.RollupConfig.L1SystemConfigAddress, InboxAddressSystemConfigStorageSlot, nil /* nil means latest */)
+	}
+	if err != nil {
+		err = fmt.Errorf("StorageAt failed:%w", err)
+		return
+	}
+	reader := bytes.NewReader(inboxBytes)
+	inbox, err = solabi.ReadAddress(reader)
+	return
+}
+
+func (l *BatchSubmitter) checkL1Inbox(ctx context.Context, receipt *types.Receipt) (err error) {
+	result, err := retry.Do(ctx, 20, retry.Fixed(time.Second*2), func() (result struct {
+		inbox common.Address
+		tx    *types.Transaction
+	}, err error) {
+		result.inbox, err = l.l1Inbox(ctx, &receipt.BlockHash)
+		if err != nil {
+			return
+		}
+		result.tx, _, err = l.L1Client.TransactionByHash(ctx, receipt.TxHash)
+		return
+	})
+	if err != nil {
+		return fmt.Errorf("failed to fetch l1 inbox and tx: %w", err)
+	}
+
+	if result.tx.To() == nil {
+		return ErrInvalidBatchTx
+	}
+	if *result.tx.To() != result.inbox {
+		return ErrInboxChanged
+	}
+
+	return nil
 }
 
 func logFields(xs ...any) (fs []any) {

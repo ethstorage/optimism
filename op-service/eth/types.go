@@ -390,6 +390,8 @@ type SystemConfig struct {
 	Scalar Bytes32 `json:"scalar"`
 	// GasLimit identifies the L2 block gas limit
 	GasLimit uint64 `json:"gasLimit"`
+	// BatchInbox identifies the canonical batch inbox address used in batch-inbox data-transaction filtering.
+	BatchInbox common.Address `json:"batchInbox"`
 	// More fields can be added for future SystemConfig versions.
 }
 

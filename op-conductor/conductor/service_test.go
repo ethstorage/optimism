@@ -59,6 +59,7 @@ func mockConfig(t *testing.T) Config {
 					Overhead:    [32]byte{1},
 					Scalar:      [32]byte{1},
 					GasLimit:    30000000,
+					BatchInbox:  [20]byte{1, 2},
 				},
 			},
 			BlockTime:               2,

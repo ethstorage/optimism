@@ -107,6 +107,13 @@ func (ba *FetchingAttributesBuilder) PreparePayloadAttributes(ctx context.Contex
 			return nil, NewCriticalError(fmt.Errorf("failed to build ecotone network upgrade txs: %w", err))
 		}
 	}
+	if ba.rollupCfg.IsInboxActivationBlock(nextL2Time) {
+		inboxUpgradeTxs, err := InboxNetworkUpgradeTransactions()
+		if err != nil {
+			return nil, NewCriticalError(fmt.Errorf("failed to build ecotone network upgrade txs: %w", err))
+		}
+		upgradeTxs = append(upgradeTxs, inboxUpgradeTxs...)
+	}
 
 	if ba.rollupCfg.IsFjordActivationBlock(nextL2Time) {
 		fjord, err := FjordNetworkUpgradeTransactions()
