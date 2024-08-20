@@ -2211,7 +2211,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
         bytes memory claims = abi.encodePacked(claim1, claim2, claim3);
 
         // Make claims all the way down the tree.
@@ -2228,8 +2227,15 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         uint256 bond = _getRequiredBondV2(3, 0);
         gameProxy.attackV2{ value: bond }(disputed, 3, 0, LibDA.DA_TYPE_CALLDATA, claims);
         vm.expectRevert(ClaimAlreadyExists.selector);
-        gameProxy.attackV2{ value: bond }(disputed, 3, Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input)), 0);
+        gameProxy.attackV2{ value: bond }(disputed, 3, Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, claims)), 0);
 
+        // This variable is not used
+        LibDA.DAItem memory localDataItem = LibDA.DAItem({
+            daType: LibDA.DA_TYPE_CALLDATA,
+            dataHash: '00000000000000000000000000000000',
+            proof: hex""
+        });
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, localDataItem);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2246,8 +2252,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             postStateItem: postStateItem,
             vmProof: hex""
         });
-
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, preStateItem);
         gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
     }
 }
