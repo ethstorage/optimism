@@ -2229,13 +2229,12 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         vm.expectRevert(ClaimAlreadyExists.selector);
         gameProxy.attackV2{ value: bond }(disputed, 3, Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, claims)), 0);
 
-        // This variable is not used
-        LibDA.DAItem memory localDataItem = LibDA.DAItem({
+        LibDA.DAItem memory dummyDataItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
+            dataHash: _dummyClaim().raw(),
             proof: hex""
         });
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, localDataItem);
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, dummyDataItem);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
