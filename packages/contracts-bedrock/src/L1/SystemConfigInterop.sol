@@ -8,6 +8,7 @@ import { ERC20 } from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import { SystemConfig } from "src/L1/SystemConfig.sol";
 import { ConfigType } from "src/L2/L1BlockInterop.sol";
 import { StaticConfig } from "src/libraries/StaticConfig.sol";
+import { Storage } from "src/libraries/Storage.sol";
 
 /// @title SystemConfigInterop
 /// @notice The SystemConfig contract is used to manage configuration of an Optimism network.
@@ -62,5 +63,16 @@ contract SystemConfigInterop is SystemConfig {
         OptimismPortal(payable(optimismPortal())).setConfig(
             ConfigType.REMOVE_DEPENDENCY, StaticConfig.encodeRemoveDependency(_chainId)
         );
+    }
+
+    /// @notice Updates the batch inbox address. Can only be called by the owner.
+    /// @param _batchInbox New batch inbox address.
+    function setBatchInbox(address _batchInbox) external onlyOwner {
+        if (_batchInbox != Storage.getAddress(BATCH_INBOX_SLOT)) {
+            Storage.setAddress(BATCH_INBOX_SLOT, _batchInbox);
+            OptimismPortal(payable(optimismPortal())).setConfig(
+                ConfigType.SET_BATCH_INBOX, StaticConfig.encodeSetBatchInbox({ _batchInbox: _batchInbox })
+            );
+        }
     }
 }

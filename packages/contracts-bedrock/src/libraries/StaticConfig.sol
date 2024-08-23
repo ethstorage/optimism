@@ -57,4 +57,18 @@ library StaticConfig {
     function decodeRemoveDependency(bytes memory _data) internal pure returns (uint256) {
         return abi.decode(_data, (uint256));
     }
+
+    /// @notice Encodes the static configuration data for setting a batch inbox.
+    /// @param _batchInbox Address of the batch inbox.
+    /// @return Encoded static configuration data.
+    function encodeSetBatchInbox(address _batchInbox) internal pure returns (bytes memory) {
+        return abi.encode(_batchInbox);
+    }
+
+    /// @notice Decodes the static configuration data for setting a batch inbox.
+    /// @param _data Encoded static configuration data.
+    /// @return Decoded Address of the batch inbox.
+    function decodeSetBatchInbox(bytes memory _data) internal pure returns (address) {
+        return abi.decode(_data, (address));
+    }
 }

@@ -11,10 +11,12 @@ import "src/libraries/L1BlockErrors.sol";
 /// @custom:value SET_GAS_PAYING_TOKEN  Represents the config type for setting the gas paying token.
 /// @custom:value ADD_DEPENDENCY        Represents the config type for adding a chain to the interop dependency set.
 /// @custom:value REMOVE_DEPENDENCY     Represents the config type for removing a chain from the interop dependency set.
+/// @custom:value SET_BATCH_INBOX       Represents the config type for setting the batch inbox.
 enum ConfigType {
     SET_GAS_PAYING_TOKEN,
     ADD_DEPENDENCY,
-    REMOVE_DEPENDENCY
+    REMOVE_DEPENDENCY,
+    SET_BATCH_INBOX
 }
 
 /// @custom:proxied
@@ -32,6 +34,9 @@ contract L1BlockInterop is L1Block {
 
     /// @notice The interop dependency set, containing the chain IDs in it.
     EnumerableSet.UintSet dependencySet;
+
+    /// @notice The batch inbox address.
+    address batchInbox;
 
     /// @custom:semver +interop
     function version() public pure override returns (string memory) {
@@ -65,6 +70,8 @@ contract L1BlockInterop is L1Block {
             _addDependency(_value);
         } else if (_type == ConfigType.REMOVE_DEPENDENCY) {
             _removeDependency(_value);
+        } else if (_type == ConfigType.SET_BATCH_INBOX) {
+            _setBatchInbox(_value);
         }
     }
 
@@ -100,5 +107,11 @@ contract L1BlockInterop is L1Block {
         if (!dependencySet.remove(chainId)) revert NotDependency();
 
         emit DependencyRemoved(chainId);
+    }
+
+    /// @notice Internal method to set the batch inbox address.
+    /// @param _value The encoded value with which to set the batch inbox address.
+    function _setBatchInbox(bytes calldata _value) internal {
+        batchInbox = StaticConfig.decodeSetBatchInbox(_value);
     }
 }
