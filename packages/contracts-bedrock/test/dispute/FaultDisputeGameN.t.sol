@@ -46,7 +46,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         // Set the extra data for the game creation
         extraData = abi.encode(l2BlockNumber);
 
-        AlphabetVM _vm = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
+        AlphabetVM _vm = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), maxGameDepth - splitDepth);
 
         // Deploy an implementation of the fault game
         gameImpl = new FaultDisputeGame({
@@ -140,7 +140,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `MAX_GAME_DEPTH` parameter is
     ///      greater  than `LibPosition.MAX_POSITION_BITLEN - 1`.
     function testFuzz_constructor_maxDepthTooLarge_reverts(uint256 _maxGameDepth) public {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
+        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
 
         _maxGameDepth = bound(_maxGameDepth, LibPosition.MAX_POSITION_BITLEN, type(uint256).max - 1);
         vm.expectRevert(MaxDepthTooLarge.selector);
@@ -161,7 +161,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `_splitDepth`
     ///      parameter is greater than or equal to the `MAX_GAME_DEPTH`
     function testFuzz_constructor_invalidSplitDepth_reverts(uint256 _splitDepth) public {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
+        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
 
         _splitDepth = bound(_splitDepth, 2 ** 3, type(uint256).max);
         vm.expectRevert(InvalidSplitDepth.selector);
@@ -187,7 +187,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     )
         public
     {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0));
+        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
 
         _maxClockDuration = uint64(bound(_maxClockDuration, 0, type(uint64).max - 1));
         _clockExtension = uint64(bound(_clockExtension, _maxClockDuration + 1, type(uint64).max));
@@ -867,7 +867,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_stepAttackDummyClaim_attackBranch0_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -922,7 +922,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_stepAttackDummyClaim_attackBranch1_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -970,7 +970,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_stepAttackDummyClaim_attackBranch2_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1018,7 +1018,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_stepAttackDummyClaim_attackBranch3_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1100,7 +1100,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_addLocalKey_AttackBranch0_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1144,7 +1144,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_addLocalKey_AttackBranch1_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1188,7 +1188,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_addLocalKey_AttackBranch2_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1232,7 +1232,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_addLocalKey_AttackBranch3_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1276,7 +1276,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_addLocalKey_AttackRightMidBranch_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1316,7 +1316,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_addLocalKey_AttackRightMostBranch_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -1752,7 +1752,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Static unit test asserting that resolve pays out bonds on step, output bisection, and execution trace
     /// moves with 2 actors and a dishonest root claim.
     function test_resolve_bondPayoutsSeveralActors_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         address bob = address(0xb0b);
         vm.deal(address(this), 1000 ether);
         vm.deal(bob, 1000 ether);
@@ -2532,14 +2532,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
         // The dishonest l2 outputs are from [1, lenOutputs] in this game.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
+        uint256 incorrectOutput = 0x01;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i >= divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i >= divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace covers all block -> block + 1 transitions, and is 256 bytes long, consisting
         // of all set bits.
         bytes memory dishonestTrace = new bytes(256);
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i >= divergeStepOffset ? bytes1(uint8(0xFF)) : bytes1(uint8(i));
+            dishonestTrace[i] = i >= divergeStepOffset ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2578,8 +2579,9 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest trace covers all block -> block + 1 transitions, and is 256 bytes long, consisting
         // of all set bits.
         bytes memory dishonestTrace = new bytes(256);
+        uint8 incorrectOutput = 2;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = bytes1(0xFF);
+            dishonestTrace[i] = bytes1(incorrectOutput);
         }
 
         // Run the actor test
@@ -2618,8 +2620,9 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest trace covers all block -> block + 1 transitions, and is 256 bytes long, consisting
         // of all set bits.
         bytes memory dishonestTrace = new bytes(256);
+        uint8 incorrectOutput = 3;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = bytes1(0xFF);
+            dishonestTrace[i] = bytes1(incorrectOutput);
         }
 
         // Run the actor test
@@ -2729,15 +2732,16 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest l2 outputs are half correct, half incorrect.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
         uint256 divergeAtOutput = lenOutputs / 2 - 1;
+        uint256 incorrectOutput = 0x03;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i > divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i > divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
         uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 4;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(0xFF) : bytes1(uint8(i));
+            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2771,15 +2775,16 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest l2 outputs are half correct, half incorrect.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
         uint256 divergeAtOutput = lenOutputs / 2 - 1;
+        uint256 incorrectOutput = 0x02;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i > divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i > divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
         uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 4;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(0xFF) : bytes1(uint8(i));
+            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2813,15 +2818,16 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest l2 outputs are half correct, half incorrect.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
         uint256 divergeAtOutput = lenOutputs / 2 - 1;
+        uint256 incorrectOutput = 0x04;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i > divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i > divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
         uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth);
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > divergeAtStep ? bytes1(0xFF) : bytes1(uint8(i));
+            dishonestTrace[i] = i > divergeAtStep ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2855,15 +2861,16 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest l2 outputs are half correct, half incorrect.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
         uint256 divergeAtOutput = lenOutputs / 2 - 1;
+        uint256 incorrectOutput = 0x05;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i > divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i > divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
         uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth);
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > divergeAtStep ? bytes1(0xFF) : bytes1(uint8(i));
+            dishonestTrace[i] = i > divergeAtStep ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2897,15 +2904,16 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest l2 outputs are half correct, half incorrect.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
         uint256 divergeAtOutput = lenOutputs / 2 - 1;
+        uint256 incorrectOutput = 0x06;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i > divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i > divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
         uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 2 - 1;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(0xFF) : bytes1(uint8(i));
+            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2939,15 +2947,16 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         // The dishonest l2 outputs are half correct, half incorrect.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
         uint256 divergeAtOutput = lenOutputs / 2 - 1;
+        uint256 incorrectOutput = 0x07;
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
-            dishonestL2Outputs[i] = i > divergeAtOutput ? 0xFF : i;
+            dishonestL2Outputs[i] = i > divergeAtOutput ? incorrectOutput : i;
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
         uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 2 - 1;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(0xFF) : bytes1(uint8(i));
+            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test

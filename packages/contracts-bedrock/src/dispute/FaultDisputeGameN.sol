@@ -1137,7 +1137,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     {
         Claim ancestorClaimRoot;
         (ancestorClaimRoot, ancestorPos_) = _findTraceAncestorRoot(_pos, _start, _global);
-        ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), _pos, _daItem);
+        ancestorClaim_ = getClaim(ancestorClaimRoot.raw(), ancestorPos_, _daItem);
     }
 
     function _findTraceAncestorRoot(

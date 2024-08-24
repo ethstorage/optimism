@@ -27,7 +27,7 @@ abstract contract GameSolver is CommonBase {
     /// @notice 1<<Bits-1 of N-ary search
     uint256 internal immutable MAX_ATTACK_BRANCH;
     uint256 internal immutable N_BITS;
-    uint64 internal immutable NOOP_ATTACK = type(uint64).max;
+    uint64 internal immutable ATTACK_BRANCH_NOOP = type(uint64).max;
 
     /// @notice The L2 outputs that the `GameSolver` will be representing, keyed by L2 block number - 1.
     uint256[] public l2Outputs;
@@ -47,8 +47,7 @@ abstract contract GameSolver is CommonBase {
     /// @notice The `MoveKind` enum represents a kind of interaction with the `FaultDisputeGame` contract.
     enum MoveKind {
         Attack,
-        Step,
-        AddLocalData
+        Step
     }
 
     enum Actor {
@@ -84,6 +83,9 @@ abstract contract GameSolver is CommonBase {
         l2Outputs = _l2Outputs;
         counterL2Outputs = _counterL2Outputs;
         trace = _trace;
+        // We also need counter trace to address DA problems of all sub claims.
+        // The reason is that the GAME only has the root hashes of sub claims, where the counter
+        // sub claims is not avaliable in `_trace`.
         counterTrace = _counterTrace;
         absolutePrestateData = _preStateData;
     }
@@ -138,19 +140,18 @@ contract HonestGameSolver is GameSolver {
         for (uint256 i = processedBuf; i < numClaims; i++) {
             // Grab the observed claim.
             IFaultDisputeGame.ClaimData memory observed = getClaimData(i);
-
             // Determine the direction of the next move to be taken.
-            (uint64 moveDirection, Position movePos) = determineDirection(observed);
+            (uint64 attackBranch, Position movePos) = determineDirection(observed);
 
             // Continue if there is no move to be taken against the observed claim.
-            if (moveDirection == NOOP_ATTACK) continue;
+            if (attackBranch == ATTACK_BRANCH_NOOP) continue;
 
             if (movePos.depth() <= MAX_DEPTH) {
                 // bisection
-                moves_[numMoves++] = handleBisectionMove(moveDirection, movePos, i);
+                moves_[numMoves++] = handleBisectionMove(attackBranch, movePos, i);
             } else {
                 // instruction step
-                moves_[numMoves++] = handleStepMove(moveDirection, observed.position, movePos, i);
+                moves_[numMoves++] = handleStepMove(attackBranch, observed.position, movePos, i);
             }
         }
 
@@ -173,10 +174,10 @@ contract HonestGameSolver is GameSolver {
     function determineDirection(IFaultDisputeGame.ClaimData memory _claimData)
         internal
         view
-        returns (uint64 direction_, Position movePos_)
+        returns (uint64 attackBranch_, Position movePos_)
     {
         bool rightLevel = isRightLevel(_claimData.position);
-        uint64 numClaims = _claimData.position.raw() == 1 || (_claimData.position.depth() == (SPLIT_DEPTH + N_BITS)) ? 1 : uint64(MAX_ATTACK_BRANCH - 1);
+        uint64 numClaims = _claimData.position.raw() == 1 || (_claimData.position.depth() == (SPLIT_DEPTH + N_BITS)) ? 1 : uint64(MAX_ATTACK_BRANCH);
         Claim[] memory claims = new Claim[](numClaims);
         Claim[] memory counterClaims = new Claim[](numClaims);
         claims = subClaimsAt(_claimData.position, Actor.Self);
@@ -184,13 +185,13 @@ contract HonestGameSolver is GameSolver {
             // If we agree with the output/trace rootClaim and we agree with, ignore it.
             bool localAgree = claims[0].raw() == _claimData.claim.raw();
             if (localAgree) {
-                return (NOOP_ATTACK, Position.wrap(0));
+                return (ATTACK_BRANCH_NOOP, Position.wrap(0));
             }
 
             // The parent claim is the output/trace rootClaim. We must attack if we disagree per the game rules.
-            direction_ = 0;
+            attackBranch_ = 0;
             movePos_ = _claimData.position.moveN(N_BITS, 0);
-            return (direction_, movePos_);
+            return (attackBranch_, movePos_);
         }
 
         // If the parent claim is not the root claim, first check if the observed claim is on a level that
@@ -199,10 +200,12 @@ contract HonestGameSolver is GameSolver {
         if (rightLevel) {
             // Never move against a claim on the right level. Even if it's wrong, if it's uncountered, it furthers
             // our goals.
-            return (NOOP_ATTACK, Position.wrap(0));
+            return (ATTACK_BRANCH_NOOP, Position.wrap(0));
         }
         counterClaims = subClaimsAt(_claimData.position, Actor.Counter);
-        uint64 attackBranch_ = uint64(MAX_ATTACK_BRANCH);
+        // If none of first MAX_ATTACK_BRANCH claims disagree, then we must disagree with the last claim
+        // due to we're not on the rightLevel.
+        attackBranch_ = uint64(MAX_ATTACK_BRANCH);
         for (uint64 i = 0; i < uint64(MAX_ATTACK_BRANCH); i++) {
             if (claims[i].raw() != counterClaims[i].raw()) {
                 attackBranch_ = i;
@@ -242,7 +245,7 @@ contract HonestGameSolver is GameSolver {
     /// @dev Note: This function assumes that the `movePos` and `challengeIndex` are valid within the
     ///            execution trace bisection context. This is enforced by the `solveGame` function.
     function handleStepMove(
-        uint64 _direction,
+        uint64 _attackBranch,
         Position _parentPos,
         Position _movePos,
         uint256 _challengeIndex
@@ -261,9 +264,22 @@ contract HonestGameSolver is GameSolver {
         // do nothing.
         if ((_movePos.indexAtDepth() % (2 ** (MAX_DEPTH - SPLIT_DEPTH))) != 0) {
             // Grab the trace up to the prestate's trace index.
-            Position leafPos = Position.wrap(Position.unwrap(_parentPos) - 1 + _direction);
-            preStateTrace = abi.encode(leafPos.traceIndex(MAX_DEPTH), stateAt(leafPos, Actor.Counter));
-            preStateItem = daItemAtPos(_parentPos, _direction - 1, Actor.Counter);
+            Position leafPos = Position.wrap(Position.unwrap(_parentPos) - 1 + _attackBranch);
+            preStateTrace = abi.encode(leafPos.traceIndex(MAX_DEPTH), stateAt(leafPos, Actor.Self));
+
+            // If attackBranch is the first branch, we must trace ancestor to find the correct acestor prestate.
+            if (_attackBranch == 0) {
+                uint256 ancestorPos = _parentPos.raw();
+                for (; ancestorPos % (1 << N_BITS) == 0; ) {
+                    ancestorPos = ancestorPos / (1 << N_BITS);
+                }
+                uint64 branch = uint64(ancestorPos % (1 << N_BITS));
+                ancestorPos = ancestorPos - branch;
+                Actor actor = isRightLevel(Position.wrap(uint128(ancestorPos))) ? Actor.Self : Actor.Counter;
+                preStateItem = daItemAtPos(Position.wrap(uint128(ancestorPos)), branch - 1, actor);
+            } else {
+                preStateItem = daItemAtPos(_parentPos, _attackBranch - 1, Actor.Counter);
+            }
         } else { // Left most branch
             preStateTrace = absolutePrestateData;
             preStateItem = LibDA.DAItem({
@@ -274,11 +290,19 @@ contract HonestGameSolver is GameSolver {
         }
 
         if (_movePos.indexAtDepth() != (1<< (MAX_DEPTH - SPLIT_DEPTH)) - 1 ) {
-             Claim postStateClaim;
-            if (_direction < MAX_ATTACK_BRANCH) {
-                postStateItem = daItemAtPos(_parentPos, _direction, Actor.Counter);
+            Claim postStateClaim;
+            if (_attackBranch < MAX_ATTACK_BRANCH) {
+                postStateItem = daItemAtPos(_parentPos, _attackBranch, Actor.Counter);
             } else {
-                postStateItem = daItemAtPos(_parentPos, _direction, Actor.Self);
+                // If the attackBranch is the last branch, we must trace acestor to get the correct post state.
+                uint256 ancestorPos = _parentPos.raw();
+                for (; ancestorPos % (1 << N_BITS) == MAX_ATTACK_BRANCH; ) {
+                    ancestorPos = ancestorPos / (1 << N_BITS);
+                }
+                uint64 branch = uint64(ancestorPos % (1 << N_BITS));
+                ancestorPos = ancestorPos - branch;
+                Actor actor = isRightLevel(Position.wrap(uint128(ancestorPos))) ? Actor.Self : Actor.Counter;
+                postStateItem = daItemAtPos(Position.wrap(uint128(ancestorPos)), branch, actor);
             }
         } else { // Right most branch
             postStateItem = LibDA.DAItem({
@@ -296,9 +320,9 @@ contract HonestGameSolver is GameSolver {
 
         move_ = Move({
             kind: MoveKind.Step,
-            attackBranch: _direction,
+            attackBranch: _attackBranch,
             value: 0,
-            data: abi.encodeCall(FaultDisputeGame.stepV2, (_challengeIndex, _direction, preStateTrace, stepProof))
+            data: abi.encodeCall(FaultDisputeGame.stepV2, (_challengeIndex, _attackBranch, preStateTrace, stepProof))
         });
     }
 
@@ -315,10 +339,10 @@ contract HonestGameSolver is GameSolver {
         for (uint128 i = branch + 1; i < MAX_ATTACK_BRANCH; i++) {
             claims[i-1] = statehashAt(Position.wrap(Position.unwrap(_parentPos) + i), actor);
         }
-        Claim claim_ = statehashAt(leafPos, actor);
+        Claim claim = statehashAt(leafPos, actor);
         daItem_ = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: claim_.raw(),
+            dataHash: claim.raw(),
             proof: abi.encodePacked(claims)
         });
     }
@@ -355,11 +379,11 @@ contract HonestGameSolver is GameSolver {
     }
 
     function claimAt(Position _position) internal view returns (Claim root_) {
-        Claim[] memory claims_ = _position.depth() > SPLIT_DEPTH ? statehashesAt(_position, Actor.Self) : subClaimsAt(_position, Actor.Self);
-        if (claims_.length == 1) { // It's the trace rootClaim
-            root_ = claims_[0];
+        Claim[] memory claims = _position.depth() > SPLIT_DEPTH ? statehashesAt(_position, Actor.Self) : subClaimsAt(_position, Actor.Self);
+        if (claims.length == 1) { // It's the trace rootClaim
+            root_ = claims[0];
         } else {
-            bytes memory input = abi.encodePacked(claims_); // bytes.concat(claims_[0].raw(), claims_[1].raw(), claims_[2].raw());
+            bytes memory input = abi.encodePacked(claims); // bytes.concat(claims_[0].raw(), claims_[1].raw(), claims_[2].raw());
             root_ = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, MAX_ATTACK_BRANCH, input));
         }
     }
