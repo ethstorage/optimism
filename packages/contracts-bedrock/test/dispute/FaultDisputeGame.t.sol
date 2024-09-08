@@ -45,7 +45,9 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         // Set the extra data for the game creation
         extraData = abi.encode(l2BlockNumber);
 
-        AlphabetVM _vm = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM _vm = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         // Deploy an implementation of the fault game
         gameImpl = new FaultDisputeGame({
@@ -110,7 +112,9 @@ contract FaultDisputeGame_Test is FaultDisputeGame_Init {
     /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `MAX_GAME_DEPTH` parameter is
     ///      greater  than `LibPosition.MAX_POSITION_BITLEN - 1`.
     function testFuzz_constructor_maxDepthTooLarge_reverts(uint256 _maxGameDepth) public {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM alphabetVM = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         _maxGameDepth = bound(_maxGameDepth, LibPosition.MAX_POSITION_BITLEN, type(uint256).max - 1);
         vm.expectRevert(MaxDepthTooLarge.selector);
@@ -131,7 +135,9 @@ contract FaultDisputeGame_Test is FaultDisputeGame_Init {
     /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `_splitDepth`
     ///      parameter is greater than or equal to the `MAX_GAME_DEPTH`
     function testFuzz_constructor_invalidSplitDepth_reverts(uint256 _splitDepth) public {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM alphabetVM = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         _splitDepth = bound(_splitDepth, 2 ** 3, type(uint256).max);
         vm.expectRevert(InvalidSplitDepth.selector);
@@ -157,7 +163,9 @@ contract FaultDisputeGame_Test is FaultDisputeGame_Init {
     )
         public
     {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM alphabetVM = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         _maxClockDuration = uint64(bound(_maxClockDuration, 0, type(uint64).max - 1));
         _clockExtension = uint64(bound(_clockExtension, _maxClockDuration + 1, type(uint64).max));

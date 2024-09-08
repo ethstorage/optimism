@@ -60,7 +60,7 @@ abstract contract GameSolver is CommonBase {
     ///         to the `FaultDisputeGame` contract by a consumer of this contract.
     struct Move {
         MoveKind kind;
-        uint256 attackBranch;
+        uint64 attackBranch;
         bytes data;
         uint256 value;
     }
@@ -177,11 +177,13 @@ contract HonestGameSolver is GameSolver {
         returns (uint64 attackBranch_, Position movePos_)
     {
         bool rightLevel = isRightLevel(_claimData.position);
-        uint64 numClaims = _claimData.position.raw() == 1 || (_claimData.position.depth() == (SPLIT_DEPTH + N_BITS)) ? 1 : uint64(MAX_ATTACK_BRANCH);
+        uint64 numClaims = _claimData.position.raw() == 1 || (_claimData.position.depth() == (SPLIT_DEPTH + N_BITS))
+            ? 1
+            : uint64(MAX_ATTACK_BRANCH);
         Claim[] memory claims = new Claim[](numClaims);
         Claim[] memory counterClaims = new Claim[](numClaims);
         claims = subClaimsAt(_claimData.position, Actor.Self);
-        if (_claimData.parentIndex == type(uint32).max || _claimData.position.depth() == SPLIT_DEPTH + N_BITS ) {
+        if (_claimData.parentIndex == type(uint32).max || _claimData.position.depth() == SPLIT_DEPTH + N_BITS) {
             // If we agree with the output/trace rootClaim and we agree with, ignore it.
             bool localAgree = claims[0].raw() == _claimData.claim.raw();
             if (localAgree) {
@@ -270,7 +272,7 @@ contract HonestGameSolver is GameSolver {
             // If attackBranch is the first branch, we must trace ancestor to find the correct acestor prestate.
             if (_attackBranch == 0) {
                 uint256 ancestorPos = _parentPos.raw();
-                for (; ancestorPos % (1 << N_BITS) == 0; ) {
+                for (; ancestorPos % (1 << N_BITS) == 0;) {
                     ancestorPos = ancestorPos / (1 << N_BITS);
                 }
                 uint64 branch = uint64(ancestorPos % (1 << N_BITS));
@@ -280,23 +282,20 @@ contract HonestGameSolver is GameSolver {
             } else {
                 preStateItem = daItemAtPos(_parentPos, _attackBranch - 1, Actor.Counter);
             }
-        } else { // Left most branch
+        } else {
+            // Left most branch
             preStateTrace = absolutePrestateData;
-            preStateItem = LibDA.DAItem({
-                daType: LibDA.DA_TYPE_CALLDATA,
-                dataHash: GAME.absolutePrestate().raw(),
-                proof: hex""
-            });
+            preStateItem =
+                LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: GAME.absolutePrestate().raw(), proof: hex"" });
         }
 
-        if (_movePos.indexAtDepth() != (1<< (MAX_DEPTH - SPLIT_DEPTH)) - 1 ) {
-            Claim postStateClaim;
+        if (_movePos.indexAtDepth() != (1 << (MAX_DEPTH - SPLIT_DEPTH)) - 1) {
             if (_attackBranch < MAX_ATTACK_BRANCH) {
                 postStateItem = daItemAtPos(_parentPos, _attackBranch, Actor.Counter);
             } else {
                 // If the attackBranch is the last branch, we must trace acestor to get the correct post state.
                 uint256 ancestorPos = _parentPos.raw();
-                for (; ancestorPos % (1 << N_BITS) == MAX_ATTACK_BRANCH; ) {
+                for (; ancestorPos % (1 << N_BITS) == MAX_ATTACK_BRANCH;) {
                     ancestorPos = ancestorPos / (1 << N_BITS);
                 }
                 uint64 branch = uint64(ancestorPos % (1 << N_BITS));
@@ -304,19 +303,14 @@ contract HonestGameSolver is GameSolver {
                 Actor actor = isRightLevel(Position.wrap(uint128(ancestorPos))) ? Actor.Self : Actor.Counter;
                 postStateItem = daItemAtPos(Position.wrap(uint128(ancestorPos)), branch, actor);
             }
-        } else { // Right most branch
-            postStateItem = LibDA.DAItem({
-                daType: LibDA.DA_TYPE_CALLDATA,
-                dataHash: GAME.rootClaim().raw(),
-                proof: hex""
-            });
+        } else {
+            // Right most branch
+            postStateItem =
+                LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: GAME.rootClaim().raw(), proof: hex"" });
         }
 
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
         move_ = Move({
             kind: MoveKind.Step,
@@ -330,21 +324,26 @@ contract HonestGameSolver is GameSolver {
     //                          HELPERS                           //
     ////////////////////////////////////////////////////////////////
 
-    function daItemAtPos(Position _parentPos, uint64 branch, Actor actor) internal view returns (LibDA.DAItem memory daItem_) {
+    function daItemAtPos(
+        Position _parentPos,
+        uint64 branch,
+        Actor actor
+    )
+        internal
+        view
+        returns (LibDA.DAItem memory daItem_)
+    {
         Position leafPos = Position.wrap(Position.unwrap(_parentPos) + branch);
         Claim[] memory claims = new Claim[](MAX_ATTACK_BRANCH - 1);
         for (uint128 i = 0; i < branch; i++) {
             claims[i] = statehashAt(Position.wrap(Position.unwrap(_parentPos) + i), actor);
         }
         for (uint128 i = branch + 1; i < MAX_ATTACK_BRANCH; i++) {
-            claims[i-1] = statehashAt(Position.wrap(Position.unwrap(_parentPos) + i), actor);
+            claims[i - 1] = statehashAt(Position.wrap(Position.unwrap(_parentPos) + i), actor);
         }
         Claim claim = statehashAt(leafPos, actor);
-        daItem_ = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: claim.raw(),
-            proof: abi.encodePacked(claims)
-        });
+        daItem_ =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: claim.raw(), proof: abi.encodePacked(claims) });
     }
 
     /// @dev Helper function to get the `ClaimData` struct at a given index in the `GAME` contract's
@@ -379,11 +378,14 @@ contract HonestGameSolver is GameSolver {
     }
 
     function claimAt(Position _position) internal view returns (Claim root_) {
-        Claim[] memory claims = _position.depth() > SPLIT_DEPTH ? statehashesAt(_position, Actor.Self) : subClaimsAt(_position, Actor.Self);
-        if (claims.length == 1) { // It's the trace rootClaim
+        Claim[] memory claims =
+            _position.depth() > SPLIT_DEPTH ? statehashesAt(_position, Actor.Self) : subClaimsAt(_position, Actor.Self);
+        if (claims.length == 1) {
+            // It's the trace rootClaim
             root_ = claims[0];
         } else {
-            bytes memory input = abi.encodePacked(claims); // bytes.concat(claims_[0].raw(), claims_[1].raw(), claims_[2].raw());
+            bytes memory input = abi.encodePacked(claims); // bytes.concat(claims_[0].raw(), claims_[1].raw(),
+                // claims_[2].raw());
             root_ = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, MAX_ATTACK_BRANCH, input));
         }
     }
@@ -402,7 +404,7 @@ contract HonestGameSolver is GameSolver {
         uint8 depth = _position.depth();
         uint256 numClaims = _position.raw() == 1 ? 1 : MAX_ATTACK_BRANCH;
         claims_ = new Claim[](numClaims);
-        uint256 offset = 1<< (SPLIT_DEPTH - depth);
+        uint256 offset = 1 << (SPLIT_DEPTH - depth);
         for (uint256 i = 0; i < numClaims; i++) {
             claims_[i] = outputAt(traceIndex + i * offset, actor);
         }
@@ -416,9 +418,10 @@ contract HonestGameSolver is GameSolver {
 
     /// @notice Returns the player's claim that commits to a given trace index.
     function statehashAt(uint256 _traceIndex, Actor actor) internal view returns (Claim claim_) {
-        bytes storage _trace = actor == Actor.Self ? trace: counterTrace;
-        bytes32 hash =
-            keccak256(abi.encode(_traceIndex >= _trace.length ? _trace.length - 1 : _traceIndex, stateAt(_traceIndex, actor)));
+        bytes storage _trace = actor == Actor.Self ? trace : counterTrace;
+        bytes32 hash = keccak256(
+            abi.encode(_traceIndex >= _trace.length ? _trace.length - 1 : _traceIndex, stateAt(_traceIndex, actor))
+        );
         assembly {
             claim_ := or(and(hash, not(shl(248, 0xFF))), shl(248, 1))
         }
@@ -435,8 +438,8 @@ contract HonestGameSolver is GameSolver {
         uint256 numClaims = depth == (SPLIT_DEPTH + N_BITS) ? 1 : MAX_ATTACK_BRANCH;
         uint256 traceIndex = _position.traceIndex(MAX_DEPTH);
         claims_ = new Claim[](numClaims);
-        uint256 offset = 1<< (MAX_DEPTH - depth);
-        for (uint256 i=0; i < numClaims; i++) {
+        uint256 offset = 1 << (MAX_DEPTH - depth);
+        for (uint256 i = 0; i < numClaims; i++) {
             claims_[i] = statehashAt(traceIndex + i * offset, actor);
         }
     }
@@ -448,7 +451,7 @@ contract HonestGameSolver is GameSolver {
 
     /// @notice Returns the state at the trace index within the player's trace.
     function stateAt(uint256 _traceIndex, Actor actor) internal view returns (uint256 state_) {
-        bytes storage trace = actor == Actor.Self ? trace: counterTrace;
+        bytes storage trace = actor == Actor.Self ? trace : counterTrace;
         return uint256(uint8(_traceIndex >= trace.length ? trace[trace.length - 1] : trace[_traceIndex]));
     }
 
@@ -488,7 +491,9 @@ contract HonestDisputeActor is DisputeActor {
         bytes memory _preStateData
     ) {
         GAME = _gameProxy;
-        solver = GameSolver(new HonestGameSolver(_gameProxy, _l2Outputs, _counterL2Outputs, _trace, _counterTrace, _preStateData));
+        solver = GameSolver(
+            new HonestGameSolver(_gameProxy, _l2Outputs, _counterL2Outputs, _trace, _counterTrace, _preStateData)
+        );
     }
 
     /// @inheritdoc DisputeActor
@@ -514,7 +519,7 @@ contract HonestDisputeActor is DisputeActor {
                 }
                 LibDA.DAItem memory dummyItem = LibDA.DAItem({
                     daType: LibDA.DA_TYPE_CALLDATA,
-                    dataHash: '00000000000000000000000000000000',
+                    dataHash: "00000000000000000000000000000000",
                     proof: hex""
                 });
                 GAME.addLocalData({

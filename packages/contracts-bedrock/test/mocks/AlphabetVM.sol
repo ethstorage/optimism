@@ -11,13 +11,13 @@ import "src/dispute/lib/Types.sol";
 contract AlphabetVM is IBigStepper {
     Claim internal immutable ABSOLUTE_PRESTATE;
     IPreimageOracle public oracle;
-    uint256 internal immutable TRACE_DEPTH;  // MaxGameDepth - SplitDepth
+    uint256 internal immutable TRACE_DEPTH; // MaxGameDepth - SplitDepth
 
     constructor(Claim _absolutePrestate, PreimageOracle _oracle, uint256 _traceDepth) {
         ABSOLUTE_PRESTATE = _absolutePrestate;
         oracle = _oracle;
         // Add TRACE_DEPTH to get the starting trace index offset with `startingL2BlockNumber << TRACE_DEPTH`.
-        TRACE_DEPTH =_traceDepth;
+        TRACE_DEPTH = _traceDepth;
     }
 
     /// @inheritdoc IBigStepper

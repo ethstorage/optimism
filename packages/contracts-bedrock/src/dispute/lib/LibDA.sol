@@ -17,7 +17,7 @@ library LibDA {
     uint256 constant DA_TYPE_CALLDATA = 0;
     uint256 constant DA_TYPE_EIP4844 = 1;
 
-    function getClaimsHash(uint256 daType, uint256 nelemebts, bytes memory data) internal view returns (bytes32 root)  {
+    function getClaimsHash(uint256 daType, uint256 nelemebts, bytes memory data) internal view returns (bytes32 root) {
         if (daType == DA_TYPE_EIP4844) {
             // TODO: may specify which blob?
             // root = blobhash(0);
@@ -31,7 +31,7 @@ library LibDA {
         require(nelemebts > 0, "data must not empty");
 
         while (nelemebts != 1) {
-            for (uint256 i = 0 ; i < nelemebts / 2; i++) {
+            for (uint256 i = 0; i < nelemebts / 2; i++) {
                 bytes32 hash;
                 uint256 roff = i * 32 * 2;
                 uint256 woff = i * 32;
@@ -60,7 +60,17 @@ library LibDA {
         }
     }
 
-    function verifyClaimHash(uint256 daType, bytes32 root, uint256 nelements, uint256 idx, bytes32 claimHash, bytes memory proof) internal pure {
+    function verifyClaimHash(
+        uint256 daType,
+        bytes32 root,
+        uint256 nelements,
+        uint256 idx,
+        bytes32 claimHash,
+        bytes memory proof
+    )
+        internal
+        pure
+    {
         require(daType == 0, "unsupported DA type");
         bytes32 hash = claimHash;
         uint256 proofOff = 0;
@@ -84,4 +94,3 @@ library LibDA {
         require(root == hash, "proof failed");
     }
 }
-

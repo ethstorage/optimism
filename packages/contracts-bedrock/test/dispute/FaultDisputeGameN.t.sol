@@ -39,7 +39,15 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
 
     event ReceiveETH(uint256 amount);
 
-    function init(Claim rootClaim, Claim absolutePrestate, uint256 l2BlockNumber, uint256 maxGameDepth, uint256 splitDepth) public {
+    function init(
+        Claim rootClaim,
+        Claim absolutePrestate,
+        uint256 l2BlockNumber,
+        uint256 maxGameDepth,
+        uint256 splitDepth
+    )
+        public
+    {
         // Set the time to a realistic date.
         vm.warp(1690906994);
 
@@ -105,7 +113,7 @@ contract FaultDisputeGame_Init is DisputeGameFactory_Init {
         return Claim.wrap(keccak256(abi.encode(gasleft())));
     }
 
-    function generateClaims(uint256 total) public view returns (Claim[] memory) {
+    function generateClaims(uint256 total) public pure returns (Claim[] memory) {
         Claim[] memory newClaims = new Claim[](total);
         for (uint256 i = 0; i < total; i++) {
             bytes memory claimData = abi.encode(i + 1, i + 1);
@@ -130,7 +138,13 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         absolutePrestate = _changeClaimStatus(Claim.wrap(keccak256(absolutePrestateData)), VMStatuses.UNFINISHED);
 
         super.setUp();
-        super.init({ rootClaim: ROOT_CLAIM, absolutePrestate: absolutePrestate, l2BlockNumber: 0x10, maxGameDepth: 2 ** 3,splitDepth: 2 ** 2 });
+        super.init({
+            rootClaim: ROOT_CLAIM,
+            absolutePrestate: absolutePrestate,
+            l2BlockNumber: 0x10,
+            maxGameDepth: 2 ** 3,
+            splitDepth: 2 ** 2
+        });
     }
 
     ////////////////////////////////////////////////////////////////
@@ -140,7 +154,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `MAX_GAME_DEPTH` parameter is
     ///      greater  than `LibPosition.MAX_POSITION_BITLEN - 1`.
     function testFuzz_constructor_maxDepthTooLarge_reverts(uint256 _maxGameDepth) public {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM alphabetVM = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         _maxGameDepth = bound(_maxGameDepth, LibPosition.MAX_POSITION_BITLEN, type(uint256).max - 1);
         vm.expectRevert(MaxDepthTooLarge.selector);
@@ -161,7 +177,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     /// @dev Tests that the constructor of the `FaultDisputeGame` reverts when the `_splitDepth`
     ///      parameter is greater than or equal to the `MAX_GAME_DEPTH`
     function testFuzz_constructor_invalidSplitDepth_reverts(uint256 _splitDepth) public {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM alphabetVM = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         _splitDepth = bound(_splitDepth, 2 ** 3, type(uint256).max);
         vm.expectRevert(InvalidSplitDepth.selector);
@@ -187,7 +205,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     )
         public
     {
-        AlphabetVM alphabetVM = new AlphabetVM(absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth());
+        AlphabetVM alphabetVM = new AlphabetVM(
+            absolutePrestate, new PreimageOracle(0, 0), gameProxy.maxGameDepth() - gameProxy.splitDepth()
+        );
 
         _maxClockDuration = uint64(bound(_maxClockDuration, 0, type(uint64).max - 1));
         _clockExtension = uint64(bound(_clockExtension, _maxClockDuration + 1, type(uint64).max));
@@ -825,7 +845,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     //     gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
     //     (,,,, disputed,,) = gameProxy.claimData(2);
-    //     gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+    //     gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(),
+    // VMStatuses.PANIC), 0);
 
     //     (,,,, disputed,,) = gameProxy.claimData(3);
     //     gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
@@ -877,7 +898,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -888,37 +910,30 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
         // This variable is not used
-        LibDA.DAItem memory localDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
-            proof: hex""
-        });
+        LibDA.DAItem memory localDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
 
         // This variable is not used
-        LibDA.DAItem memory preStateItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: absolutePrestate.raw(),
-            proof: hex""
-        });
+        LibDA.DAItem memory preStateItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: absolutePrestate.raw(), proof: hex"" });
         LibDA.DAItem memory postStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claim1.raw(),
             proof: abi.encodePacked(claim2, claim3)
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof });
     }
 
     function test_stepAttackDummyClaim_attackBranch1_succeeds() public {
@@ -932,7 +947,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -943,7 +959,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
@@ -960,13 +978,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim2.raw(),
             proof: abi.encodePacked(claim1, claim3)
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof });
     }
 
     function test_stepAttackDummyClaim_attackBranch2_succeeds() public {
@@ -980,7 +995,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -991,7 +1007,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
@@ -1008,13 +1026,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim3.raw(),
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof });
     }
 
     function test_stepAttackDummyClaim_attackBranch3_succeeds() public {
@@ -1028,7 +1043,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1039,7 +1055,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
@@ -1057,14 +1075,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC).raw(),
             proof: hex""
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
         vm.expectRevert(ValidStep.selector);
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 3, _stateData: claimData3, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData3, _proof: stepProof });
     }
 
     /// @dev Tests that step reverts with false attacking claim when there is a true defend claim(claim5) in the middle
@@ -1110,7 +1125,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1121,25 +1137,26 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
 
         // This variable is not used
-        LibDA.DAItem memory startingDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
-            proof: hex""
-        });
+        LibDA.DAItem memory startingDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         LibDA.DAItem memory disputedDataItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claim1.raw(),
             proof: abi.encodePacked(claim2, claim3)
         });
-        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+        (, bytes32 startingOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, gameProxy.startingRootHash().raw());
-        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+        (, bytes32 disputedOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim1.raw());
     }
 
@@ -1154,7 +1171,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1165,7 +1183,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 1);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 1
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
@@ -1181,9 +1201,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim2.raw(),
             proof: abi.encodePacked(claim1, claim3)
         });
-        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+        (, bytes32 startingOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, claim1.raw());
-        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+        (, bytes32 disputedOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim2.raw());
     }
 
@@ -1198,7 +1220,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1209,7 +1232,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 2);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 2
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
@@ -1225,9 +1250,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim3.raw(),
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
-        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+        (, bytes32 startingOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, claim2.raw());
-        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+        (, bytes32 disputedOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim3.raw());
     }
 
@@ -1242,7 +1269,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1253,7 +1281,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
@@ -1269,9 +1299,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim1.raw(),
             proof: abi.encodePacked(claim2, claim3)
         });
-        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+        (, bytes32 startingOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, claim3.raw());
-        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+        (, bytes32 disputedOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim1.raw());
     }
 
@@ -1286,7 +1318,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1297,7 +1330,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 2);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
@@ -1309,9 +1344,11 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
         LibDA.DAItem memory disputedDataItem = startingDataItem;
-        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
+        (, bytes32 startingOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
         assertEq(startingOutputRoot, claim3.raw());
-        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
+        (, bytes32 disputedOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
         assertEq(disputedOutputRoot, claim3.raw());
     }
 
@@ -1326,7 +1363,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         Claim claim2 = Claim.wrap(keccak256(claimData2));
         Claim claim3 = Claim.wrap(keccak256(claimData3));
 
-        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claim1, claim2, claim3); // bytes.concat(claim1.raw(), claim2.raw(),
+            // claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         // Make claims all the way down the tree.
@@ -1337,7 +1375,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 3);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.PANIC), 3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.PANIC), 3
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
@@ -1348,14 +1388,13 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim3.raw(),
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
-        LibDA.DAItem memory disputedDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: ROOT_CLAIM.raw(),
-            proof: hex""
-        });
-        (, bytes32 startingOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
+        LibDA.DAItem memory disputedDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: ROOT_CLAIM.raw(), proof: hex"" });
+        (, bytes32 startingOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
         assertEq(startingOutputRoot, claim3.raw());
-        (, bytes32 disputedOutputRoot) = gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
+        (, bytes32 disputedOutputRoot) =
+            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
         assertEq(disputedOutputRoot, ROOT_CLAIM.raw());
     }
 
@@ -1667,7 +1706,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         vm.deal(address(this), bal);
 
         Claim[] memory claims = generateClaims(3);
-        bytes memory input = abi.encodePacked(claims[0], claims[1], claims[2]); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claims[0], claims[1], claims[2]); // bytes.concat(claim1.raw(),
+            // claim2.raw(), claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         uint256 bond = _getRequiredBondV2(0, 0);
@@ -1684,7 +1724,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         bond = _getRequiredBondV2(2, 0);
         totalBonded += bond;
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: bond}(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: bond }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
 
         bond = _getRequiredBondV2(3, 0);
         totalBonded += bond;
@@ -1692,31 +1732,22 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: bond }(disputed, 3, root, 0);
 
         // This variable is not used
-        LibDA.DAItem memory localDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
-            proof: hex""
-        });
+        LibDA.DAItem memory localDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
 
         // This variable is not used
-        LibDA.DAItem memory preStateItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: absolutePrestate.raw(),
-            proof: hex""
-        });
+        LibDA.DAItem memory preStateItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: absolutePrestate.raw(), proof: hex"" });
         LibDA.DAItem memory postStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claims[0].raw(),
             proof: abi.encodePacked(claims[1], claims[2])
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof });
 
         // Ensure that the step successfully countered the leaf claim.
         (, address counteredBy,,,,,) = gameProxy.claimData(4);
@@ -1758,7 +1789,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         vm.deal(bob, 1000 ether);
 
         Claim[] memory claims = generateClaims(3);
-        bytes memory input = abi.encodePacked(claims[0], claims[1], claims[2]); // bytes.concat(claim1.raw(), claim2.raw(), claim3.raw());
+        bytes memory input = abi.encodePacked(claims[0], claims[1], claims[2]); // bytes.concat(claim1.raw(),
+            // claim2.raw(), claim3.raw());
         Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, input));
 
         uint256 bond = _getRequiredBondV2(0, 0);
@@ -1776,7 +1808,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         bond = _getRequiredBondV2(2, 0);
         thisBonded += bond;
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: bond}(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: bond }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
 
         bond = _getRequiredBondV2(3, 0);
         bobBonded += bond;
@@ -1785,31 +1817,22 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: bond }(disputed, 3, root, 0);
 
         // This variable is not used
-        LibDA.DAItem memory localDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
-            proof: hex""
-        });
+        LibDA.DAItem memory localDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
 
         // This variable is not used
-        LibDA.DAItem memory preStateItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: absolutePrestate.raw(),
-            proof: hex""
-        });
+        LibDA.DAItem memory preStateItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: absolutePrestate.raw(), proof: hex"" });
         LibDA.DAItem memory postStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claims[0].raw(),
             proof: abi.encodePacked(claims[1], claims[2])
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 0, _stateData: absolutePrestateData, _proof: stepProof });
 
         (, address counteredBy,,,,,) = gameProxy.claimData(4);
         assertEq(counteredBy, address(this));
@@ -1878,7 +1901,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         uint256 thirdBond = _getRequiredBondV2(3, 0);
         (,,,, disputed,,) = gameProxy.claimData(3);
         vm.prank(alice);
-        gameProxy.attackV2{ value: thirdBond}(disputed, 3, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: thirdBond }(disputed, 3, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
 
         // Resolve all claims
         vm.warp(block.timestamp + 3 days + 12 hours);
@@ -2297,7 +2320,13 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         absolutePrestate = _changeClaimStatus(Claim.wrap(keccak256(absolutePrestateData)), VMStatuses.UNFINISHED);
 
         super.setUp();
-        super.init({ rootClaim: ROOT_CLAIM, absolutePrestate: absolutePrestate, l2BlockNumber: 0x10, maxGameDepth: 2 ** 3, splitDepth: 2 });
+        super.init({
+            rootClaim: ROOT_CLAIM,
+            absolutePrestate: absolutePrestate,
+            l2BlockNumber: 0x10,
+            maxGameDepth: 2 ** 3,
+            splitDepth: 2
+        });
     }
 
     function test_stepAttackDummyClaim_attackBranch3WithNonRootclaim_succeeds() public {
@@ -2460,11 +2489,8 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
             proof: bytes.concat(keccak256(abi.encode(claim4.raw(), claim5.raw())))
         });
 
-        LibDA.DAItem memory postStateItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: rootClaim.raw(),
-            proof: hex""
-        });
+        LibDA.DAItem memory postStateItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: rootClaim.raw(), proof: hex"" });
 
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
@@ -2497,8 +2523,8 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
     DisputeActor internal honest;
     /// @dev The dishonest actor
     DisputeActor internal dishonest;
-    uint256 internal immutable _splitDepth = 2 ** 3;
-    uint256 internal immutable _maxGameDepth = 2 ** 4;
+    uint256 internal immutable splitDepth = 2 ** 3;
+    uint256 internal immutable maxGameDepth = 2 ** 4;
 
     function setUp() public override {
         // Setup the `FaultDisputeGame`
@@ -2512,23 +2538,23 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
     ///      execution trace bisection is made by the dishonest actor but is honest, honest actor cannot
     ///      attack it without risk of losing).
     function testFuzz_outputBisection1v1honestRoot_succeeds(uint8 _divergeOutput, uint8 _divergeStep) public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
         }
 
         uint256 divergeAtOutput = bound(_divergeOutput, 0, lenOutputs - 1);
-        uint256 divergeAtStep = bound(_divergeStep, 0, 1 << (_maxGameDepth - _splitDepth) / 2 - 1);
-        uint256 divergeStepOffset = (divergeAtOutput << (_maxGameDepth - _splitDepth)) + divergeAtStep;
+        uint256 divergeAtStep = bound(_divergeStep, 0, 1 << (maxGameDepth - splitDepth) / 2 - 1);
+        uint256 divergeStepOffset = (divergeAtOutput << (maxGameDepth - splitDepth)) + divergeAtStep;
 
         // The dishonest l2 outputs are from [1, lenOutputs] in this game.
         uint256[] memory dishonestL2Outputs = new uint256[](lenOutputs);
@@ -2557,15 +2583,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1honestRootGenesisAbsolutePrestate_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2598,15 +2624,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1dishonestRootGenesisAbsolutePrestate_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2639,15 +2665,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1honestRoot_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2658,7 +2684,7 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
             dishonestL2Outputs[i] = i + 1;
         }
-        // The dishonest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
+        // The dishonest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
         // of all zeros.
         bytes memory dishonestTrace = new bytes(lenTraces);
 
@@ -2676,15 +2702,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1dishonestRoot_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2695,7 +2721,7 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         for (uint256 i; i < dishonestL2Outputs.length; i++) {
             dishonestL2Outputs[i] = i + 1;
         }
-        // The dishonest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
+        // The dishonest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
         // of all zeros.
         bytes memory dishonestTrace = new bytes(lenTraces);
 
@@ -2712,18 +2738,18 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
     }
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
-    // Test will not pass when (N_BIT=2, _splitDepth=4, _maxDepth=8), due to game isn't deep enough, challenger
+    // Test will not pass when (N_BIT=2, splitDepth=4, _maxDepth=8), due to game isn't deep enough, challenger
     // cann't defend rootClaim of traces.
     function test_static_1v1correctRootHalfWay_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2738,10 +2764,11 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
-        uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 4;
+        uint256 divergeAtOffset = 1 << (maxGameDepth - splitDepth) / 4;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
+            dishonestTrace[i] =
+                i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2758,15 +2785,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1dishonestRootHalfWay_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2781,10 +2808,11 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
-        uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 4;
+        uint256 divergeAtOffset = 1 << (maxGameDepth - splitDepth) / 4;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
+            dishonestTrace[i] =
+                i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2801,15 +2829,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1correctAbsolutePrestate_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2824,7 +2852,6 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
-        uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth);
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
             dishonestTrace[i] = i > divergeAtStep ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
@@ -2844,15 +2871,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1dishonestAbsolutePrestate_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2867,7 +2894,6 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
-        uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth);
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
             dishonestTrace[i] = i > divergeAtStep ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
@@ -2887,15 +2913,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1honestRootFinalInstruction_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2910,10 +2936,11 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
-        uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 2 - 1;
+        uint256 divergeAtOffset = 1 << (maxGameDepth - splitDepth) / 2 - 1;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
+            dishonestTrace[i] =
+                i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -2930,15 +2957,15 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
 
     /// @notice Static unit test for a 1v1 output bisection dispute.
     function test_static_1v1dishonestRootFinalInstruction_succeeds() public {
-        // The honest l2 outputs are from [0, 2**_splitDepth - 1] in this game.
-        uint256 lenOutputs = 1 << _splitDepth;
+        // The honest l2 outputs are from [0, 2**splitDepth - 1] in this game.
+        uint256 lenOutputs = 1 << splitDepth;
         uint256[] memory honestL2Outputs = new uint256[](lenOutputs);
         for (uint256 i; i < honestL2Outputs.length; i++) {
             honestL2Outputs[i] = i;
         }
-        // The honest trace covers all block -> block + 1 transitions, and is 2**_maxGameDepth bytes long, consisting
-        // of bytes [0, 2**_maxGameDepth].
-        uint256 lenTraces = 1 << _maxGameDepth;
+        // The honest trace covers all block -> block + 1 transitions, and is 2**maxGameDepth bytes long, consisting
+        // of bytes [0, 2**maxGameDepth].
+        uint256 lenTraces = 1 << maxGameDepth;
         bytes memory honestTrace = new bytes(lenTraces);
         for (uint256 i; i < honestTrace.length; i++) {
             honestTrace[i] = bytes1(uint8(i));
@@ -2953,10 +2980,11 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
         }
         // The dishonest trace is half correct, half incorrect.
         bytes memory dishonestTrace = new bytes(lenTraces);
-        uint256 divergeAtOffset = 1 << (_maxGameDepth - _splitDepth) / 2 - 1;
+        uint256 divergeAtOffset = 1 << (maxGameDepth - splitDepth) / 2 - 1;
         uint256 divergeAtStep = lenTraces / 2 - 1;
         for (uint256 i; i < dishonestTrace.length; i++) {
-            dishonestTrace[i] = i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
+            dishonestTrace[i] =
+                i > (divergeAtStep + divergeAtOffset) ? bytes1(uint8(incorrectOutput)) : bytes1(uint8(i));
         }
 
         // Run the actor test
@@ -3023,8 +3051,8 @@ contract FaultDisputeN_1v1_Actors_Test is FaultDisputeGame_Init {
             rootClaim: rootClaim,
             absolutePrestate: absolutePrestateExec,
             l2BlockNumber: _rootClaim,
-            maxGameDepth: _maxGameDepth,
-            splitDepth: _splitDepth
+            maxGameDepth: maxGameDepth,
+            splitDepth: splitDepth
         });
     }
 
