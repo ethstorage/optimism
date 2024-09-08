@@ -361,9 +361,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         Claim _claim,
         uint64 _attackBranch
     )
-        public
-        payable
-        virtual
+        internal
     {
         // For N = 4 (bisec),
         // 1. _attackBranch == 0 (attack)
@@ -482,7 +480,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     }
 
     /// @inheritdoc IFaultDisputeGame
-    function addLocalData(uint256 _ident, uint256 _execLeafIdx, uint256 _partOffset) external { }
+    function addLocalData(uint256 _ident, uint256 _execLeafIdx, uint256 _partOffset) external {
+        revert NotSupported();
+    }
 
     function addLocalData(
         uint256 _ident,
@@ -1196,8 +1196,9 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         }
     }
 
-    function attackV2(Claim _disputed, uint256 _parentIndex, Claim _claim, uint64 _attackBranch) public payable {
-        moveV2(_disputed, _parentIndex, _claim, _attackBranch);
+    function attackV2(Claim _disputed, uint256 _parentIndex, uint64 _attackBranch, uint256 _daType, bytes memory _claims) public payable {
+        Claim claim = Claim.wrap(LibDA.getClaimsHash(_daType, MAX_ATTACK_BRANCH, _claims));
+        moveV2(_disputed, _parentIndex, claim, _attackBranch);
     }
 
     function step(
