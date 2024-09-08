@@ -355,14 +355,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         parent.counteredBy = msg.sender;
     }
 
-    function moveV2(
-        Claim _disputed,
-        uint256 _challengeIndex,
-        Claim _claim,
-        uint64 _attackBranch
-    )
-        internal
-    {
+    function moveV2(Claim _disputed, uint256 _challengeIndex, Claim _claim, uint64 _attackBranch) internal {
         // For N = 4 (bisec),
         // 1. _attackBranch == 0 (attack)
         // 2. _attackBranch == 1 (attack)
@@ -1196,7 +1189,16 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         }
     }
 
-    function attackV2(Claim _disputed, uint256 _parentIndex, uint64 _attackBranch, uint256 _daType, bytes memory _claims) public payable {
+    function attackV2(
+        Claim _disputed,
+        uint256 _parentIndex,
+        uint64 _attackBranch,
+        uint256 _daType,
+        bytes memory _claims
+    )
+        public
+        payable
+    {
         Claim claim = Claim.wrap(LibDA.getClaimsHash(_daType, MAX_ATTACK_BRANCH, _claims));
         moveV2(_disputed, _parentIndex, claim, _attackBranch);
     }

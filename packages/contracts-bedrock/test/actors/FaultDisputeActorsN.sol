@@ -239,7 +239,9 @@ contract HonestGameSolver is GameSolver {
             kind: MoveKind.Attack,
             attackBranch: _attackBranch,
             value: bond,
-            data: abi.encodeCall(FaultDisputeGameTest.attackV2, (disputed, _challengeIndex, claimAt(_movePos), _attackBranch))
+            data: abi.encodeCall(
+                FaultDisputeGameTest.attackV2, (disputed, _challengeIndex, claimAt(_movePos), _attackBranch)
+            )
         });
     }
 

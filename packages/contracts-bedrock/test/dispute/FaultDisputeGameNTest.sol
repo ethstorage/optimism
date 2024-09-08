@@ -46,7 +46,11 @@ contract FaultDisputeGameTest is FaultDisputeGame {
         uint64 _attackBranch,
         bytes calldata _stateData,
         StepProof calldata _proof
-    ) public virtual override {
-        super.stepV2(_claimIndex,_attackBranch, _stateData, _proof);
+    )
+        public
+        virtual
+        override
+    {
+        super.stepV2(_claimIndex, _attackBranch, _stateData, _proof);
     }
 }

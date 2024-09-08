@@ -272,8 +272,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         Claim claim = _dummyClaim();
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRootClaim.selector, claim));
-        gameProxy =
-            FaultDisputeGameTest(payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber)))));
+        gameProxy = FaultDisputeGameTest(
+            payable(address(disputeGameFactory.create(GAME_TYPE, claim, abi.encode(_blockNumber))))
+        );
     }
 
     /// @dev Tests that the proxy receives ETH from the dispute game factory.
@@ -942,7 +943,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claim1.raw(),
@@ -957,7 +957,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1, preStateItem);
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof });
     }
 
     function test_stepAttackDummyClaim_attackBranch2_succeeds() public {
@@ -990,7 +990,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
 
-
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claim2.raw(),
@@ -1005,7 +1004,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, preStateItem);
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof });
     }
 
     function test_stepAttackDummyClaim_attackBranch3_succeeds() public {
@@ -1037,7 +1036,6 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, root, 0);
-
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -1465,8 +1463,12 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
         gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
         (,,,, disputed,,) = gameProxy.claimData(1);
-        gameProxy.attackV2{ value: _getRequiredBondV2(1, uint64(MAX_ATTACK_BRANCH)) }(disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH));
-        gameProxy.attackV2{ value: _getRequiredBondV2(1, uint64(MAX_ATTACK_BRANCH)) }(disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH));
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, uint64(MAX_ATTACK_BRANCH)) }(
+            disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH)
+        );
+        gameProxy.attackV2{ value: _getRequiredBondV2(1, uint64(MAX_ATTACK_BRANCH)) }(
+            disputed, 1, _dummyClaim(), uint64(MAX_ATTACK_BRANCH)
+        );
 
         vm.warp(block.timestamp + 3 days + 12 hours);
 
@@ -1945,11 +1947,8 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         if (_ident <= 5) _ident = 0;
 
         // This variable is not used
-        LibDA.DAItem memory localDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
-            proof: hex""
-        });
+        LibDA.DAItem memory localDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         vm.expectRevert(InvalidLocalIdent.selector);
         gameProxy.addLocalData(_ident, 3, 0, localDataItem);
     }
@@ -1960,7 +1959,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         IPreimageOracle oracle = IPreimageOracle(address(gameProxy.vm().oracle()));
         Claim disputed;
         Claim[] memory claims = generateClaims(3);
-        Claim disputedClaim = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, abi.encodePacked(claims[0], claims[1], claims[2])));
+        Claim disputedClaim = Claim.wrap(
+            LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, abi.encodePacked(claims[0], claims[1], claims[2]))
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(0);
         gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, _dummyClaim(), 0);
@@ -1969,13 +1970,12 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, disputedClaim, 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
-        LibDA.DAItem memory startingDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: '00000000000000000000000000000000',
-            proof: hex""
-        });
+        LibDA.DAItem memory startingDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         LibDA.DAItem memory disputedDataItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claims[0].raw(),
@@ -2029,7 +2029,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     function test_addLocalDataMiddle_static_succeeds() public {
         IPreimageOracle oracle = IPreimageOracle(address(gameProxy.vm().oracle()));
         Claim[] memory claims = generateClaims(3);
-        Claim root = Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, abi.encodePacked(claims[0], claims[1], claims[2])));
+        Claim root = Claim.wrap(
+            LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, abi.encodePacked(claims[0], claims[1], claims[2]))
+        );
 
         (,,,, Claim disputed,,) = gameProxy.claimData(0);
         gameProxy.attackV2{ value: _getRequiredBondV2(0, 0) }(disputed, 0, root, 0);
@@ -2038,7 +2040,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, root, 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 3) }(disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 3) }(
+            disputed, 2, _changeClaimStatus(ROOT_CLAIM, VMStatuses.VALID), 3
+        );
 
         LibDA.DAItem memory startingDataItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2224,7 +2228,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     function test_stepAttackDummyClaim_attackDACalldata_succeeds() public {
-          // Give the test contract some ether
+        // Give the test contract some ether
         vm.deal(address(this), 1000 ether);
 
         bytes memory claimData1 = abi.encode(1, 1);
@@ -2244,19 +2248,20 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         gameProxy.attackV2{ value: _getRequiredBondV2(1, 0) }(disputed, 1, _dummyClaim(), 0);
 
         (,,,, disputed,,) = gameProxy.claimData(2);
-        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0);
+        gameProxy.attackV2{ value: _getRequiredBondV2(2, 0) }(
+            disputed, 2, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC), 0
+        );
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         uint256 bond = _getRequiredBondV2(3, 0);
         gameProxy.attackV2{ value: bond }(disputed, 3, 0, LibDA.DA_TYPE_CALLDATA, claims);
         vm.expectRevert(ClaimAlreadyExists.selector);
-        gameProxy.attackV2{ value: bond }(disputed, 3, Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, claims)), 0);
+        gameProxy.attackV2{ value: bond }(
+            disputed, 3, Claim.wrap(LibDA.getClaimsHash(LibDA.DA_TYPE_CALLDATA, 3, claims)), 0
+        );
 
-        LibDA.DAItem memory dummyDataItem = LibDA.DAItem({
-            daType: LibDA.DA_TYPE_CALLDATA,
-            dataHash: _dummyClaim().raw(),
-            proof: hex""
-        });
+        LibDA.DAItem memory dummyDataItem =
+            LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: _dummyClaim().raw(), proof: hex"" });
         gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, dummyDataItem);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
@@ -2269,12 +2274,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             dataHash: claim3.raw(),
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
-        FaultDisputeGame.StepProof memory stepProof = FaultDisputeGame.StepProof({
-            preStateItem: preStateItem,
-            postStateItem: postStateItem,
-            vmProof: hex""
-        });
-        gameProxy.stepV2({_claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof});
+        FaultDisputeGame.StepProof memory stepProof =
+            FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
+        gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof });
     }
 }
 
@@ -2346,7 +2348,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 2);
 
-
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claim6.raw(),
@@ -2401,7 +2402,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 2);
 
-
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
             dataHash: claim6.raw(),
@@ -2452,7 +2452,6 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
 
         (,,,, disputed,,) = gameProxy.claimData(3);
         gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, mid, 3);
-
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
