@@ -40,4 +40,13 @@ contract FaultDisputeGameTest is FaultDisputeGame {
     function attackV2(Claim _disputed, uint256 _parentIndex, Claim _claim, uint64 _attackBranch) public payable {
         moveV2(_disputed, _parentIndex, _claim, _attackBranch);
     }
+
+    function stepV2(
+        uint256 _claimIndex,
+        uint64 _attackBranch,
+        bytes calldata _stateData,
+        StepProof calldata _proof
+    ) public virtual override {
+        super.stepV2(_claimIndex,_attackBranch, _stateData, _proof);
+    }
 }

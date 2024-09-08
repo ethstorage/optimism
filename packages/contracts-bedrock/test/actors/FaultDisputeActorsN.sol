@@ -4,6 +4,7 @@ pragma solidity ^0.8.15;
 import { CommonBase } from "forge-std/Base.sol";
 
 import { FaultDisputeGame } from "src/dispute/FaultDisputeGameN.sol";
+import { FaultDisputeGameTest } from "test/dispute/FaultDisputeGameNTest.sol";
 import { IFaultDisputeGame } from "src/dispute/interfaces/IFaultDisputeGame.sol";
 
 import "src/dispute/lib/Types.sol";
@@ -16,7 +17,7 @@ import "src/dispute/lib/LibDA.sol";
 ///         it suggests.
 abstract contract GameSolver is CommonBase {
     /// @notice The `FaultDisputeGame` proxy that the `GameSolver` will be solving.
-    FaultDisputeGame public immutable GAME;
+    FaultDisputeGameTest public immutable GAME;
     /// @notice The split depth of the game
     uint256 internal immutable SPLIT_DEPTH;
     /// @notice The max depth of the game
@@ -66,7 +67,7 @@ abstract contract GameSolver is CommonBase {
     }
 
     constructor(
-        FaultDisputeGame _gameProxy,
+        FaultDisputeGameTest _gameProxy,
         uint256[] memory _l2Outputs,
         uint256[] memory _counterL2Outputs,
         bytes memory _trace,
@@ -109,7 +110,7 @@ contract HonestGameSolver is GameSolver {
     }
 
     constructor(
-        FaultDisputeGame _gameProxy,
+        FaultDisputeGameTest _gameProxy,
         uint256[] memory l2Outputs,
         uint256[] memory counterL2Outputs,
         bytes memory _honestTrace,
@@ -238,7 +239,7 @@ contract HonestGameSolver is GameSolver {
             kind: MoveKind.Attack,
             attackBranch: _attackBranch,
             value: bond,
-            data: abi.encodeCall(FaultDisputeGame.moveV2, (disputed, _challengeIndex, claimAt(_movePos), _attackBranch))
+            data: abi.encodeCall(FaultDisputeGameTest.attackV2, (disputed, _challengeIndex, claimAt(_movePos), _attackBranch))
         });
     }
 
@@ -316,7 +317,7 @@ contract HonestGameSolver is GameSolver {
             kind: MoveKind.Step,
             attackBranch: _attackBranch,
             value: 0,
-            data: abi.encodeCall(FaultDisputeGame.stepV2, (_challengeIndex, _attackBranch, preStateTrace, stepProof))
+            data: abi.encodeCall(FaultDisputeGameTest.stepV2, (_challengeIndex, _attackBranch, preStateTrace, stepProof))
         });
     }
 
@@ -480,10 +481,10 @@ abstract contract DisputeActor {
 ///         that this actor *can* be dishonest if the trace is faulty, but it will always follow
 ///         the rules of the honest actor.
 contract HonestDisputeActor is DisputeActor {
-    FaultDisputeGame public immutable GAME;
+    FaultDisputeGameTest public immutable GAME;
 
     constructor(
-        FaultDisputeGame _gameProxy,
+        FaultDisputeGameTest _gameProxy,
         uint256[] memory _l2Outputs,
         uint256[] memory _counterL2Outputs,
         bytes memory _trace,
