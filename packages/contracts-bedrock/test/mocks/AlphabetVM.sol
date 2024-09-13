@@ -11,10 +11,13 @@ import "src/dispute/lib/Types.sol";
 contract AlphabetVM is IBigStepper {
     Claim internal immutable ABSOLUTE_PRESTATE;
     IPreimageOracle public oracle;
+    uint256 internal immutable TRACE_DEPTH; // MaxGameDepth - SplitDepth
 
-    constructor(Claim _absolutePrestate, PreimageOracle _oracle) {
+    constructor(Claim _absolutePrestate, PreimageOracle _oracle, uint256 _traceDepth) {
         ABSOLUTE_PRESTATE = _absolutePrestate;
         oracle = _oracle;
+        // Add TRACE_DEPTH to get the starting trace index offset with `startingL2BlockNumber << TRACE_DEPTH`.
+        TRACE_DEPTH = _traceDepth;
     }
 
     /// @inheritdoc IBigStepper
@@ -35,14 +38,17 @@ contract AlphabetVM is IBigStepper {
                 PreimageKeyLib.localizeIdent(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, _localContext), 0
             );
             uint256 startingL2BlockNumber = ((uint256(dat) >> 128) & 0xFFFFFFFF) - 1;
-            traceIndex = startingL2BlockNumber << 4;
+            traceIndex = startingL2BlockNumber << TRACE_DEPTH;
             (uint256 absolutePrestateClaim) = abi.decode(_stateData, (uint256));
             claim = absolutePrestateClaim + traceIndex;
+            // In actor test trace is byte1 type, so here the claim is truncated to uint8.
+            claim = uint256(uint8(claim));
         } else {
             // Otherwise, decode the state data.
             (traceIndex, claim) = abi.decode(_stateData, (uint256, uint256));
             traceIndex++;
             claim++;
+            claim = uint256(uint8(claim));
         }
 
         // STF: n -> n + 1
