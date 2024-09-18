@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts/metrics"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	gameTypes "github.com/ethereum-optimism/optimism/op-challenger/game/types"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -171,6 +172,10 @@ func (f *FaultDisputeGameContractLatest) GetBlockRange(ctx context.Context) (pre
 	prestateBlock = results[0].GetBigInt(0).Uint64()
 	poststateBlock = results[1].GetBigInt(0).Uint64()
 	return
+}
+
+func (f *FaultDisputeGameContractLatest) GetContract() *batching.BoundContract {
+	return f.contract
 }
 
 type GameMetadata struct {
@@ -424,6 +429,35 @@ func (f *FaultDisputeGameContractLatest) GetClaim(ctx context.Context, idx uint6
 		return types.Claim{}, fmt.Errorf("failed to fetch claim %v: %w", idx, err)
 	}
 	return f.decodeClaim(result, int(idx)), nil
+}
+
+func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, idx uint64) ([]types.Claim, error) {
+	defer f.metrics.StartContractRequest("GetClaim")()
+	var subClaims []types.Claim
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, f.contract.Call(methodClaim, new(big.Int).SetUint64(idx)))
+	if err != nil {
+		return append(subClaims, types.Claim{}), fmt.Errorf("failed to fetch claim %v: %w", idx, err)
+	}
+	aggClaim := f.decodeClaim(result, int(idx))
+	subClaims = append(subClaims, aggClaim)
+	// findMoveTransaction
+	filter, err := bindings.NewFaultDisputeGameFilterer(f.contract.Addr(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	parentIndex := [...]*big.Int{big.NewInt(int64(aggClaim.ParentContractIndex))}
+	claim := [...][32]byte{aggClaim.ClaimData.ValueBytes()}
+	claimant := [...]common.Address{aggClaim.Claimant}
+	moveIter, err := filter.FilterMove(nil, parentIndex[:], claim[:], claimant[:])
+	if err != nil {
+		return nil, err
+	}
+	moveIter.Next()
+	txHash := moveIter.Event.Raw.TxHash
+	// decode calldata
+	
+	return subClaims, nil
 }
 
 func (f *FaultDisputeGameContractLatest) GetAllClaims(ctx context.Context, block rpcblock.Block) ([]types.Claim, error) {

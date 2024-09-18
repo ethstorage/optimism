@@ -80,6 +80,14 @@ func NewGetBalanceCall(addr common.Address, block rpcblock.Block, balance *big.I
 	}
 }
 
+func NewGetTxCall(txHash common.Hash, block rpcblock.Block, out *[]byte) ExpectedRpcCall {
+	return &GenericExpectedCall{
+		method: "eth_getTransactionByHash",
+		args:   []interface{}{txHash, block.ArgValue()},
+		result: hexutil.Encode(*out),
+	}
+}
+
 func (c *GenericExpectedCall) Matches(rpcMethod string, args ...interface{}) error {
 	if rpcMethod != c.method {
 		return fmt.Errorf("expected method %v but was %v", c.method, rpcMethod)
