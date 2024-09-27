@@ -324,6 +324,7 @@ func TestGetAllClaims(t *testing.T) {
 
 func TestGetSubClaims(t *testing.T) {
 	for _, version := range versions {
+		// todo: backward and forward support
 		if version.Is("1.2.0") {
 			version := version
 			t.Run(version.version, func(t *testing.T) {
@@ -344,7 +345,7 @@ func TestGetSubClaims(t *testing.T) {
 				block := rpcblock.ByNumber(42)
 				stubRpc.SetResponse(fdgAddr, methodClaimCount, block, nil, []interface{}{big.NewInt(int64(len(expectedClaims)))})
 
-				name := "Move"
+				eventName := "Move"
 				fdgAbi := version.loadAbi()
 
 				var challgenIndex []interface{}
@@ -354,7 +355,7 @@ func TestGetSubClaims(t *testing.T) {
 				query := [][]interface{}{challgenIndex, claim, address}
 				txHash := common.Hash{0xff}
 
-				query = append([][]interface{}{{fdgAbi.Events[name].ID}}, query...)
+				query = append([][]interface{}{{fdgAbi.Events[eventName].ID}}, query...)
 
 				topics, err := abi.MakeTopics(query...)
 				var queryTopics []common.Hash
@@ -373,7 +374,19 @@ func TestGetSubClaims(t *testing.T) {
 				stubRpc.SetFilterLogResponse(topics, fdgAddr, block, out)
 
 				contractCall := batching.NewContractCall(fdgAbi, fdgAddr, "move", claim0.ClaimData.Value, challgenIndex[0], claim0.ClaimData.Value, true)
-				packed, err := contractCall.Pack()
+				inputData, err := contractCall.Pack()
+				require.NoError(t, err)
+
+				tx := coreTypes.NewTx(&coreTypes.LegacyTx{
+					Nonce:    0,
+					GasPrice: big.NewInt(11111),
+					Gas:      1111,
+					To:       &claim0.Claimant,
+					Value:    big.NewInt(111),
+					Data:     inputData,
+				})
+				require.NoError(t, err)
+				packed, err := tx.MarshalBinary()
 				require.NoError(t, err)
 				stubRpc.SetTxResponse(txHash, packed)
 

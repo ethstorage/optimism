@@ -33,13 +33,13 @@ func (c *expectedFilterLogsCall) Matches(rpcMethod string, args ...interface{}) 
 
 	to := args[1].(common.Address)
 	if to != c.to {
-		return fmt.Errorf("expected contract address %v but was %v", c.topics, topics)
+		return fmt.Errorf("expected contract address %v but was %v", c.to, to)
 	}
 	return c.err
 }
 
 func (c *expectedFilterLogsCall) Execute(t *testing.T, out interface{}) error {
-	j, err := json.Marshal((c.outputs))
+	j, err := json.Marshal(c.outputs)
 	require.NoError(t, err)
 	json.Unmarshal(j, out)
 	return c.err

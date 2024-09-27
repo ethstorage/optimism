@@ -8,10 +8,11 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/test"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
-func TestTxCall_ToCallArgs(t *testing.T) {
+func TestDecodeTxCall(t *testing.T) {
 	addr := common.Address{0xbd}
 	testAbi, err := test.ERC20MetaData.GetAbi()
 	require.NoError(t, err)
@@ -26,14 +27,9 @@ func TestTxCall_ToCallArgs(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, expectedAmount, unpackedMap["amount"])
 	require.Equal(t, expectedSpender, unpackedMap["spender"])
-
-	unpacked, err := call.Unpack(packed)
-	require.NoError(t, err)
-	require.Equal(t, expectedSpender, unpacked.GetAddress(0))
-	require.Equal(t, expectedAmount, unpacked.GetBigInt(1))
 }
 
-func TestGetTxCalldata(t *testing.T) {
+func TestUnpackTxCalldata(t *testing.T) {
 	expectedSpender := common.Address{0xcc}
 	expectedAmount := big.NewInt(1234444)
 	txHash := common.Hash{0x11}
@@ -42,7 +38,17 @@ func TestGetTxCalldata(t *testing.T) {
 	testAbi, err := test.ERC20MetaData.GetAbi()
 	require.NoError(t, err)
 	contractCall := NewContractCall(testAbi, addr, "approve", expectedSpender, expectedAmount)
-	packed, err := contractCall.Pack()
+	inputData, err := contractCall.Pack()
+	tx := types.NewTx(&types.LegacyTx{
+		Nonce:    0,
+		GasPrice: big.NewInt(11111),
+		Gas:      1111,
+		To:       &addr,
+		Value:    big.NewInt(111),
+		Data:     inputData,
+	})
+	require.NoError(t, err)
+	packed, err := tx.MarshalBinary()
 	require.NoError(t, err)
 
 	stub := test.NewRpcStub(t)
@@ -52,6 +58,11 @@ func TestGetTxCalldata(t *testing.T) {
 	txCall := NewTxCall(testAbi, txHash, "approve")
 	result, err := caller.SingleCall(context.Background(), rpcblock.Latest, txCall)
 	require.NoError(t, err)
-	require.Equal(t, expectedSpender, result.GetAddress(0))
-	require.Equal(t, expectedAmount, result.GetBigInt(1))
+
+	decodedTx, err := txCall.DecodeToTx(result)
+	require.NoError(t, err)
+	unpackedMap, err := txCall.UnpackCallData(decodedTx)
+	require.NoError(t, err)
+	require.Equal(t, expectedSpender, unpackedMap["spender"])
+	require.Equal(t, expectedAmount, unpackedMap["amount"])
 }

@@ -1,12 +1,11 @@
 package batching
 
 import (
-	"fmt"
-
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -15,8 +14,6 @@ type TxCall struct {
 	TxHash common.Hash
 	Method string
 }
-
-var _ Call = (*TxCall)(nil)
 
 func NewTxCall(abi *abi.ABI, txhash common.Hash, method string) *TxCall {
 	return &TxCall{
@@ -38,8 +35,8 @@ func (b *TxCall) ToBatchElemCreator() (BatchElementCreator, error) {
 }
 
 func (c *TxCall) HandleResult(result interface{}) (*CallResult, error) {
-	out, err := c.Unpack(*result.(*hexutil.Bytes))
-	return out, err
+	res := result.(*hexutil.Bytes)
+	return &CallResult{out: []interface{}{*res}}, nil
 }
 
 func (c *TxCall) DecodeTxParams(data []byte) (map[string]interface{}, error) {
@@ -54,12 +51,17 @@ func (c *TxCall) DecodeTxParams(data []byte) (map[string]interface{}, error) {
 	return v, nil
 }
 
-func (c *TxCall) Unpack(hex hexutil.Bytes) (*CallResult, error) {
-	inputs := c.Abi.Methods[c.Method].Inputs
-
-	out, err := inputs.UnpackValues(hex[4:])
+func (c *TxCall) DecodeToTx(res *CallResult) (*types.Transaction, error) {
+	txn := new(types.Transaction)
+	hex := res.out[0].(hexutil.Bytes)
+	err := txn.UnmarshalBinary(hex)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unpack inputs: %w", err)
+		return nil, err
 	}
-	return &CallResult{out: out}, nil
+	return txn, nil
+}
+
+func (c *TxCall) UnpackCallData(txn *types.Transaction) (map[string]interface{}, error) {
+	input := txn.Data()
+	return c.DecodeTxParams(input)
 }

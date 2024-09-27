@@ -55,6 +55,7 @@ var (
 	methodL2BlockNumberChallenged = "l2BlockNumberChallenged"
 	methodL2BlockNumberChallenger = "l2BlockNumberChallenger"
 	methodChallengeRootL2Block    = "challengeRootL2Block"
+	subClaimField                 = "_claim"
 )
 
 var (
@@ -172,10 +173,6 @@ func (f *FaultDisputeGameContractLatest) GetBlockRange(ctx context.Context) (pre
 	prestateBlock = results[0].GetBigInt(0).Uint64()
 	poststateBlock = results[1].GetBigInt(0).Uint64()
 	return
-}
-
-func (f *FaultDisputeGameContractLatest) GetContract() *batching.BoundContract {
-	return f.contract
 }
 
 type GameMetadata struct {
@@ -450,7 +447,6 @@ func (f *FaultDisputeGameContractLatest) GetAllClaims(ctx context.Context, block
 func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block rpcblock.Block, aggClaim *types.Claim) ([]common.Hash, error) {
 	defer f.metrics.StartContractRequest("GetAllSubClaims")()
 
-	// findMoveTransaction
 	filter, err := bindings.NewFaultDisputeGameFilterer(f.contract.Addr(), f.multiCaller)
 	if err != nil {
 		return nil, err
@@ -469,16 +465,30 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 	}
 	txHash := moveIter.Event.Raw.TxHash
 
-	// todo: replace hardcoded nary, method name
-	nary := 1
-	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, batching.NewTxCall(f.contract.Abi(), txHash, "move"))
+	// todo: replace hardcoded method name
+	txCall := batching.NewTxCall(f.contract.Abi(), txHash, "move")
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, txCall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load claim calldata: %w", err)
 	}
+
+	txn, err := txCall.DecodeToTx(result)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decode tx: %w", err)
+	}
+
 	var subClaims []common.Hash
-	// We should start from 2 du to the signature of move(Claim _disputed, uint256 _challengeIndex, Claim _claim)
-	for i := 2; i < nary+2; i++ {
-		subClaims = append(subClaims, result.GetHash(i))
+
+	if len(txn.BlobHashes()) > 0 {
+		// todo: fetch Blobs and unpack it into subClaims
+	} else {
+		inputMap, err := txCall.UnpackCallData(txn)
+		if err != nil {
+			return nil, fmt.Errorf("failed to unpack tx resp: %w", err)
+		}
+		// todo: replace claim with nary-subclaims
+		claim := *abi.ConvertType(inputMap[subClaimField], new([32]byte)).(*[32]byte)
+		subClaims = append(subClaims, claim)
 	}
 
 	return subClaims, nil

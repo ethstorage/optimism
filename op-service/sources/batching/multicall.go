@@ -84,8 +84,7 @@ func (m *MultiCaller) Call(ctx context.Context, block rpcblock.Block, calls ...C
 	return callResults, nil
 }
 
-// FilterLogs filters contract logs for past blocks, returning the necessary
-// channels to construct a strongly typed bound iterator on top of them.
+// implment LogFilterer interface
 func (m *MultiCaller) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
 	call := NewEventCall(q)
 	results, err := m.SingleCall(ctx, rpcblock.ByNumber(q.FromBlock.Uint64()), call)
@@ -97,6 +96,7 @@ func (m *MultiCaller) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 	return out, nil
 }
 
+// implment LogFilterer interface
 func (m *MultiCaller) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
 	return nil, errors.New("unimplemented")
 }

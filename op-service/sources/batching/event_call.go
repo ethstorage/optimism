@@ -13,8 +13,6 @@ type EventCall struct {
 	to     []common.Address
 }
 
-var _ Call = (*EventCall)(nil)
-
 func NewEventCall(q ethereum.FilterQuery) *EventCall {
 	return &EventCall{
 		topics: q.Topics,
