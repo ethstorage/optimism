@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum-optimism/optimism/packages/contracts-bedrock/snapshots"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
 )
@@ -318,6 +319,70 @@ func TestGetAllClaims(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, expectedClaims, claims)
 		})
+	}
+}
+
+func TestGetSubClaims(t *testing.T) {
+	for _, version := range versions {
+		if version.Is("1.2.0") {
+			version := version
+			t.Run(version.version, func(t *testing.T) {
+				stubRpc, game := setupFaultDisputeGameTest(t, version)
+				claim0 := faultTypes.Claim{
+					ClaimData: faultTypes.ClaimData{
+						Value:    common.Hash{0xaa},
+						Position: faultTypes.NewPositionFromGIndex(big.NewInt(1)),
+						Bond:     big.NewInt(5),
+					},
+					CounteredBy:         common.Address{0x01},
+					Claimant:            common.Address{0x02},
+					Clock:               decodeClock(big.NewInt(1234)),
+					ContractIndex:       0,
+					ParentContractIndex: math.MaxUint32,
+				}
+				expectedClaims := []faultTypes.Claim{claim0}
+				block := rpcblock.ByNumber(42)
+				stubRpc.SetResponse(fdgAddr, methodClaimCount, block, nil, []interface{}{big.NewInt(int64(len(expectedClaims)))})
+
+				name := "Move"
+				fdgAbi := version.loadAbi()
+
+				var challgenIndex []interface{}
+				challgenIndex = append(challgenIndex, big.NewInt(int64(claim0.ParentContractIndex)))
+				claim := []interface{}{claim0.ClaimData.ValueBytes()}
+				address := []interface{}{claim0.Claimant}
+				query := [][]interface{}{challgenIndex, claim, address}
+				txHash := common.Hash{0xff}
+
+				query = append([][]interface{}{{fdgAbi.Events[name].ID}}, query...)
+
+				topics, err := abi.MakeTopics(query...)
+				var queryTopics []common.Hash
+				for _, item := range topics {
+					queryTopics = append(queryTopics, item[0])
+				}
+				require.NoError(t, err)
+				out := []coreTypes.Log{
+					{
+						Address: fdgAddr,
+						Topics:  queryTopics,
+						Data:    []byte{},
+						TxHash:  txHash,
+					},
+				}
+				stubRpc.SetFilterLogResponse(topics, fdgAddr, block, out)
+
+				contractCall := batching.NewContractCall(fdgAbi, fdgAddr, "move", claim0.ClaimData.Value, challgenIndex[0], claim0.ClaimData.Value, true)
+				packed, err := contractCall.Pack()
+				require.NoError(t, err)
+				stubRpc.SetTxResponse(txHash, packed)
+
+				claims, err := game.GetSubClaims(context.Background(), block, &claim0)
+				require.NoError(t, err)
+				require.Equal(t, 1, len(claims))
+				require.Equal(t, claim0.ClaimData.Value, claims[0])
+			})
+		}
 	}
 }
 

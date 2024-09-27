@@ -97,7 +97,7 @@ func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMe
 			FaultDisputeGameContractLatest: FaultDisputeGameContractLatest{
 				metrics:     metrics,
 				multiCaller: caller,
-				contract:    batching.NewBoundContract(legacyAbi, addr),
+				contract:    batching.NewBoundContract(legacyAbi, addr, caller),
 			},
 		}, nil
 	} else if strings.HasPrefix(version, "0.18.") || strings.HasPrefix(version, "1.0.") {
@@ -107,7 +107,7 @@ func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMe
 			FaultDisputeGameContractLatest: FaultDisputeGameContractLatest{
 				metrics:     metrics,
 				multiCaller: caller,
-				contract:    batching.NewBoundContract(legacyAbi, addr),
+				contract:    batching.NewBoundContract(legacyAbi, addr, caller),
 			},
 		}, nil
 	} else if strings.HasPrefix(version, "1.1.") {
@@ -117,14 +117,14 @@ func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMe
 			FaultDisputeGameContractLatest: FaultDisputeGameContractLatest{
 				metrics:     metrics,
 				multiCaller: caller,
-				contract:    batching.NewBoundContract(legacyAbi, addr),
+				contract:    batching.NewBoundContract(legacyAbi, addr, caller),
 			},
 		}, nil
 	} else {
 		return &FaultDisputeGameContractLatest{
 			metrics:     metrics,
 			multiCaller: caller,
-			contract:    batching.NewBoundContract(contractAbi, addr),
+			contract:    batching.NewBoundContract(contractAbi, addr, caller),
 		}, nil
 	}
 }
@@ -431,35 +431,6 @@ func (f *FaultDisputeGameContractLatest) GetClaim(ctx context.Context, idx uint6
 	return f.decodeClaim(result, int(idx)), nil
 }
 
-func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, idx uint64) ([]types.Claim, error) {
-	defer f.metrics.StartContractRequest("GetClaim")()
-	var subClaims []types.Claim
-	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, f.contract.Call(methodClaim, new(big.Int).SetUint64(idx)))
-	if err != nil {
-		return append(subClaims, types.Claim{}), fmt.Errorf("failed to fetch claim %v: %w", idx, err)
-	}
-	aggClaim := f.decodeClaim(result, int(idx))
-	subClaims = append(subClaims, aggClaim)
-	// findMoveTransaction
-	filter, err := bindings.NewFaultDisputeGameFilterer(f.contract.Addr(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	parentIndex := [...]*big.Int{big.NewInt(int64(aggClaim.ParentContractIndex))}
-	claim := [...][32]byte{aggClaim.ClaimData.ValueBytes()}
-	claimant := [...]common.Address{aggClaim.Claimant}
-	moveIter, err := filter.FilterMove(nil, parentIndex[:], claim[:], claimant[:])
-	if err != nil {
-		return nil, err
-	}
-	moveIter.Next()
-	txHash := moveIter.Event.Raw.TxHash
-	// decode calldata
-	
-	return subClaims, nil
-}
-
 func (f *FaultDisputeGameContractLatest) GetAllClaims(ctx context.Context, block rpcblock.Block) ([]types.Claim, error) {
 	defer f.metrics.StartContractRequest("GetAllClaims")()
 	results, err := batching.ReadArray(ctx, f.multiCaller, block, f.contract.Call(methodClaimCount), func(i *big.Int) *batching.ContractCall {
@@ -474,6 +445,43 @@ func (f *FaultDisputeGameContractLatest) GetAllClaims(ctx context.Context, block
 		claims = append(claims, f.decodeClaim(result, idx))
 	}
 	return claims, nil
+}
+
+func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block rpcblock.Block, aggClaim *types.Claim) ([]common.Hash, error) {
+	defer f.metrics.StartContractRequest("GetAllSubClaims")()
+
+	// findMoveTransaction
+	filter, err := bindings.NewFaultDisputeGameFilterer(f.contract.Addr(), f.multiCaller)
+	if err != nil {
+		return nil, err
+	}
+
+	parentIndex := [...]*big.Int{big.NewInt(int64(aggClaim.ParentContractIndex))}
+	claim := [...][32]byte{aggClaim.ClaimData.ValueBytes()}
+	claimant := [...]common.Address{aggClaim.Claimant}
+	moveIter, err := filter.FilterMove(nil, parentIndex[:], claim[:], claimant[:])
+	if err != nil {
+		return nil, fmt.Errorf("failed to filter move event log: %w", err)
+	}
+	ok := moveIter.Next()
+	if !ok {
+		return nil, fmt.Errorf("failed to get move event log: %w", moveIter.Error())
+	}
+	txHash := moveIter.Event.Raw.TxHash
+
+	// todo: replace hardcoded nary, method name
+	nary := 1
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, batching.NewTxCall(f.contract.Abi(), txHash, "move"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to load claim calldata: %w", err)
+	}
+	var subClaims []common.Hash
+	// We should start from 2 du to the signature of move(Claim _disputed, uint256 _challengeIndex, Claim _claim)
+	for i := 2; i < nary+2; i++ {
+		subClaims = append(subClaims, result.GetHash(i))
+	}
+
+	return subClaims, nil
 }
 
 func (f *FaultDisputeGameContractLatest) IsResolved(ctx context.Context, block rpcblock.Block, claims ...types.Claim) ([]bool, error) {
@@ -658,4 +666,5 @@ type FaultDisputeGameContract interface {
 	ResolveClaimTx(claimIdx uint64) (txmgr.TxCandidate, error)
 	CallResolve(ctx context.Context) (gameTypes.GameStatus, error)
 	ResolveTx() (txmgr.TxCandidate, error)
+	GetSubClaims(ctx context.Context, block rpcblock.Block, aggClaim *types.Claim) ([]common.Hash, error)
 }

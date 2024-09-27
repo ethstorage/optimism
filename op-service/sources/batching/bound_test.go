@@ -19,7 +19,7 @@ func TestDecodeCall(t *testing.T) {
 	validData, err := testAbi.Pack(method, spender, amount)
 	require.NoError(t, err)
 
-	contract := NewBoundContract(testAbi, common.Address{0xaa})
+	contract := NewBoundContract(testAbi, common.Address{0xaa}, nil)
 	t.Run("TooShort", func(t *testing.T) {
 		_, _, err := contract.DecodeCall([]byte{1, 2, 3})
 		require.ErrorIs(t, err, ErrUnknownMethod)
@@ -60,7 +60,7 @@ func TestDecodeEvent(t *testing.T) {
 	// event Transfer(address indexed from, address indexed to, uint256 amount);
 	event := testAbi.Events["Transfer"]
 
-	contract := NewBoundContract(testAbi, common.Address{0xaa})
+	contract := NewBoundContract(testAbi, common.Address{0xaa}, nil)
 	t.Run("NoTopics", func(t *testing.T) {
 		log := &types.Log{}
 		_, _, err := contract.DecodeEvent(log)

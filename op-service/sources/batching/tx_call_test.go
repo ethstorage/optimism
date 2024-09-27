@@ -2,7 +2,6 @@ package batching
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -44,6 +43,7 @@ func TestGetTxCalldata(t *testing.T) {
 	require.NoError(t, err)
 	contractCall := NewContractCall(testAbi, addr, "approve", expectedSpender, expectedAmount)
 	packed, err := contractCall.Pack()
+	require.NoError(t, err)
 
 	stub := test.NewRpcStub(t)
 	stub.AddExpectedCall(test.NewGetTxCall(txHash, rpcblock.Latest, &packed))
@@ -52,7 +52,6 @@ func TestGetTxCalldata(t *testing.T) {
 	txCall := NewTxCall(testAbi, txHash, "approve")
 	result, err := caller.SingleCall(context.Background(), rpcblock.Latest, txCall)
 	require.NoError(t, err)
-	fmt.Println()
 	require.Equal(t, expectedSpender, result.GetAddress(0))
 	require.Equal(t, expectedAmount, result.GetBigInt(1))
 }

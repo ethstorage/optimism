@@ -89,7 +89,7 @@ func NewPreimageOracleContract(addr common.Address, caller *batching.MultiCaller
 	return &PreimageOracleContract{
 		addr:        addr,
 		multiCaller: caller,
-		contract:    batching.NewBoundContract(oracleAbi, addr),
+		contract:    batching.NewBoundContract(oracleAbi, addr, caller),
 	}
 }
 
