@@ -37,13 +37,13 @@ contract FaultDisputeGameTest is FaultDisputeGame {
     // For testing convenience and to minimize changes in the testing code, the submission of the "claims" value is
     // omitted during the attack. In contract testing, the value of "claims" is already known and does not need to be
     // submitted via calldata or EIP-4844 during the attack.
-    function attackV2(Claim _disputed, uint256 _parentIndex, Claim _claim, uint64 _attackBranch) public payable {
+    function attackV2(Claim _disputed, uint256 _parentIndex, Claim _claim, uint256 _attackBranch) public payable {
         moveV2(_disputed, _parentIndex, _claim, _attackBranch);
     }
 
     function stepV2(
         uint256 _claimIndex,
-        uint64 _attackBranch,
+        uint256 _attackBranch,
         bytes calldata _stateData,
         StepProof calldata _proof
     )

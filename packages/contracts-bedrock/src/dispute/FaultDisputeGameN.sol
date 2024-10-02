@@ -263,7 +263,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
     function stepV2(
         uint256 _claimIndex,
-        uint64 _attackBranch,
+        uint256 _attackBranch,
         bytes calldata _stateData,
         StepProof calldata _proof
     )
@@ -299,16 +299,16 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
             //       which is the number of leaves in each execution trace subgame. This is so that we can
             //       determine whether or not the step position is represents the `ABSOLUTE_PRESTATE`.
             // Determine the position of the step.
-            Position stepPos = parentPos.moveN(N_BITS, _attackBranch);
+            Position stepPos = parentPos.moveN(N_BITS, uint128(_attackBranch));
             if (stepPos.indexAtDepth() % (1 << (MAX_GAME_DEPTH - SPLIT_DEPTH)) == 0) {
                 preStateClaim = ABSOLUTE_PRESTATE;
             } else {
                 (preStateClaim, preStatePos) = _findTraceAncestorV2(
-                    Position.wrap(parentPos.raw() - 1 + _attackBranch), claimIndex, false, _proof.preStateItem
+                    Position.wrap(parentPos.raw() - 1 + uint128(_attackBranch)), claimIndex, false, _proof.preStateItem
                 );
             }
             // For all attacks, the poststate is the parent claim.
-            postStatePos = Position.wrap(parent.position.raw() + _attackBranch);
+            postStatePos = Position.wrap(parent.position.raw() + uint128(_attackBranch));
             postStateClaim = getClaim(parent.claim.raw(), postStatePos, _proof.postStateItem);
         } else {
             uint256 claimIndex = _claimIndex;
@@ -316,10 +316,10 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
             // If the step is a defense, the poststate exists elsewhere in the game state,
             // and the parent claim is the expected pre-state.
-            preStatePos = Position.wrap(parent.position.raw() + _attackBranch - 1);
+            preStatePos = Position.wrap(parent.position.raw() + uint128(_attackBranch) - 1);
             preStateClaim = getClaim(parent.claim.raw(), preStatePos, _proof.preStateItem);
             (postStateClaim, postStatePos) =
-                _findExecTraceAncestor(Position.wrap(parentPos.raw() + _attackBranch), claimIndex, _proof.postStateItem);
+                _findExecTraceAncestor(Position.wrap(parentPos.raw() + uint128(_attackBranch)), claimIndex, _proof.postStateItem);
         }
 
         // INVARIANT: The prestate is always invalid if the passed `_stateData` is not the
@@ -355,7 +355,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         parent.counteredBy = msg.sender;
     }
 
-    function moveV2(Claim _disputed, uint256 _challengeIndex, Claim _claim, uint64 _attackBranch) internal {
+    function moveV2(Claim _disputed, uint256 _challengeIndex, Claim _claim, uint256 _attackBranch) internal {
         // For N = 4 (bisec),
         // 1. _attackBranch == 0 (attack)
         // 2. _attackBranch == 1 (attack)
@@ -917,6 +917,16 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         l2ChainId_ = L2_CHAIN_ID;
     }
 
+    /// @notice Returns n-bits
+    function nBits() external view returns (uint256 nBits_) {
+        nBits_ = N_BITS;
+    }
+
+    /// @notice Returns n-bits
+    function maxAttackBranch() external view returns (uint256 maxAttackBranch_) {
+        maxAttackBranch_ = MAX_ATTACK_BRANCH;
+    }
+
     ////////////////////////////////////////////////////////////////
     //                          HELPERS                           //
     ////////////////////////////////////////////////////////////////
@@ -942,7 +952,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         Claim _rootClaim,
         uint256 _parentIdx,
         Position _parentPos,
-        uint64 _attackBranch
+        uint256 _attackBranch
     )
         internal
         view
@@ -954,7 +964,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
 
         // If the move is a defense, the disputed output could have been made by either party. In this case, we
         // need to search for the parent output to determine what the expected status byte should be.
-        Position disputedLeafPos = Position.wrap(_parentPos.raw() + _attackBranch);
+        Position disputedLeafPos = Position.wrap(_parentPos.raw() + uint128(_attackBranch));
         (, Position disputedPos) = _findTraceAncestorRoot({ _pos: disputedLeafPos, _start: _parentIdx, _global: true });
         uint8 vmStatus = uint8(_rootClaim.raw()[0]);
 
@@ -1043,7 +1053,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         // is the disputed output root.
         (Position execRootPos, Position outputPos) = (execRootClaim.position, claim.position);
         // Equation is (outputPos + attackBranch) * (1 << N_BITS) = execRootPos
-        uint64 attackBranch = uint64(execRootPos.raw() / (1 << N_BITS) - outputPos.raw());
+        uint128 attackBranch = uint128(execRootPos.raw() / (1 << N_BITS) - outputPos.raw());
 
         // Determine the starting and disputed output root indices.
         // 1. If it was an attack, the disputed output root is `claim`, and the starting output root is
@@ -1192,7 +1202,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
     function attackV2(
         Claim _disputed,
         uint256 _parentIndex,
-        uint64 _attackBranch,
+        uint256 _attackBranch,
         uint256 _daType,
         bytes memory _claims
     )
