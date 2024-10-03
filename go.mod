@@ -263,3 +263,5 @@ exclude (
 	github.com/kataras/iris/v12 v12.2.0
 	github.com/kataras/iris/v12 v12.2.11
 )
+
+replace github.com/ethereum-optimism/superchain-registry/superchain => github.com/ethstorage/superchain-registry/superchain v0.0.0-20241001092210-262abbac5b69

@@ -1,0 +1,14 @@
+name = "L1 of Custom L2"
+protocol_versions_addr = "0x0a0a5a81e12198eB0e2130A53dD25ff8B6CAE9e6"
+superchain_config_addr = "0xe68A8B89C6fE738114dAda4C47564dbc72338C26"
+
+canyon_time =  0
+delta_time =   0
+ecotone_time = 0
+fjord_time =   0
+granite_time = 0
+
+[l1]
+  chain_id = 900
+  public_rpc = "https://localhost"
+  explorer = ""

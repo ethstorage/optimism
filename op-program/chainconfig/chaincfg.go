@@ -1,11 +1,16 @@
 package chainconfig
 
 import (
+	"embed"
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/superchain-registry/superchain"
 	"github.com/ethereum/go-ethereum/params"
 )
+
+//go:embed configs
+var customChainConfigFS embed.FS
 
 var OPSepoliaChainConfig, OPMainnetChainConfig *params.ChainConfig
 
@@ -19,6 +24,11 @@ func init() {
 	}
 	OPSepoliaChainConfig = mustLoadConfig(11155420)
 	OPMainnetChainConfig = mustLoadConfig(10)
+	superchainEntry, err := customChainConfigFS.ReadDir("configs")
+	if err == nil && len(superchainEntry) == 1 {
+		superchain.LoadSuperchain(customChainConfigFS, superchainEntry[0])
+	}
+
 }
 
 var L2ChainConfigsByChainID = map[uint64]*params.ChainConfig{
