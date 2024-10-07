@@ -154,3 +154,10 @@ func bigMSB(x *big.Int) Depth {
 	}
 	return Depth(x.BitLen() - 1)
 }
+
+func (p Position) MoveN(depth uint64, branch uint64) Position {
+	return Position{
+		depth:        p.depth + Depth(depth),
+		indexAtDepth: new(big.Int).Add(p.IndexAtDepth(), new(big.Int).Lsh(big.NewInt(int64(branch)), uint(depth))),
+	}
+}

@@ -1,4 +1,4 @@
-// +build !faultdisputegamen
+// +build faultdisputegamen
 
 package contracts
 
@@ -32,6 +32,8 @@ var (
 	methodMaxClockDuration        = "maxClockDuration"
 	methodMaxGameDepth            = "maxGameDepth"
 	methodAbsolutePrestate        = "absolutePrestate"
+	methodNBits                   = "nBits"
+	methodMaxAttackBranch         = "maxAttackBranch"
 	methodStatus                  = "status"
 	methodRootClaim               = "rootClaim"
 	methodClaimCount              = "claimDataLen"
@@ -56,6 +58,8 @@ var (
 	methodL2BlockNumberChallenged = "l2BlockNumberChallenged"
 	methodL2BlockNumberChallenger = "l2BlockNumberChallenger"
 	methodChallengeRootL2Block    = "challengeRootL2Block"
+	methodAttackV2                = "attackV2" //todo
+	methodStepV2                  = "stepV2"   //todo
 )
 
 var (
@@ -74,6 +78,18 @@ type Proposal struct {
 	OutputRoot    common.Hash
 }
 
+type DAItem struct {
+	DaType   *big.Int
+	DataHash common.Hash
+	Proof    []byte
+}
+
+type StepProof struct {
+	PreStateItem  DAItem
+	PostStateItem DAItem
+	VmProof       []byte
+}
+
 // outputRootProof is designed to match the solidity OutputRootProof struct.
 type outputRootProof struct {
 	Version                  [32]byte
@@ -83,7 +99,7 @@ type outputRootProof struct {
 }
 
 func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMetricer, addr common.Address, caller *batching.MultiCaller) (FaultDisputeGameContract, error) {
-	contractAbi := snapshots.LoadFaultDisputeGameABI()
+	contractAbi := snapshots.LoadFaultDisputeGameNABI()
 
 	result, err := caller.SingleCall(ctx, rpcblock.Latest, batching.NewContractCall(contractAbi, addr, methodVersion))
 	if err != nil {
@@ -91,30 +107,11 @@ func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMe
 	}
 	version := result.GetString(0)
 
-	if strings.HasPrefix(version, "0.8.") {
+	// example: 1.1.0
+	if strings.HasPrefix(version, "1.1.") {
 		// Detected an older version of contracts, use a compatibility shim.
-		legacyAbi := mustParseAbi(faultDisputeGameAbi020)
-		return &FaultDisputeGameContract080{
-			FaultDisputeGameContractLatest: FaultDisputeGameContractLatest{
-				metrics:     metrics,
-				multiCaller: caller,
-				contract:    batching.NewBoundContract(legacyAbi, addr),
-			},
-		}, nil
-	} else if strings.HasPrefix(version, "0.18.") || strings.HasPrefix(version, "1.0.") {
-		// Detected an older version of contracts, use a compatibility shim.
-		legacyAbi := mustParseAbi(faultDisputeGameAbi0180)
-		return &FaultDisputeGameContract0180{
-			FaultDisputeGameContractLatest: FaultDisputeGameContractLatest{
-				metrics:     metrics,
-				multiCaller: caller,
-				contract:    batching.NewBoundContract(legacyAbi, addr),
-			},
-		}, nil
-	} else if strings.HasPrefix(version, "1.1.") {
-		// Detected an older version of contracts, use a compatibility shim.
-		legacyAbi := mustParseAbi(faultDisputeGameAbi111)
-		return &FaultDisputeGameContract111{
+		legacyAbi := mustParseAbi(faultDisputeGameNAbi110)
+		return &FaultDisputeGameContractN110{
 			FaultDisputeGameContractLatest: FaultDisputeGameContractLatest{
 				metrics:     metrics,
 				multiCaller: caller,
@@ -320,6 +317,18 @@ func (f *FaultDisputeGameContractLatest) UpdateOracleTx(ctx context.Context, cla
 	return f.addGlobalDataTx(ctx, data)
 }
 
+/*
+ *func addLocalData(ctx context.Context, ident uint64, execLeafIdx uint64, partOffset uint64, daItem DAItem) (txmgr.TxCandidate, error)) {
+ *    call := f.contract.Call(
+ *        methodAddLocalData,
+ *        data.GetIdent(),
+ *        new(big.Int).SetUint64(claimIdx),
+ *        new(big.Int).SetUint64(uint64(data.OracleOffset)),
+ *    )
+ *    return call.ToTxCandidate()
+ *}
+ */
+
 func (f *FaultDisputeGameContractLatest) addLocalDataTx(claimIdx uint64, data *types.PreimageOracleData) (txmgr.TxCandidate, error) {
 	call := f.contract.Call(
 		methodAddLocalData,
@@ -390,6 +399,24 @@ func (f *FaultDisputeGameContractLatest) GetAbsolutePrestateHash(ctx context.Con
 		return common.Hash{}, fmt.Errorf("failed to fetch absolute prestate hash: %w", err)
 	}
 	return result.GetHash(0), nil
+}
+
+func (f *FaultDisputeGameContractLatest) GetNBits(ctx context.Context) (uint64, error) {
+	defer f.metrics.StartContractRequest("GetNBits")()
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, f.contract.Call(methodNBits))
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch nbits: %w", err)
+	}
+	return result.GetBigInt(0).Uint64(), nil
+}
+
+func (f *FaultDisputeGameContractLatest) GetMaxAttackBranch(ctx context.Context) (uint64, error) {
+	defer f.metrics.StartContractRequest("GetMaxAttackBranch")()
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, f.contract.Call(methodMaxAttackBranch))
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch max attack branch: %w", err)
+	}
+	return result.GetBigInt(0).Uint64(), nil
 }
 
 func (f *FaultDisputeGameContractLatest) GetL1Head(ctx context.Context) (common.Hash, error) {
@@ -594,6 +621,25 @@ func (f *FaultDisputeGameContractLatest) decodeClaim(result *batching.CallResult
 	}
 }
 
+func (f *FaultDisputeGameContractLatest) AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error) {
+	nBits, err := f.GetNBits(ctx)
+	if err != nil {
+		return txmgr.TxCandidate{}, fmt.Errorf("failed to retrieve nbits: %w", err)
+	}
+	call := f.contract.Call(methodAttackV2,
+		parent.Value,
+		big.NewInt(int64(parent.ContractIndex)),
+		new(big.Int).SetUint64(attackBranch),
+		new(big.Int).SetUint64(daType),
+		claims)
+	return f.txWithBond(ctx, parent.Position.MoveN(nBits, attackBranch), call)
+}
+
+func (f *FaultDisputeGameContractLatest) StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof StepProof) (txmgr.TxCandidate, error) {
+	call := f.contract.Call(methodStepV2, new(big.Int).SetUint64(claimIdx), new(big.Int).SetUint64(attackBranch), stateData, proof)
+	return call.ToTxCandidate()
+}
+
 type FaultDisputeGameContract interface {
 	GetBalance(ctx context.Context, block rpcblock.Block) (*big.Int, common.Address, error)
 	GetBlockRange(ctx context.Context) (prestateBlock uint64, poststateBlock uint64, retErr error)
@@ -605,8 +651,10 @@ type FaultDisputeGameContract interface {
 	GetCredits(ctx context.Context, block rpcblock.Block, recipients ...common.Address) ([]*big.Int, error)
 	ClaimCreditTx(ctx context.Context, recipient common.Address) (txmgr.TxCandidate, error)
 	GetRequiredBond(ctx context.Context, position types.Position) (*big.Int, error)
+
 	UpdateOracleTx(ctx context.Context, claimIdx uint64, data *types.PreimageOracleData) (txmgr.TxCandidate, error)
 	GetWithdrawals(ctx context.Context, block rpcblock.Block, gameAddr common.Address, recipients ...common.Address) ([]*WithdrawalRequest, error)
+
 	GetOracle(ctx context.Context) (*PreimageOracleContract, error)
 	GetMaxClockDuration(ctx context.Context) (time.Duration, error)
 	GetMaxGameDepth(ctx context.Context) (types.Depth, error)
@@ -626,4 +674,8 @@ type FaultDisputeGameContract interface {
 	ResolveClaimTx(claimIdx uint64) (txmgr.TxCandidate, error)
 	CallResolve(ctx context.Context) (gameTypes.GameStatus, error)
 	ResolveTx() (txmgr.TxCandidate, error)
+	AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error)
+	GetNBits(ctx context.Context) (uint64, error)
+	GetMaxAttackBranch(ctx context.Context) (uint64, error)
+	StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof StepProof) (txmgr.TxCandidate, error)
 }

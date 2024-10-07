@@ -1,4 +1,4 @@
-// +build !faultdisputegamen
+// +build faultdisputegamen
 
 package contracts
 
@@ -53,26 +53,8 @@ const (
 
 var versions = []contractVersion{
 	{
-		version: vers080,
-		loadAbi: func() *abi.ABI {
-			return mustParseAbi(faultDisputeGameAbi020)
-		},
-	},
-	{
-		version: vers0180,
-		loadAbi: func() *abi.ABI {
-			return mustParseAbi(faultDisputeGameAbi0180)
-		},
-	},
-	{
-		version: vers111,
-		loadAbi: func() *abi.ABI {
-			return mustParseAbi(faultDisputeGameAbi111)
-		},
-	},
-	{
 		version: versLatest,
-		loadAbi: snapshots.LoadFaultDisputeGameABI,
+		loadAbi: snapshots.LoadFaultDisputeGameNABI,
 	},
 }
 
@@ -125,6 +107,24 @@ func TestSimpleGetters(t *testing.T) {
 			expected:    faultTypes.Depth(128),
 			call: func(game FaultDisputeGameContract) (any, error) {
 				return game.GetMaxGameDepth(context.Background())
+			},
+		},
+		{
+			methodAlias: "nBits",
+			method:      methodNBits,
+			result:      big.NewInt(2),
+			expected:    uint64(2),
+			call: func(game FaultDisputeGameContract) (any, error) {
+				return game.GetNBits(context.Background())
+			},
+		},
+		{
+			methodAlias: "maxAttackBranch",
+			method:      methodMaxAttackBranch,
+			result:      big.NewInt(3),
+			expected:    uint64(3),
+			call: func(game FaultDisputeGameContract) (any, error) {
+				return game.GetMaxAttackBranch(context.Background())
 			},
 		},
 		{
@@ -788,4 +788,60 @@ func setupFaultDisputeGameTest(t *testing.T, version contractVersion) (*batching
 	game, err := NewFaultDisputeGameContract(context.Background(), contractMetrics.NoopContractMetrics, fdgAddr, caller)
 	require.NoError(t, err)
 	return stubRpc, game
+}
+
+func TestAttackV2Tx(t *testing.T) {
+	for _, version := range versions {
+		version := version
+		t.Run(version.version, func(t *testing.T) {
+			stubRpc, game := setupFaultDisputeGameTest(t, version)
+			bond := big.NewInt(1044)
+			value := common.Hash{0xaa}
+			var claims [96]byte
+			copy(claims[0:32], value[:])
+			copy(claims[32:64], value[:])
+			copy(claims[64:96], value[:])
+			nBits := uint64(2)
+			attackBranch := big.NewInt(0)
+			daType := big.NewInt(1)
+			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}}, ContractIndex: 111}
+			stubRpc.SetResponse(fdgAddr, methodNBits, rpcblock.Latest, nil, []interface{}{new(big.Int).SetUint64(nBits)})
+			stubRpc.SetResponse(fdgAddr, methodRequiredBond, rpcblock.Latest, []interface{}{parent.Position.MoveN(nBits, attackBranch.Uint64()).ToGIndex()}, []interface{}{bond})
+			stubRpc.SetResponse(fdgAddr, methodAttackV2, rpcblock.Latest, []interface{}{parent.Value, big.NewInt(111), attackBranch, daType, claims[:]}, nil)
+			tx, err := game.AttackV2Tx(context.Background(), parent, attackBranch.Uint64(), daType.Uint64(), claims[:])
+			require.NoError(t, err)
+			stubRpc.VerifyTxCandidate(tx)
+			require.Equal(t, bond, tx.Value)
+		})
+	}
+}
+
+func TestStepV2Tx(t *testing.T) {
+	for _, version := range versions {
+		version := version
+		t.Run(version.version, func(t *testing.T) {
+			stubRpc, game := setupFaultDisputeGameTest(t, version)
+			stateData := []byte{1, 2, 3}
+			vmProof := []byte{4, 5, 6, 7, 8, 9}
+			preStateItem := DAItem{
+				DaType:   big.NewInt(0),
+				DataHash: [32]byte{0x01, 0x02, 0x03},
+				Proof:    []byte("pre state proof"),
+			}
+			postStateItem := DAItem{
+				DaType:   big.NewInt(0),
+				DataHash: [32]byte{0x04, 0x05, 0x06},
+				Proof:    []byte("post state proof"),
+			}
+			proofData := StepProof{
+				PreStateItem:  preStateItem,
+				PostStateItem: postStateItem,
+				VmProof:       vmProof,
+			}
+			stubRpc.SetResponse(fdgAddr, methodStepV2, rpcblock.Latest, []interface{}{big.NewInt(111), big.NewInt(1), stateData, proofData}, nil)
+			tx, err := game.StepV2Tx(111, 1, stateData, proofData)
+			require.NoError(t, err)
+			stubRpc.VerifyTxCandidate(tx)
+		})
+	}
 }
