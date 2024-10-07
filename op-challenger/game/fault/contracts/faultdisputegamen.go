@@ -58,7 +58,8 @@ var (
 	methodL2BlockNumberChallenged = "l2BlockNumberChallenged"
 	methodL2BlockNumberChallenger = "l2BlockNumberChallenger"
 	methodChallengeRootL2Block    = "challengeRootL2Block"
-	methodAttackV2                = "attackV2"
+	methodAttackV2                = "attackV2" //todo
+	methodStepV2                  = "stepV2"   //todo
 )
 
 var (
@@ -75,6 +76,18 @@ type FaultDisputeGameContractLatest struct {
 type Proposal struct {
 	L2BlockNumber *big.Int
 	OutputRoot    common.Hash
+}
+
+type DAItem struct {
+	DaType   *big.Int
+	DataHash common.Hash
+	Proof    []byte
+}
+
+type StepProof struct {
+	PreStateItem  DAItem
+	PostStateItem DAItem
+	VmProof       []byte
 }
 
 // outputRootProof is designed to match the solidity OutputRootProof struct.
@@ -303,6 +316,18 @@ func (f *FaultDisputeGameContractLatest) UpdateOracleTx(ctx context.Context, cla
 	}
 	return f.addGlobalDataTx(ctx, data)
 }
+
+/*
+ *func addLocalData(ctx context.Context, ident uint64, execLeafIdx uint64, partOffset uint64, daItem DAItem) (txmgr.TxCandidate, error)) {
+ *    call := f.contract.Call(
+ *        methodAddLocalData,
+ *        data.GetIdent(),
+ *        new(big.Int).SetUint64(claimIdx),
+ *        new(big.Int).SetUint64(uint64(data.OracleOffset)),
+ *    )
+ *    return call.ToTxCandidate()
+ *}
+ */
 
 func (f *FaultDisputeGameContractLatest) addLocalDataTx(claimIdx uint64, data *types.PreimageOracleData) (txmgr.TxCandidate, error) {
 	call := f.contract.Call(
@@ -610,6 +635,11 @@ func (f *FaultDisputeGameContractLatest) AttackV2Tx(ctx context.Context, parent 
 	return f.txWithBond(ctx, parent.Position.MoveN(nBits, attackBranch), call)
 }
 
+func (f *FaultDisputeGameContractLatest) StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof StepProof) (txmgr.TxCandidate, error) {
+	call := f.contract.Call(methodStepV2, new(big.Int).SetUint64(claimIdx), new(big.Int).SetUint64(attackBranch), stateData, proof)
+	return call.ToTxCandidate()
+}
+
 type FaultDisputeGameContract interface {
 	GetBalance(ctx context.Context, block rpcblock.Block) (*big.Int, common.Address, error)
 	GetBlockRange(ctx context.Context) (prestateBlock uint64, poststateBlock uint64, retErr error)
@@ -621,8 +651,10 @@ type FaultDisputeGameContract interface {
 	GetCredits(ctx context.Context, block rpcblock.Block, recipients ...common.Address) ([]*big.Int, error)
 	ClaimCreditTx(ctx context.Context, recipient common.Address) (txmgr.TxCandidate, error)
 	GetRequiredBond(ctx context.Context, position types.Position) (*big.Int, error)
+
 	UpdateOracleTx(ctx context.Context, claimIdx uint64, data *types.PreimageOracleData) (txmgr.TxCandidate, error)
 	GetWithdrawals(ctx context.Context, block rpcblock.Block, gameAddr common.Address, recipients ...common.Address) ([]*WithdrawalRequest, error)
+
 	GetOracle(ctx context.Context) (*PreimageOracleContract, error)
 	GetMaxClockDuration(ctx context.Context) (time.Duration, error)
 	GetMaxGameDepth(ctx context.Context) (types.Depth, error)
@@ -645,4 +677,5 @@ type FaultDisputeGameContract interface {
 	AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error)
 	GetNBits(ctx context.Context) (uint64, error)
 	GetMaxAttackBranch(ctx context.Context) (uint64, error)
+	StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof StepProof) (txmgr.TxCandidate, error)
 }
