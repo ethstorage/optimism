@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDecodeTxCall(t *testing.T) {
+func TestDecodeTxGetByHash(t *testing.T) {
 	addr := common.Address{0xbd}
 	testAbi, err := test.ERC20MetaData.GetAbi()
 	require.NoError(t, err)
-	call := NewTxCall(testAbi, common.Hash{0xcc}, "approve")
+	call := NewTxGetByHash(testAbi, common.Hash{0xcc}, "approve")
 	expectedAmount := big.NewInt(1234444)
 	expectedSpender := common.Address{0xcc}
 	contractCall := NewContractCall(testAbi, addr, "approve", expectedSpender, expectedAmount)
@@ -55,7 +55,7 @@ func TestUnpackTxCalldata(t *testing.T) {
 	stub.AddExpectedCall(test.NewGetTxCall(txHash, rpcblock.Latest, &packed))
 
 	caller := NewMultiCaller(stub, DefaultBatchSize)
-	txCall := NewTxCall(testAbi, txHash, "approve")
+	txCall := NewTxGetByHash(testAbi, txHash, "approve")
 	result, err := caller.SingleCall(context.Background(), rpcblock.Latest, txCall)
 	require.NoError(t, err)
 

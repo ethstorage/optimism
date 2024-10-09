@@ -466,7 +466,7 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 	txHash := moveIter.Event.Raw.TxHash
 
 	// todo: replace hardcoded method name
-	txCall := batching.NewTxCall(f.contract.Abi(), txHash, "move")
+	txCall := batching.NewTxGetByHash(f.contract.Abi(), txHash, "move")
 	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, txCall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load claim calldata: %w", err)
@@ -481,6 +481,7 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 
 	if len(txn.BlobHashes()) > 0 {
 		// todo: fetch Blobs and unpack it into subClaims
+		return nil, fmt.Errorf("blob tx hasn't been supported")
 	} else {
 		inputMap, err := txCall.UnpackCallData(txn)
 		if err != nil {
