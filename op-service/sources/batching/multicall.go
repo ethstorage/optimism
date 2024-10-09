@@ -2,10 +2,13 @@ package batching
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -79,4 +82,21 @@ func (m *MultiCaller) Call(ctx context.Context, block rpcblock.Block, calls ...C
 		callResults[i] = out
 	}
 	return callResults, nil
+}
+
+// implment LogFilterer interface
+func (m *MultiCaller) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
+	call := NewEventCall(q)
+	results, err := m.SingleCall(ctx, rpcblock.ByNumber(q.FromBlock.Uint64()), call)
+	if err != nil {
+		return nil, err
+	}
+	var out []types.Log
+	results.GetStruct(0, &out)
+	return out, nil
+}
+
+// implment LogFilterer interface
+func (m *MultiCaller) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
+	return nil, errors.New("unimplemented")
 }

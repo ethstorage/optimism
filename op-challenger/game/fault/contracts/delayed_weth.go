@@ -32,7 +32,7 @@ func NewDelayedWETHContract(metrics metrics.ContractMetricer, addr common.Addres
 	return &DelayedWETHContract{
 		metrics:     metrics,
 		multiCaller: caller,
-		contract:    batching.NewBoundContract(contractAbi, addr),
+		contract:    batching.NewBoundContract(contractAbi, addr, caller),
 	}
 }
 

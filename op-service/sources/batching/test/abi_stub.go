@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -127,6 +128,7 @@ func (l *AbiBasedRpc) SetError(to common.Address, method string, block rpcblock.
 		err:        callErr,
 	})
 }
+
 func (l *AbiBasedRpc) SetResponse(to common.Address, method string, block rpcblock.Block, expected []interface{}, output []interface{}) {
 	if expected == nil {
 		expected = []interface{}{}
@@ -146,6 +148,26 @@ func (l *AbiBasedRpc) SetResponse(to common.Address, method string, block rpcblo
 		packedArgs: packedArgs,
 		outputs:    output,
 	})
+}
+
+func (l *AbiBasedRpc) SetFilterLogResponse(topics [][]common.Hash, to common.Address, block rpcblock.Block, output []types.Log) {
+	if output == nil {
+		output = []types.Log{}
+	}
+
+	l.AddExpectedCall(&expectedFilterLogsCall{
+		topics:  topics,
+		to:      to,
+		block:   block,
+		outputs: output,
+	})
+}
+
+func (l *AbiBasedRpc) SetTxResponse(txHash common.Hash, output []byte) {
+	if output == nil {
+		output = []byte{}
+	}
+	l.AddExpectedCall(&expectedTxCall{txHash: txHash, outputs: output})
 }
 
 func (l *AbiBasedRpc) VerifyTxCandidate(candidate txmgr.TxCandidate) {
