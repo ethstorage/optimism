@@ -72,6 +72,15 @@ library Config {
         );
     }
 
+    /// @notice Returns the path on the local filesystem where the deployment artifact is
+    ///         read to disk after doing a deployment.
+    function deploymentInfile() internal view returns (string memory env_) {
+        env_ = vm.envOr(
+            "DEPLOYMENT_INFILE",
+            string.concat(vm.projectRoot(), "/deployments/", vm.toString(block.chainid), "-deploy.json")
+        );
+    }
+
     /// @notice Returns the path on the local filesystem where the deploy config is
     function deployConfigPath() internal view returns (string memory env_) {
         if (vm.isContext(VmSafe.ForgeContext.TestGroup)) {

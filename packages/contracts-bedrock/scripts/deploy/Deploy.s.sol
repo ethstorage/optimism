@@ -241,10 +241,12 @@ contract Deploy is Deployer {
         console.log("Deploying a fresh OP Stack with existing SuperchainConfig and ProtocolVersions");
 
         IProxy scProxy = IProxy(_superchainConfigProxy);
+        vm.prank(0x0000000000000000000000000000000000000000);
         save("SuperchainConfig", scProxy.implementation());
         save("SuperchainConfigProxy", _superchainConfigProxy);
 
         IProxy pvProxy = IProxy(_protocolVersionsProxy);
+        vm.prank(0x0000000000000000000000000000000000000000);
         save("ProtocolVersions", pvProxy.implementation());
         save("ProtocolVersionsProxy", _protocolVersionsProxy);
 
@@ -259,6 +261,35 @@ contract Deploy is Deployer {
         vm.chainId(cfg.l1ChainID());
         _run();
         vm.dumpState(Config.stateDumpPath(""));
+    }
+
+    function deployFaultProofImplementations() public {
+        string memory _json;
+        try vm.readFile(Config.deploymentInfile()) returns (string memory data_) {
+            _json = data_;
+        } catch {
+            require(false, string.concat("Cannot find deployment infile", Config.deploymentInfile()));
+        }
+
+        console.log("Absolute prestat hash", vm.toString(bytes32(cfg.faultGameAbsolutePrestate())));
+        console.log("Anchor block", cfg.faultGameGenesisBlock());
+        console.log("Anchor root", vm.toString(cfg.faultGameGenesisOutputRoot()));
+        save("DisputeGameFactoryProxy", stdJson.readAddress(_json, "$.DisputeGameFactoryProxy"));
+        save("SuperchainConfigProxy", stdJson.readAddress(_json, "$.SuperchainConfigProxy"));
+        save("DelayedWETHProxy", stdJson.readAddress(_json, "$.DelayedWETHProxy"));
+        save("PermissionedDelayedWETHProxy", stdJson.readAddress(_json, "$.PermissionedDelayedWETHProxy"));
+        save("Mips", stdJson.readAddress(_json, "$.Mips"));
+        save("ProxyAdmin", stdJson.readAddress(_json, "$.ProxyAdmin"));
+        save("PreimageOracle", stdJson.readAddress(_json, "$.PreimageOracle"));
+
+        deployERC1967Proxy("AnchorStateRegistryProxy");
+        deployAnchorStateRegistry();
+        initializeAnchorStateRegistry();
+
+        setAlphabetFaultGameImplementation({ _allowUpgrade: true });
+        setFastFaultGameImplementation({ _allowUpgrade: true });
+        setCannonFaultGameImplementation({ _allowUpgrade: true });
+        setPermissionedCannonFaultGameImplementation({ _allowUpgrade: true });
     }
 
     /// @notice Deploy all L1 contracts and write the state diff to a file.
@@ -926,7 +957,11 @@ contract Deploy is Deployer {
             })
         });
 
+        console.log("sender", msg.sender);
+        console.log("proxyadmin", mustGetAddress("ProxyAdmin"));
+
         IProxyAdmin proxyAdmin = IProxyAdmin(payable(mustGetAddress("ProxyAdmin")));
+        console.log("owner", proxyAdmin.owner());
         proxyAdmin.upgradeAndCall({
             _proxy: payable(anchorStateRegistryProxy),
             _implementation: anchorStateRegistry,
