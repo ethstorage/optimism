@@ -64,7 +64,7 @@
   "preimageOracleChallengePeriod": 120,
   "proofMaturityDelaySeconds": 12,
   "disputeGameFinalityDelaySeconds": 6,
-  "respectedGameType": 254,
+  "respectedGameType": 0,
   "useFaultProofs": true,
   "useAltDA": false,
   "daCommitmentType": "KeccakCommitment",

@@ -266,7 +266,7 @@ def devnet_deploy(paths):
         dispute_game_factory = addresses['DisputeGameFactoryProxy']
         log.info(f'Using DisputeGameFactory {dispute_game_factory}')
         docker_env['DGF_ADDRESS'] = dispute_game_factory
-        docker_env['DG_TYPE'] = '254'
+        docker_env['DG_TYPE'] = '0'
         docker_env['PROPOSAL_INTERVAL'] = '12s'
 
     if DEVNET_ALTDA:
@@ -288,9 +288,9 @@ def devnet_deploy(paths):
     run_command(['docker', 'compose', 'up', '-d', 'op-node', 'op-proposer', 'op-batcher', 'artifact-server'], cwd=paths.ops_bedrock_dir, env=docker_env)
 
     # Optionally bring up op-challenger.
-    if not DEVNET_L2OO:
-        log.info('Bringing up `op-challenger`.')
-        run_command(['docker', 'compose', 'up', '-d', 'op-challenger'], cwd=paths.ops_bedrock_dir, env=docker_env)
+    # if not DEVNET_L2OO:
+    #     log.info('Bringing up `op-challenger`.')
+    #     run_command(['docker', 'compose', 'up', '-d', 'op-challenger'], cwd=paths.ops_bedrock_dir, env=docker_env)
 
     # Optionally bring up Alt-DA Mode components.
     if DEVNET_ALTDA:
