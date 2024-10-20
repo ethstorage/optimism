@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/alphabet"
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -160,6 +161,89 @@ func TestBottomProviderAttackingTopLeaf(t *testing.T) {
 			testDescendantClaims(ref, pos)
 		})
 	}
+}
+
+func TestFindAncestorProofAtDepth2(t *testing.T) {
+	var nbits uint64 = 2
+	nary := int64(1) << nbits
+	maxGameDepth := types.Depth(4)
+	claimBuilder := test.NewAlphabetClaimBuilder(t, big.NewInt(0), maxGameDepth)
+
+	{ // Attack the left most claim
+		gameBuilder := claimBuilder.GameBuilder2(nary)
+		seq := gameBuilder.Seq()
+		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
+		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
+		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
+
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}}
+		seq = seq.Attack2(subClaimsDep4[:], nbits, 0)
+		depth4Claim := gameBuilder.Game.Claims()[2]
+
+		subClaimsDep6 := []common.Hash{{0x07}, {0x08}, {0x09}}
+		seq.Attack2(subClaimsDep6[:], nbits, 0)
+
+		expectedDaItem := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: gameBuilder.Game.AbsolutePrestate().Value.Bytes(),
+			Proof:    []byte{},
+		}
+		traceIdx := new(big.Int).Sub(depth4Claim.TraceIndex(gameBuilder.Game.MaxDepth()), big.NewInt(1))
+		preStateDaItem, err := findAncestorProofAtDepth2(gameBuilder.Game, depth4Claim, traceIdx)
+		require.Error(t, err)
+		require.Equal(t, expectedDaItem, preStateDaItem)
+	}
+
+	{ // Attack the middle claim
+		gameBuilder := claimBuilder.GameBuilder2(nary)
+		seq := gameBuilder.Seq()
+		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
+		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
+		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
+
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}}
+		seq = seq.Attack2(subClaimsDep4[:], nbits, 2)
+		depth4Claim := gameBuilder.Game.Claims()[2]
+
+		subClaimsDep6 := []common.Hash{{0x07}, {0x08}, {0x09}}
+		seq.Attack2(subClaimsDep6[:], nbits, 0)
+
+		expectedDaItem := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep2[1][:],
+			Proof:    append(subClaimsDep2[0][:], subClaimsDep2[2][:]...),
+		}
+		traceIdx := new(big.Int).Sub(depth4Claim.TraceIndex(gameBuilder.Game.MaxDepth()), big.NewInt(1))
+		preStateDaItem, err := findAncestorProofAtDepth2(gameBuilder.Game, depth4Claim, traceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedDaItem, preStateDaItem)
+	}
+
+	{ // Attack the right most claim
+		gameBuilder := claimBuilder.GameBuilder2(nary)
+		seq := gameBuilder.Seq()
+		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
+		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
+		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
+
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}}
+		seq = seq.Attack2(subClaimsDep4[:], nbits, 3)
+		depth4Claim := gameBuilder.Game.Claims()[2]
+
+		subClaimsDep6 := []common.Hash{{0x07}, {0x08}, {0x09}}
+		seq.Attack2(subClaimsDep6[:], nbits, 3)
+
+		expectedDaItem := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: gameBuilder.Game.RootClaim().Value.Bytes(),
+			Proof:    []byte{},
+		}
+		traceIdx := new(big.Int).Add(depth4Claim.TraceIndex(gameBuilder.Game.MaxDepth()), big.NewInt(3))
+		preStateDaItem, err := findAncestorProofAtDepth2(gameBuilder.Game, depth4Claim, traceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedDaItem, preStateDaItem)
+	}
+
 }
 
 func attackTopLeafGIndex8(_ *testing.T, gameBuilder *test.GameBuilder) (ref types.Claim, pos types.Position, expectPre types.Claim, expectPost types.Claim) {

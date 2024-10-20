@@ -32,6 +32,7 @@ type AlphabetTraceProvider struct {
 	startingBlockNumber *big.Int
 	depth               types.Depth
 	maxLen              uint64
+	splitDepth          types.Depth
 }
 
 // NewTraceProvider returns a new [AlphabetProvider].

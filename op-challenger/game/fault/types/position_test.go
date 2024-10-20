@@ -314,3 +314,13 @@ func TestRelativeMoves(t *testing.T) {
 		})
 	}
 }
+
+func TestMoveN(t *testing.T) {
+	pos := NewPositionFromGIndex(big.NewInt(1))
+	require.Equal(t, pos.ToGIndex(), big.NewInt(1))
+	var nbits uint64 = 2
+	nextPos := pos.moveN(nbits, 0)
+	require.Equal(t, nextPos.ToGIndex(), big.NewInt(4))
+	nextPos = nextPos.moveN(nbits, 1)
+	require.Equal(t, nextPos.ToGIndex(), big.NewInt(20))
+}

@@ -4,11 +4,14 @@ import (
 	"errors"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
 	// ErrClaimNotFound is returned when a claim does not exist in the game state.
-	ErrClaimNotFound = errors.New("claim not found in game state")
+	ErrClaimNotFound     = errors.New("claim not found in game state")
+	ErrSubClaimsNotFound = errors.New("subclaims not found in game state")
 )
 
 // Game is an interface that represents the state of a dispute game.
@@ -39,15 +42,26 @@ type Game interface {
 	// AncestorWithTraceIndex finds the ancestor of claim with trace index idx if present.
 	// Returns the claim and true if the ancestor is found, or Claim{}, false if not.
 	AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bool)
+
+	AbsolutePrestate() Claim
+	RootClaim() Claim
+	// 1<<NBits in multi-section fault proof
+	Nary() *big.Int
+	// MaxAttackBranch in multi-section fault proof
+	MaxAttackBranch() Depth
+	SubClaims() map[ClaimID][]common.Hash
+	GetSubClaims(claim Claim) ([]common.Hash, error)
 }
 
 // gameState is a struct that represents the state of a dispute game.
 // The game state implements the [Game] interface.
 type gameState struct {
 	// claims is the list of claims in the same order as the contract
-	claims   []Claim
-	claimIDs map[ClaimID]bool
-	depth    Depth
+	claims    []Claim
+	claimIDs  map[ClaimID]bool
+	depth     Depth
+	nary      *big.Int
+	subclaims map[ClaimID][]common.Hash
 }
 
 // NewGameState returns a new game state.
@@ -61,6 +75,20 @@ func NewGameState(claims []Claim, depth Depth) *gameState {
 		claims:   claims,
 		claimIDs: claimIDs,
 		depth:    depth,
+	}
+}
+
+func NewGameState2(claims []Claim, depth Depth, nary int64, subclaims map[ClaimID][]common.Hash) *gameState {
+	claimIDs := make(map[ClaimID]bool)
+	for _, claim := range claims {
+		claimIDs[claim.ID()] = true
+	}
+	return &gameState{
+		claims:    claims,
+		claimIDs:  claimIDs,
+		depth:     depth,
+		nary:      big.NewInt(nary),
+		subclaims: subclaims,
 	}
 }
 
@@ -151,4 +179,35 @@ func (g *gameState) AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bo
 		}
 		claim = *next
 	}
+}
+
+func (g *gameState) AbsolutePrestate() Claim {
+	// todo !
+	return Claim{
+		ClaimData: ClaimData{Value: common.Hash{0x00}},
+	}
+}
+
+func (g *gameState) RootClaim() Claim {
+	return g.claims[0]
+}
+
+func (g *gameState) MaxAttackBranch() Depth {
+	return Depth(g.nary.Int64() - 1)
+}
+
+func (g *gameState) Nary() *big.Int {
+	return g.nary
+}
+
+func (g *gameState) SubClaims() map[ClaimID][]common.Hash {
+	return g.subclaims
+}
+
+func (g *gameState) GetSubClaims(claim Claim) ([]common.Hash, error) {
+	subClaims := g.subclaims[claim.ID()]
+	if subClaims == nil {
+		return nil, ErrSubClaimsNotFound
+	}
+	return subClaims, nil
 }

@@ -98,6 +98,11 @@ func (o *OutputTraceProvider) GetStepData(_ context.Context, _ types.Position) (
 	return nil, nil, nil, ErrGetStepData
 }
 
+// GetStepData2 is not supported in the [OutputTraceProvider].
+func (o *OutputTraceProvider) GetStepData2(_ context.Context, _ types.Position, _ types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	return nil, nil, nil, ErrGetStepData
+}
+
 func (o *OutputTraceProvider) GetL2BlockNumberChallenge(ctx context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
 	outputBlock, err := o.HonestBlockNumber(ctx, types.RootPosition)
 	if err != nil {

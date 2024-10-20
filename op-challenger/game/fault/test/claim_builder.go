@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -173,4 +174,28 @@ func (c *ClaimBuilder) AttackClaim(claim types.Claim, opts ...ClaimOpt) types.Cl
 func (c *ClaimBuilder) DefendClaim(claim types.Claim, opts ...ClaimOpt) types.Claim {
 	pos := claim.Position.Defend()
 	return c.claim(pos, append([]ClaimOpt{WithParent(claim)}, opts...)...)
+}
+
+func GetClaimsHash(values []common.Hash) common.Hash {
+	nelem := len(values)
+	hashes := make([]common.Hash, nelem)
+	copy(hashes, values)
+	for nelem != 1 {
+		for i := 0; i < nelem/2; i++ {
+			hashes[i] = crypto.Keccak256Hash(hashes[i][:], hashes[i+1][:])
+		}
+		// directly copy the last item
+		if nelem%2 == 1 {
+			hashes[nelem/2] = hashes[nelem-1]
+		}
+		nelem = (nelem + 1) / 2
+	}
+
+	return hashes[0]
+}
+
+func (c *ClaimBuilder) AttackClaim2(claim types.Claim, subClaims []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) types.Claim {
+	pos := claim.Position.Attack2(nbits, branch)
+	topClaim := GetClaimsHash(subClaims)
+	return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithValue(topClaim)}, opts...)...)
 }

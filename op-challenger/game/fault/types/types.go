@@ -41,6 +41,27 @@ type PreimageOracleData struct {
 	BlobFieldIndex uint64
 	BlobCommitment []byte
 	BlobProof      []byte
+
+	// multi-sec proof for VM step
+	StepProof StepProofData
+}
+
+type DaType uint32
+
+const (
+	CallDataType DaType = 0
+	BlobDataType DaType = 1
+)
+
+type DAItem struct {
+	DaType   DaType
+	DataHash []byte
+	Proof    []byte
+}
+
+type StepProofData struct {
+	Prestate  DAItem
+	PostState DAItem
 }
 
 // GetIdent returns the ident for the preimage oracle data.
@@ -107,6 +128,8 @@ type TraceAccessor interface {
 	// evaluated in the context of the specified claim (ref).
 	GetStepData(ctx context.Context, game Game, ref Claim, pos Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
 
+	GetStepData2(ctx context.Context, game Game, ref Claim, pos Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
+
 	// GetL2BlockNumberChallenge returns the data required to prove the correct L2 block number of the root claim.
 	// Returns ErrL2BlockNumberValid if the root claim is known to come from the same block as the claimed L2 block.
 	GetL2BlockNumberChallenge(ctx context.Context, game Game) (*InvalidL2BlockNumberChallenge, error)
@@ -131,6 +154,7 @@ type TraceProvider interface {
 	// and any pre-image data that needs to be loaded into the oracle prior to execution (may be nil)
 	// The prestate returned from GetStepData for trace 10 should be the pre-image of the claim from trace 9
 	GetStepData(ctx context.Context, i Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
+	GetStepData2(ctx context.Context, i Position, parent Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
 
 	// GetL2BlockNumberChallenge returns the data required to prove the correct L2 block number of the root claim.
 	// Returns ErrL2BlockNumberValid if the root claim is known to come from the same block as the claimed L2 block.

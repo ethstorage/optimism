@@ -105,6 +105,13 @@ func (p Position) move(right bool) Position {
 	}
 }
 
+func (p Position) moveN(nbits uint64, branch uint64) Position {
+	return Position{
+		depth:        p.depth + Depth(nbits),
+		indexAtDepth: new(big.Int).Or(p.lshIndex(Depth(nbits)), big.NewInt(int64(branch<<nbits))),
+	}
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1
@@ -132,6 +139,10 @@ func (p Position) parent() Position {
 // Attack creates a new position which is the attack position of this one.
 func (p Position) Attack() Position {
 	return p.move(false)
+}
+
+func (p Position) Attack2(nbits uint64, branch uint64) Position {
+	return p.moveN(nbits, branch)
 }
 
 // Defend creates a new position which is the defend position of this one.

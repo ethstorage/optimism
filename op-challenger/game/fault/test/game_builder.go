@@ -29,6 +29,13 @@ func (c *ClaimBuilder) GameBuilder(rootOpts ...ClaimOpt) *GameBuilder {
 	}
 }
 
+func (c *ClaimBuilder) GameBuilder2(nary int64, rootOpts ...ClaimOpt) *GameBuilder {
+	return &GameBuilder{
+		builder: c,
+		Game:    types.NewGameState2([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth, nary, make(map[types.ClaimID][]common.Hash)),
+	}
+}
+
 type GameBuilderSeq struct {
 	gameBuilder *GameBuilder
 	builder     *ClaimBuilder
@@ -67,9 +74,30 @@ func (s *GameBuilderSeq) addClaimToGame(claim *types.Claim) {
 	s.gameBuilder.Game = types.NewGameState(claims, s.builder.maxDepth)
 }
 
+func (s *GameBuilderSeq) addClaimAndSubClaimsToGame(claim *types.Claim, subClaims []common.Hash) {
+	if s.gameBuilder.Game.IsDuplicate(*claim) {
+		return
+	}
+	claim.ContractIndex = len(s.gameBuilder.Game.Claims())
+	claims := append(s.gameBuilder.Game.Claims(), *claim)
+	allSubClaims := s.gameBuilder.Game.SubClaims()
+	allSubClaims[claim.ID()] = subClaims
+	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, s.gameBuilder.Game.Nary().Int64(), allSubClaims)
+}
+
 func (s *GameBuilderSeq) Attack(opts ...ClaimOpt) *GameBuilderSeq {
 	claim := s.builder.AttackClaim(s.lastClaim, opts...)
 	s.addClaimToGame(&claim)
+	return &GameBuilderSeq{
+		gameBuilder: s.gameBuilder,
+		builder:     s.builder,
+		lastClaim:   claim,
+	}
+}
+
+func (s *GameBuilderSeq) Attack2(subClaims []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) *GameBuilderSeq {
+	claim := s.builder.AttackClaim2(s.lastClaim, subClaims, nbits, branch, opts...)
+	s.addClaimAndSubClaimsToGame(&claim, subClaims)
 	return &GameBuilderSeq{
 		gameBuilder: s.gameBuilder,
 		builder:     s.builder,
