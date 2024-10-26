@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -18,16 +17,14 @@ var (
 )
 
 type BoundContract struct {
-	abi    *abi.ABI
-	addr   common.Address
-	filter bind.ContractFilterer
+	abi  *abi.ABI
+	addr common.Address
 }
 
-func NewBoundContract(abi *abi.ABI, addr common.Address, filter bind.ContractFilterer) *BoundContract {
+func NewBoundContract(abi *abi.ABI, addr common.Address) *BoundContract {
 	return &BoundContract{
-		abi:    abi,
-		addr:   addr,
-		filter: filter,
+		abi:  abi,
+		addr: addr,
 	}
 }
 

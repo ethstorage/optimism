@@ -25,7 +25,7 @@ func NewVMContract(addr common.Address, caller *batching.MultiCaller) *VMContrac
 
 	return &VMContract{
 		multiCaller: caller,
-		contract:    batching.NewBoundContract(mipsAbi, addr, caller),
+		contract:    batching.NewBoundContract(mipsAbi, addr),
 	}
 }
 

@@ -44,7 +44,7 @@ func NewDisputeGameFactoryContract(m metrics.ContractMetricer, addr common.Addre
 	return &DisputeGameFactoryContract{
 		metrics:     m,
 		multiCaller: caller,
-		contract:    batching.NewBoundContract(factoryAbi, addr, caller),
+		contract:    batching.NewBoundContract(factoryAbi, addr),
 		abi:         factoryAbi,
 	}
 }
