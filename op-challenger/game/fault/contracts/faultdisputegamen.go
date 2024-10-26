@@ -1,3 +1,4 @@
+//go:build faultdisputegamen
 // +build faultdisputegamen
 
 package contracts

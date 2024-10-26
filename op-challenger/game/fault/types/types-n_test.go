@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package types
 

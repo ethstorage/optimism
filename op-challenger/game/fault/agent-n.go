@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package fault
 
@@ -243,5 +243,8 @@ func (a *Agent) newGameFromContracts(ctx context.Context) (types.Game, error) {
 		return nil, errors.New("no claims")
 	}
 	game := types.NewGameState(claims, a.maxDepth)
+	// TODO: Remove this once we have a way to fetch this from the contracts
+	nBits := uint64(2)
+	game.SetGameInfo(nBits)
 	return game, nil
 }

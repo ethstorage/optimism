@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package types
 
@@ -42,15 +42,20 @@ type Game interface {
 	// AncestorWithTraceIndex finds the ancestor of claim with trace index idx if present.
 	// Returns the claim and true if the ancestor is found, or Claim{}, false if not.
 	AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bool)
+
+	NBits() uint64
+	MaxAttackBranch() uint64
 }
 
 // gameState is a struct that represents the state of a dispute game.
 // The game state implements the [Game] interface.
 type gameState struct {
 	// claims is the list of claims in the same order as the contract
-	claims   []Claim
-	claimIDs map[ClaimID]bool
-	depth    Depth
+	claims          []Claim
+	claimIDs        map[ClaimID]bool
+	depth           Depth
+	nBits           uint64
+	maxAttackBranch uint64
 }
 
 // NewGameState returns a new game state.
@@ -67,6 +72,11 @@ func NewGameState(claims []Claim, depth Depth) *gameState {
 	}
 }
 
+func (g *gameState) SetGameInfo(nBits uint64) {
+	g.nBits = nBits
+	g.maxAttackBranch = 1<<nBits - 1
+}
+
 // AgreeWithClaimLevel returns if the game state agrees with the provided claim level.
 func (g *gameState) AgreeWithClaimLevel(claim Claim, agreeWithRootClaim bool) bool {
 	isOddLevel := claim.Depth()%2 == 1
@@ -77,6 +87,14 @@ func (g *gameState) AgreeWithClaimLevel(claim Claim, agreeWithRootClaim bool) bo
 	} else {
 		return isOddLevel
 	}
+}
+
+func (g *gameState) NBits() uint64 {
+	return g.nBits
+}
+
+func (g *gameState) MaxAttackBranch() uint64 {
+	return g.maxAttackBranch
 }
 
 func (g *gameState) IsDuplicate(claim Claim) bool {

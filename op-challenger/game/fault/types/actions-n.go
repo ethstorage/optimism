@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package types
 
@@ -13,6 +13,7 @@ func (a ActionType) String() string {
 
 const (
 	ActionTypeMove                   ActionType = "move"
+	ActionTypeAttack                 ActionType = "attack"
 	ActionTypeStep                   ActionType = "step"
 	ActionTypeChallengeL2BlockNumber ActionType = "challenge-l2-block-number"
 )
@@ -25,7 +26,8 @@ type Action struct {
 	IsAttack    bool
 
 	// Moves
-	Value common.Hash
+	Value     common.Hash
+	SubValues []common.Hash
 
 	// Steps
 	PreState   []byte

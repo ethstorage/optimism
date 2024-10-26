@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package solver
 
@@ -10,6 +10,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
+	"github.com/ethereum-optimism/optimism/op-challenger/game/keccak/merkle"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -64,23 +66,28 @@ func (s *claimSolver) shouldCounter(game types.Game, claim types.Claim, honestCl
 }
 
 // NextMove returns the next move to make given the current state of the game.
-func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game types.Game, honestClaims *honestClaimTracker) (*types.Claim, error) {
-	if claim.Depth() == s.gameDepth {
+func (s *claimSolver) NextMove(ctx context.Context, claimV2 types.ClaimV2, game types.Game, honestClaims *honestClaimTracker, branch uint64) (*types.ClaimV2, error) {
+	if claimV2.Claim.Depth() == s.gameDepth {
 		return nil, types.ErrGameDepthReached
 	}
 
-	if counter, err := s.shouldCounter(game, claim, honestClaims); err != nil {
+	if counter, err := s.shouldCounter(game, claimV2.Claim, honestClaims); err != nil {
 		return nil, fmt.Errorf("failed to determine if claim should be countered: %w", err)
 	} else if !counter {
 		return nil, nil
 	}
 
-	if agree, err := s.agreeWithClaim(ctx, game, claim); err != nil {
+	agree, err := s.agreeWithClaimV2(ctx, game, claimV2, uint64(branch))
+	if err != nil {
 		return nil, err
-	} else if agree {
-		return s.defend(ctx, game, claim)
+	}
+	if agree {
+		if branch < game.MaxAttackBranch()-1 {
+			return nil, nil
+		}
+		return s.attackV2(ctx, game, claimV2.Claim, branch+1)
 	} else {
-		return s.attack(ctx, game, claim)
+		return s.attackV2(ctx, game, claimV2.Claim, branch)
 	}
 }
 
@@ -135,37 +142,48 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 	}, nil
 }
 
-// attack returns a response that attacks the claim.
-func (s *claimSolver) attack(ctx context.Context, game types.Game, claim types.Claim) (*types.Claim, error) {
-	position := claim.Attack()
-	value, err := s.trace.Get(ctx, game, claim, position)
-	if err != nil {
-		return nil, fmt.Errorf("attack claim: %w", err)
-	}
-	return &types.Claim{
-		ClaimData:           types.ClaimData{Value: value, Position: position},
-		ParentContractIndex: claim.ContractIndex,
-	}, nil
-}
-
-// defend returns a response that defends the claim.
-func (s *claimSolver) defend(ctx context.Context, game types.Game, claim types.Claim) (*types.Claim, error) {
-	if claim.IsRoot() {
-		return nil, nil
-	}
-	position := claim.Defend()
-	value, err := s.trace.Get(ctx, game, claim, position)
-	if err != nil {
-		return nil, fmt.Errorf("defend claim: %w", err)
-	}
-	return &types.Claim{
-		ClaimData:           types.ClaimData{Value: value, Position: position},
-		ParentContractIndex: claim.ContractIndex,
-	}, nil
-}
-
 // agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
 func (s *claimSolver) agreeWithClaim(ctx context.Context, game types.Game, claim types.Claim) (bool, error) {
 	ourValue, err := s.trace.Get(ctx, game, claim, claim.Position)
 	return bytes.Equal(ourValue[:], claim.Value[:]), err
+}
+
+// agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
+func (s *claimSolver) agreeWithClaimV2(ctx context.Context, game types.Game, claimV2 types.ClaimV2, branch uint64) (bool, error) {
+	ourValue, err := s.trace.Get(ctx, game, claimV2.Claim, claimV2.Claim.Position)
+	return bytes.Equal(ourValue[:], claimV2.SubValues[branch][:]), err
+}
+
+func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (*types.ClaimV2, error) {
+	var values []common.Hash
+	totalClaims := uint64(1)<<game.NBits() - 1
+	position := claim.MoveN(game.NBits(), branch)
+	tmpPosition := position
+	for i := uint64(0); i < totalClaims; i++ {
+		if i != 0 {
+			tmpPosition = tmpPosition.MoveRight()
+		}
+		value, err := s.trace.Get(ctx, game, claim, tmpPosition)
+		if err != nil {
+			return nil, fmt.Errorf("attack claim: %w", err)
+		}
+		values = append(values, value)
+	}
+	hash := getClaimsHash(values)
+	outClaim := types.Claim{
+		ClaimData:           types.ClaimData{Value: hash, Position: position},
+		ParentContractIndex: claim.ContractIndex,
+	}
+	return &types.ClaimV2{
+		Claim:     outClaim,
+		SubValues: values,
+	}, nil
+}
+
+func getClaimsHash(values []common.Hash) common.Hash {
+	tree := merkle.NewBinaryMerkleTree()
+	for i := 0; i < len(values); i++ {
+		tree.AddLeaf(values[i])
+	}
+	return tree.RootHash()
 }

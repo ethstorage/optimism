@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package types
 
@@ -273,4 +273,23 @@ func buildGameWithClaim(claimGIndex *big.Int, parentGIndex *big.Int) *gameState 
 		ParentContractIndex: 0,
 	}
 	return NewGameState([]Claim{parentClaim, claim}, testMaxDepth)
+}
+
+func TestGameSetGameInfo(t *testing.T) {
+	tests0 := []struct {
+		nBit uint64
+	}{
+		{2},
+		{3},
+		{4},
+	}
+	game := buildGameWithClaim(big.NewInt(2), big.NewInt(1))
+	for _, test := range tests0 {
+		game.SetGameInfo(test.nBit)
+		maxAttackBranch := uint64(1<<test.nBit - 1)
+		outNBits := game.NBits()
+		outMaxAttackBranch := game.MaxAttackBranch()
+		require.Equal(t, test.nBit, outNBits, "nBit mismatch, expected=%d, got=%d", test.nBit, outNBits)
+		require.Equal(t, maxAttackBranch, outMaxAttackBranch, "maxAttackBranch mismatch, expected=%d, got=%d", maxAttackBranch, outMaxAttackBranch)
+	}
 }

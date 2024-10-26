@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package solver
 
@@ -57,21 +57,33 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 	}
 	for _, claim := range game.Claims() {
 		var action *types.Action
-		if claim.Depth() == game.MaxDepth() {
-			action, err = s.calculateStep(ctx, game, claim, agreedClaims)
-		} else {
-			action, err = s.calculateMove(ctx, game, claim, agreedClaims)
-		}
+		subValues, err := s.getClaimRealValues(ctx, game, claim)
 		if err != nil {
-			// Unable to continue iterating claims safely because we may not have tracked the required honest moves
-			// for this claim which affects the response to later claims.
-			// Any actions we've already identified are still safe to apply.
-			return actions, fmt.Errorf("failed to determine response to claim %v: %w", claim.ContractIndex, err)
+			return nil, fmt.Errorf("failed to get real values for claim %v: %w", claim.ContractIndex, err)
 		}
-		if action == nil {
-			continue
+		claimV2 := types.ClaimV2{
+			Claim:     claim,
+			SubValues: subValues,
 		}
-		actions = append(actions, *action)
+		for branch, _ := range subValues {
+			if claim.Depth() == game.MaxDepth() {
+				// TODO: implement
+				action, err = s.calculateStep(ctx, game, claim, agreedClaims)
+			} else {
+				action, err = s.calculateMove(ctx, game, claimV2, agreedClaims, uint64(branch))
+			}
+			if err != nil {
+				// Unable to continue iterating claims safely because we may not have tracked the required honest moves
+				// for this claim which affects the response to later claims.
+				// Any actions we've already identified are still safe to apply.
+				return actions, fmt.Errorf("failed to determine response to claim %v: %w", claim.ContractIndex, err)
+			}
+			if action == nil {
+				continue
+			}
+			actions = append(actions, *action)
+			break
+		}
 	}
 	return actions, nil
 }
@@ -97,22 +109,29 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 	}, nil
 }
 
-func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*types.Action, error) {
-	move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims)
+func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claimV2 types.ClaimV2, honestClaims *honestClaimTracker, branch uint64) (*types.Action, error) {
+	move, err := s.claimSolver.NextMove(ctx, claimV2, game, honestClaims, branch)
 	if err != nil {
-		return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)
+		return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claimV2.Claim.ContractIndex, err)
 	}
 	if move == nil {
 		return nil, nil
 	}
-	honestClaims.AddHonestClaim(claim, *move)
-	if game.IsDuplicate(*move) {
+	honestClaims.AddHonestClaim(claimV2.Claim, move.Claim)
+	if game.IsDuplicate(move.Claim) {
 		return nil, nil
 	}
 	return &types.Action{
-		Type:        types.ActionTypeMove,
-		IsAttack:    !game.DefendsParent(*move),
-		ParentClaim: game.Claims()[move.ParentContractIndex],
-		Value:       move.Value,
+		Type:        types.ActionTypeAttack,
+		IsAttack:    !game.DefendsParent(move.Claim),
+		ParentClaim: game.Claims()[move.Claim.ParentContractIndex],
+		Value:       move.Claim.Value,
+		SubValues:   move.SubValues,
 	}, nil
+}
+
+func (s *GameSolver) getClaimRealValues(ctx context.Context, game types.Game, claim types.Claim) ([]common.Hash, error) {
+	values := []common.Hash{claim.Value}
+	// TODO: implement
+	return values, nil
 }

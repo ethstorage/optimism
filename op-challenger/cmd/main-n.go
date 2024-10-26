@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package main
 
@@ -58,6 +58,7 @@ func run(ctx context.Context, args []string, action ConfiguredLifecycle) error {
 		MoveCommand,
 		ResolveCommand,
 		ResolveClaimCommand,
+		AttackCommand,
 	}
 	app.Action = cliapp.LifecycleCmd(func(ctx *cli.Context, close context.CancelCauseFunc) (cliapp.Lifecycle, error) {
 		logger, err := setupLogging(ctx)
