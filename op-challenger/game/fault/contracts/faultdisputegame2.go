@@ -10,7 +10,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
 func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block rpcblock.Block, aggClaim *types.Claim) ([]common.Hash, error) {
@@ -24,7 +26,18 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 	parentIndex := [...]*big.Int{big.NewInt(int64(aggClaim.ParentContractIndex))}
 	claim := [...][32]byte{aggClaim.ClaimData.ValueBytes()}
 	claimant := [...]common.Address{aggClaim.Claimant}
-	moveIter, err := filter.FilterMove(nil, parentIndex[:], claim[:], claimant[:])
+	var end *uint64
+	if block.ArgValue() == rpcblock.Latest {
+		end = nil
+	} else {
+		blockNumber, ok := block.ArgValue().(rpc.BlockNumber)
+		if !ok {
+			return nil, fmt.Errorf("block number is not lastest or int64")
+		}
+		blockNumberU64 := uint64(blockNumber)
+		end = &blockNumberU64
+	}
+	moveIter, err := filter.FilterMove(&bind.FilterOpts{End: end, Context: ctx}, parentIndex[:], claim[:], claimant[:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to filter move event log: %w", err)
 	}
@@ -36,15 +49,12 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 
 	// todo: replace hardcoded method name
 	txCall := batching.NewTxGetByHash(f.contract.Abi(), txHash, "move")
-	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, txCall)
+	result, err := f.multiCaller.SingleCall(ctx, block, txCall)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load claim calldata: %w", err)
 	}
 
-	txn, err := txCall.DecodeToTx(result)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode tx: %w", err)
-	}
+	txn := result.GetTx()
 
 	var subClaims []common.Hash
 
@@ -52,7 +62,7 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 		// todo: fetch Blobs and unpack it into subClaims
 		return nil, fmt.Errorf("blob tx hasn't been supported")
 	} else {
-		inputMap, err := txCall.UnpackCallData(txn)
+		inputMap, err := txCall.UnpackCallData(&txn)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unpack tx resp: %w", err)
 		}

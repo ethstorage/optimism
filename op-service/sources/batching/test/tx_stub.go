@@ -21,7 +21,10 @@ func (c *expectedGetTxByHashCall) Matches(rpcMethod string, args ...interface{})
 		return fmt.Errorf("expected rpcMethod eth_getTransactionByHash but was %v", rpcMethod)
 	}
 
-	txhash := args[0].(common.Hash)
+	txhash, ok := args[0].(common.Hash)
+	if !ok {
+		return fmt.Errorf("arg 0 is not common.Hash")
+	}
 
 	if txhash != c.txHash {
 		return fmt.Errorf("expected txHash %v but was %v", c.txHash, txhash)

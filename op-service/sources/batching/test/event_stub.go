@@ -25,7 +25,10 @@ func (c *expectedFilterLogsCall) Matches(rpcMethod string, args ...interface{}) 
 		return fmt.Errorf("expected rpcMethod eth_getFilterLogs but was %v", rpcMethod)
 	}
 
-	topics := args[0].([][]common.Hash)
+	topics, ok := args[0].([][]common.Hash)
+	if !ok {
+		return fmt.Errorf("arg 0 is not [][]common.Hash")
+	}
 
 	if !reflect.DeepEqual(topics, c.topics) {
 		return fmt.Errorf("expected topics %v but was %v", c.topics, topics)

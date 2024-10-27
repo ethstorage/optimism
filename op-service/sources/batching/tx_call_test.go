@@ -12,23 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDecodeTxGetByHash(t *testing.T) {
-	addr := common.Address{0xbd}
-	testAbi, err := test.ERC20MetaData.GetAbi()
-	require.NoError(t, err)
-	call := NewTxGetByHash(testAbi, common.Hash{0xcc}, "approve")
-	expectedAmount := big.NewInt(1234444)
-	expectedSpender := common.Address{0xcc}
-	contractCall := NewContractCall(testAbi, addr, "approve", expectedSpender, expectedAmount)
-	packed, err := contractCall.Pack()
-	require.NoError(t, err)
-
-	unpackedMap, err := call.DecodeTxParams(packed)
-	require.NoError(t, err)
-	require.Equal(t, expectedAmount, unpackedMap["amount"])
-	require.Equal(t, expectedSpender, unpackedMap["spender"])
-}
-
 func TestUnpackTxCalldata(t *testing.T) {
 	expectedSpender := common.Address{0xcc}
 	expectedAmount := big.NewInt(1234444)
@@ -59,9 +42,8 @@ func TestUnpackTxCalldata(t *testing.T) {
 	result, err := caller.SingleCall(context.Background(), rpcblock.Latest, txCall)
 	require.NoError(t, err)
 
-	decodedTx, err := txCall.DecodeToTx(result)
-	require.NoError(t, err)
-	unpackedMap, err := txCall.UnpackCallData(decodedTx)
+	decodedTx := result.GetTx()
+	unpackedMap, err := txCall.UnpackCallData(&decodedTx)
 	require.NoError(t, err)
 	require.Equal(t, expectedSpender, unpackedMap["spender"])
 	require.Equal(t, expectedAmount, unpackedMap["amount"])

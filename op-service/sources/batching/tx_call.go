@@ -1,6 +1,8 @@
 package batching
 
 import (
+	"fmt"
+
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,11 +37,21 @@ func (b *TxGetByHashCall) ToBatchElemCreator() (BatchElementCreator, error) {
 }
 
 func (c *TxGetByHashCall) HandleResult(result interface{}) (*CallResult, error) {
-	res := result.(*hexutil.Bytes)
-	return &CallResult{out: []interface{}{*res}}, nil
+	res, ok := result.(*hexutil.Bytes)
+	if !ok {
+		return nil, fmt.Errorf("result is not hexutil.Bytes")
+	}
+
+	txn := new(types.Transaction)
+	err := txn.UnmarshalBinary(*res)
+	if err != nil {
+		return nil, err
+	}
+	return &CallResult{out: []interface{}{txn}}, nil
 }
 
-func (c *TxGetByHashCall) DecodeTxParams(data []byte) (map[string]interface{}, error) {
+func (c *TxGetByHashCall) UnpackCallData(txn *types.Transaction) (map[string]interface{}, error) {
+	data := txn.Data()
 	m, err := c.Abi.MethodById(data[:4])
 	v := map[string]interface{}{}
 	if err != nil {
@@ -49,19 +61,4 @@ func (c *TxGetByHashCall) DecodeTxParams(data []byte) (map[string]interface{}, e
 		return map[string]interface{}{}, err
 	}
 	return v, nil
-}
-
-func (c *TxGetByHashCall) DecodeToTx(res *CallResult) (*types.Transaction, error) {
-	txn := new(types.Transaction)
-	hex := res.out[0].(hexutil.Bytes)
-	err := txn.UnmarshalBinary(hex)
-	if err != nil {
-		return nil, err
-	}
-	return txn, nil
-}
-
-func (c *TxGetByHashCall) UnpackCallData(txn *types.Transaction) (map[string]interface{}, error) {
-	input := txn.Data()
-	return c.DecodeTxParams(input)
 }
