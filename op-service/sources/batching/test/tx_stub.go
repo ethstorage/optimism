@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type expectedTxCall struct {
+type expectedGetTxByHashCall struct {
 	txHash  common.Hash
 	outputs []byte
 	err     error
 }
 
-func (c *expectedTxCall) Matches(rpcMethod string, args ...interface{}) error {
+func (c *expectedGetTxByHashCall) Matches(rpcMethod string, args ...interface{}) error {
 	if rpcMethod != "eth_getTransactionByHash" {
 		return fmt.Errorf("expected rpcMethod eth_getTransactionByHash but was %v", rpcMethod)
 	}
@@ -30,13 +30,13 @@ func (c *expectedTxCall) Matches(rpcMethod string, args ...interface{}) error {
 	return c.err
 }
 
-func (c *expectedTxCall) Execute(t *testing.T, out interface{}) error {
+func (c *expectedGetTxByHashCall) Execute(t *testing.T, out interface{}) error {
 	j, err := json.Marshal(hexutil.Bytes(c.outputs))
 	require.NoError(t, err)
-	json.Unmarshal(j, out)
+	require.NoError(t, json.Unmarshal(j, out))
 	return c.err
 }
 
-func (c *expectedTxCall) String() string {
+func (c *expectedGetTxByHashCall) String() string {
 	return fmt.Sprintf("{txHash: %v, outputs: %v}", c.txHash, c.outputs)
 }

@@ -385,10 +385,9 @@ func TestGetSubClaims(t *testing.T) {
 					Value:    big.NewInt(111),
 					Data:     inputData,
 				})
-				require.NoError(t, err)
 				packed, err := tx.MarshalBinary()
 				require.NoError(t, err)
-				stubRpc.SetTxResponse(txHash, packed)
+				stubRpc.SetGetTxByHashResponse(txHash, packed)
 
 				claims, err := game.GetSubClaims(context.Background(), block, &claim0)
 				require.NoError(t, err)

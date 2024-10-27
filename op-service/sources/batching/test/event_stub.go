@@ -41,7 +41,7 @@ func (c *expectedFilterLogsCall) Matches(rpcMethod string, args ...interface{}) 
 func (c *expectedFilterLogsCall) Execute(t *testing.T, out interface{}) error {
 	j, err := json.Marshal(c.outputs)
 	require.NoError(t, err)
-	json.Unmarshal(j, out)
+	require.NoError(t, json.Unmarshal(j, out))
 	return c.err
 }
 

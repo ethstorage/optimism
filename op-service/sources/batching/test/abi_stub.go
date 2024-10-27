@@ -163,11 +163,11 @@ func (l *AbiBasedRpc) SetFilterLogResponse(topics [][]common.Hash, to common.Add
 	})
 }
 
-func (l *AbiBasedRpc) SetTxResponse(txHash common.Hash, output []byte) {
+func (l *AbiBasedRpc) SetGetTxByHashResponse(txHash common.Hash, output []byte) {
 	if output == nil {
 		output = []byte{}
 	}
-	l.AddExpectedCall(&expectedTxCall{txHash: txHash, outputs: output})
+	l.AddExpectedCall(&expectedGetTxByHashCall{txHash: txHash, outputs: output})
 }
 
 func (l *AbiBasedRpc) VerifyTxCandidate(candidate txmgr.TxCandidate) {
