@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package responder
 
@@ -25,6 +25,8 @@ type GameContract interface {
 	DefendTx(ctx context.Context, parent types.Claim, pivot common.Hash) (txmgr.TxCandidate, error)
 	StepTx(claimIdx uint64, isAttack bool, stateData []byte, proof []byte) (txmgr.TxCandidate, error)
 	ChallengeL2BlockNumberTx(challenge *types.InvalidL2BlockNumberChallenge) (txmgr.TxCandidate, error)
+	AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error)
+	StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error)
 }
 
 type Oracle interface {
@@ -114,14 +116,18 @@ func (r *FaultResponder) PerformAction(ctx context.Context, action types.Action)
 	var candidate txmgr.TxCandidate
 	var err error
 	switch action.Type {
-	case types.ActionTypeMove:
-		if action.IsAttack {
-			candidate, err = r.contract.AttackTx(ctx, action.ParentClaim, action.Value)
-		} else {
-			candidate, err = r.contract.DefendTx(ctx, action.ParentClaim, action.Value)
+	case types.ActionTypeAttack:
+		values := make([]byte, 0, len(action.SubValues)*common.HashLength)
+		for _, value := range action.SubValues {
+			values = append(values, value[:]...)
 		}
+		candidate, err = r.contract.AttackV2Tx(ctx, action.ParentClaim, action.AttackBranch, uint64(types.CallDataType), values)
 	case types.ActionTypeStep:
-		candidate, err = r.contract.StepTx(uint64(action.ParentClaim.ContractIndex), action.IsAttack, action.PreState, action.ProofData)
+		stepProof := types.StepProof{
+			DAData:  action.OracleData.DAData,
+			VmProof: action.ProofData,
+		}
+		candidate, err = r.contract.StepV2Tx(uint64(action.ParentClaim.ContractIndex), action.AttackBranch, action.PreState, stepProof)
 	case types.ActionTypeChallengeL2BlockNumber:
 		candidate, err = r.contract.ChallengeL2BlockNumberTx(action.InvalidL2BlockNumberChallenge)
 	}

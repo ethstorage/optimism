@@ -44,6 +44,34 @@ type PreimageOracleData struct {
 	BlobFieldIndex uint64
 	BlobCommitment []byte
 	BlobProof      []byte
+
+	// multi-sec proof for VM step
+	DAData DAData
+	// addlocaldata daitem
+	DAItem DAItem
+}
+
+type DaType uint64
+
+const (
+	CallDataType DaType = 0
+	BlobDataType DaType = 1
+)
+
+type DAItem struct {
+	DaType   DaType
+	DataHash common.Hash
+	Proof    []byte
+}
+
+type DAData struct {
+	Prestate  DAItem
+	PostState DAItem
+}
+
+type StepProof struct {
+	DAData
+	VmProof []byte
 }
 
 // GetIdent returns the ident for the preimage oracle data.
@@ -109,6 +137,8 @@ type TraceAccessor interface {
 	// GetStepData returns the data required to execute the step at the specified position,
 	// evaluated in the context of the specified claim (ref).
 	GetStepData(ctx context.Context, game Game, ref Claim, pos Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
+
+	GetStepData2(ctx context.Context, game Game, ref Claim, pos Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
 
 	// GetL2BlockNumberChallenge returns the data required to prove the correct L2 block number of the root claim.
 	// Returns ErrL2BlockNumberValid if the root claim is known to come from the same block as the claimed L2 block.
@@ -176,8 +206,9 @@ type Claim struct {
 }
 
 type ClaimV2 struct {
-	Claim     Claim
-	SubValues []common.Hash
+	Claim        Claim
+	SubValues    []common.Hash
+	AttackBranch uint64
 }
 
 func (c Claim) ID() ClaimID {

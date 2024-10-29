@@ -7,6 +7,8 @@ import (
 	"errors"
 	"math/big"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -45,6 +47,8 @@ type Game interface {
 
 	NBits() uint64
 	MaxAttackBranch() uint64
+	GetSubValues(claim Claim) ([]common.Hash, error)
+	SplitDepth() Depth
 }
 
 // gameState is a struct that represents the state of a dispute game.
@@ -172,4 +176,12 @@ func (g *gameState) AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bo
 		}
 		claim = *next
 	}
+}
+
+func (g *gameState) GetSubValues(claim Claim) ([]common.Hash, error) {
+	return nil, nil
+}
+
+func (g *gameState) SplitDepth() Depth {
+	return 0
 }

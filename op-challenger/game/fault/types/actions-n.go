@@ -26,8 +26,9 @@ type Action struct {
 	IsAttack    bool
 
 	// Moves
-	Value     common.Hash
-	SubValues []common.Hash
+	Value        common.Hash
+	SubValues    []common.Hash
+	AttackBranch uint64
 
 	// Steps
 	PreState   []byte

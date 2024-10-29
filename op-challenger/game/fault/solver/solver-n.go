@@ -102,18 +102,18 @@ type StepData struct {
 // AttemptStep determines what step, if any, should occur for a given leaf claim.
 // An error will be returned if the claim is not at the max depth.
 // Returns nil, nil if no step should be performed.
-func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*StepData, error) {
-	if claim.Depth() != s.gameDepth {
+func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claimV2 types.ClaimV2, honestClaims *honestClaimTracker, branch uint64) (*StepData, error) {
+	if claimV2.Claim.Depth() != s.gameDepth {
 		return nil, ErrStepNonLeafNode
 	}
 
-	if counter, err := s.shouldCounter(game, claim, honestClaims); err != nil {
+	if counter, err := s.shouldCounter(game, claimV2.Claim, honestClaims); err != nil {
 		return nil, fmt.Errorf("failed to determine if claim should be countered: %w", err)
 	} else if !counter {
 		return nil, nil
 	}
 
-	claimCorrect, err := s.agreeWithClaim(ctx, game, claim)
+	claimCorrect, err := s.agreeWithClaimV2(ctx, game, claimV2, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -121,20 +121,20 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 	var position types.Position
 	if !claimCorrect {
 		// Attack the claim by executing step index, so we need to get the pre-state of that index
-		position = claim.Position
+		position = claimV2.Claim.Position.MoveRightN(branch)
 	} else {
 		// Defend and use this claim as the starting point to execute the step after.
 		// Thus, we need the pre-state of the next step.
-		position = claim.Position.MoveRight()
+		position = claimV2.Claim.Position.MoveRightN(branch + 1)
 	}
 
-	preState, proofData, oracleData, err := s.trace.GetStepData(ctx, game, claim, position)
+	preState, proofData, oracleData, err := s.trace.GetStepData2(ctx, game, claimV2.Claim, position)
 	if err != nil {
 		return nil, err
 	}
 
 	return &StepData{
-		LeafClaim:  claim,
+		LeafClaim:  claimV2.Claim,
 		IsAttack:   !claimCorrect,
 		PreState:   preState,
 		ProofData:  proofData,
@@ -150,22 +150,25 @@ func (s *claimSolver) agreeWithClaim(ctx context.Context, game types.Game, claim
 
 // agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
 func (s *claimSolver) agreeWithClaimV2(ctx context.Context, game types.Game, claimV2 types.ClaimV2, branch uint64) (bool, error) {
-	ourValue, err := s.trace.Get(ctx, game, claimV2.Claim, claimV2.Claim.Position)
+	ourValue, err := s.trace.Get(ctx, game, claimV2.Claim, claimV2.Claim.Position.MoveRightN(branch))
 	return bytes.Equal(ourValue[:], claimV2.SubValues[branch][:]), err
 }
 
 func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (*types.ClaimV2, error) {
+	var err error
+	var value common.Hash
 	var values []common.Hash
-	totalClaims := uint64(1)<<game.NBits() - 1
+	maxAttackBranch := game.MaxAttackBranch()
 	position := claim.MoveN(game.NBits(), branch)
-	tmpPosition := position
-	for i := uint64(0); i < totalClaims; i++ {
-		if i != 0 {
-			tmpPosition = tmpPosition.MoveRight()
-		}
-		value, err := s.trace.Get(ctx, game, claim, tmpPosition)
-		if err != nil {
-			return nil, fmt.Errorf("attack claim: %w", err)
+	for i := uint64(0); i < maxAttackBranch; i++ {
+		tmpPosition := position.MoveRightN(i)
+		if tmpPosition.Depth() == (game.SplitDepth()+types.Depth(game.NBits())) && i != 0 {
+			value = common.Hash{}
+		} else {
+			value, err = s.trace.Get(ctx, game, claim, tmpPosition)
+			if err != nil {
+				return nil, fmt.Errorf("attack claim: %w", err)
+			}
 		}
 		values = append(values, value)
 	}
@@ -175,8 +178,9 @@ func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types
 		ParentContractIndex: claim.ContractIndex,
 	}
 	return &types.ClaimV2{
-		Claim:     outClaim,
-		SubValues: values,
+		Claim:        outClaim,
+		SubValues:    values,
+		AttackBranch: branch,
 	}, nil
 }
 

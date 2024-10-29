@@ -1,3 +1,4 @@
+//go:build faultdisputegamen
 // +build faultdisputegamen
 
 package contracts
@@ -823,20 +824,22 @@ func TestStepV2Tx(t *testing.T) {
 			stubRpc, game := setupFaultDisputeGameTest(t, version)
 			stateData := []byte{1, 2, 3}
 			vmProof := []byte{4, 5, 6, 7, 8, 9}
-			preStateItem := DAItem{
-				DaType:   big.NewInt(0),
+			preStateItem := faultTypes.DAItem{
+				DaType:   faultTypes.CallDataType,
 				DataHash: [32]byte{0x01, 0x02, 0x03},
 				Proof:    []byte("pre state proof"),
 			}
-			postStateItem := DAItem{
-				DaType:   big.NewInt(0),
+			postStateItem := faultTypes.DAItem{
+				DaType:   faultTypes.CallDataType,
 				DataHash: [32]byte{0x04, 0x05, 0x06},
 				Proof:    []byte("post state proof"),
 			}
-			proofData := StepProof{
-				PreStateItem:  preStateItem,
-				PostStateItem: postStateItem,
-				VmProof:       vmProof,
+			proofData := faultTypes.StepProof{
+				DAData: faultTypes.DAData{
+					Prestate:  preStateItem,
+					PostState: postStateItem,
+				},
+				VmProof: vmProof,
 			}
 			stubRpc.SetResponse(fdgAddr, methodStepV2, rpcblock.Latest, []interface{}{big.NewInt(111), big.NewInt(1), stateData, proofData}, nil)
 			tx, err := game.StepV2Tx(111, 1, stateData, proofData)

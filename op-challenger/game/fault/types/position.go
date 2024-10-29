@@ -161,3 +161,10 @@ func (p Position) MoveN(depth uint64, branch uint64) Position {
 		indexAtDepth: new(big.Int).Add(p.IndexAtDepth(), new(big.Int).Lsh(big.NewInt(int64(branch)), uint(depth))),
 	}
 }
+
+func (p Position) MoveRightN(number uint64) Position {
+	return Position{
+		depth:        p.depth,
+		indexAtDepth: new(big.Int).Add(p.IndexAtDepth(), big.NewInt(int64(number))),
+	}
+}

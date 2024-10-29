@@ -1,5 +1,5 @@
-//go:build !faultdisputegamen
-// +build !faultdisputegamen
+//go:build faultdisputegamen
+// +build faultdisputegamen
 
 package trace
 
@@ -36,6 +36,14 @@ func (t *Accessor) Get(ctx context.Context, game types.Game, ref types.Claim, po
 }
 
 func (t *Accessor) GetStepData(ctx context.Context, game types.Game, ref types.Claim, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	provider, err := t.selector(ctx, game, ref, pos)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return provider.GetStepData(ctx, pos)
+}
+
+func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.Claim, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
 	provider, err := t.selector(ctx, game, ref, pos)
 	if err != nil {
 		return nil, nil, nil, err

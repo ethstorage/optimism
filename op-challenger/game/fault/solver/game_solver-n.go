@@ -57,7 +57,7 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 	}
 	for _, claim := range game.Claims() {
 		var action *types.Action
-		subValues, err := s.getClaimRealValues(ctx, game, claim)
+		subValues, err := game.GetSubValues(claim)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get real values for claim %v: %w", claim.ContractIndex, err)
 		}
@@ -65,10 +65,12 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 			Claim:     claim,
 			SubValues: subValues,
 		}
-		for branch, _ := range subValues {
+		for branch, subValue := range subValues {
+			if subValue == (common.Hash{}) {
+				continue
+			}
 			if claim.Depth() == game.MaxDepth() {
-				// TODO: implement
-				action, err = s.calculateStep(ctx, game, claim, agreedClaims)
+				action, err = s.calculateStep(ctx, game, claimV2, agreedClaims, uint64(branch))
 			} else {
 				action, err = s.calculateMove(ctx, game, claimV2, agreedClaims, uint64(branch))
 			}
@@ -88,11 +90,11 @@ func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) 
 	return actions, nil
 }
 
-func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim types.Claim, agreedClaims *honestClaimTracker) (*types.Action, error) {
-	if claim.CounteredBy != (common.Address{}) {
+func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claimV2 types.ClaimV2, agreedClaims *honestClaimTracker, branch uint64) (*types.Action, error) {
+	if claimV2.Claim.CounteredBy != (common.Address{}) {
 		return nil, nil
 	}
-	step, err := s.claimSolver.AttemptStep(ctx, game, claim, agreedClaims)
+	step, err := s.claimSolver.AttemptStep(ctx, game, claimV2, agreedClaims, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -122,16 +124,11 @@ func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claimV2
 		return nil, nil
 	}
 	return &types.Action{
-		Type:        types.ActionTypeAttack,
-		IsAttack:    !game.DefendsParent(move.Claim),
-		ParentClaim: game.Claims()[move.Claim.ParentContractIndex],
-		Value:       move.Claim.Value,
-		SubValues:   move.SubValues,
+		Type:         types.ActionTypeAttack,
+		IsAttack:     !game.DefendsParent(move.Claim),
+		ParentClaim:  game.Claims()[move.Claim.ParentContractIndex],
+		Value:        move.Claim.Value,
+		SubValues:    move.SubValues,
+		AttackBranch: branch,
 	}, nil
-}
-
-func (s *GameSolver) getClaimRealValues(ctx context.Context, game types.Game, claim types.Claim) ([]common.Hash, error) {
-	values := []common.Hash{claim.Value}
-	// TODO: implement
-	return values, nil
 }
