@@ -22,6 +22,7 @@ type claimCfg struct {
 	parentIdx      int
 	clockTimestamp time.Time
 	clockDuration  time.Duration
+	branch         uint64
 }
 
 func newClaimCfg(opts ...ClaimOpt) *claimCfg {
@@ -72,6 +73,12 @@ func WithClock(timestamp time.Time, duration time.Duration) ClaimOpt {
 	return claimOptFn(func(cfg *claimCfg) {
 		cfg.clockTimestamp = timestamp
 		cfg.clockDuration = duration
+	})
+}
+
+func WithBranch(branch uint64) ClaimOpt {
+	return claimOptFn(func(cfg *claimCfg) {
+		cfg.branch = branch
 	})
 }
 
@@ -141,6 +148,7 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 			Duration:  cfg.clockDuration,
 			Timestamp: cfg.clockTimestamp,
 		},
+		AttackBranch: cfg.branch,
 	}
 	if cfg.claimant != (common.Address{}) {
 		claim.Claimant = cfg.claimant
@@ -197,5 +205,5 @@ func GetClaimsHash(values []common.Hash) common.Hash {
 func (c *ClaimBuilder) AttackClaim2(claim types.Claim, subClaims []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) types.Claim {
 	pos := claim.Position.Attack2(nbits, branch)
 	topClaim := GetClaimsHash(subClaims)
-	return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithValue(topClaim)}, opts...)...)
+	return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithValue(topClaim), WithBranch(branch)}, opts...)...)
 }

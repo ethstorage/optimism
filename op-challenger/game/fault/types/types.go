@@ -194,6 +194,9 @@ type Claim struct {
 	// for claims that have not made it to the contract.
 	ContractIndex       int
 	ParentContractIndex int
+	// Multi-section extended subclaims
+	subclaims    *[]ClaimID
+	AttackBranch uint64
 }
 
 func (c Claim) ID() ClaimID {
@@ -207,6 +210,15 @@ func (c Claim) ID() ClaimID {
 // IsRoot returns true if this claim is the root claim.
 func (c Claim) IsRoot() bool {
 	return c.Position.IsRootPosition()
+}
+
+// IsRoot returns true if this claim is the root claim.
+func (c Claim) SetSubClaims(subClaims *[]ClaimID) {
+	c.subclaims = subClaims
+}
+
+func (c Claim) SubClaims() []ClaimID {
+	return append([]ClaimID{}, *c.subclaims...)
 }
 
 // Clock tracks the chess clock for a claim.

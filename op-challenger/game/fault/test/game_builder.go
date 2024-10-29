@@ -29,10 +29,10 @@ func (c *ClaimBuilder) GameBuilder(rootOpts ...ClaimOpt) *GameBuilder {
 	}
 }
 
-func (c *ClaimBuilder) GameBuilder2(nary int64, rootOpts ...ClaimOpt) *GameBuilder {
+func (c *ClaimBuilder) GameBuilder2(nary int64, splitDepth types.Depth, rootOpts ...ClaimOpt) *GameBuilder {
 	return &GameBuilder{
 		builder: c,
-		Game:    types.NewGameState2([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth, nary, make(map[types.ClaimID][]common.Hash)),
+		Game:    types.NewGameState2([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth, splitDepth, nary, make(map[types.ClaimID][]common.Hash)),
 	}
 }
 
@@ -82,7 +82,9 @@ func (s *GameBuilderSeq) addClaimAndSubClaimsToGame(claim *types.Claim, subClaim
 	claims := append(s.gameBuilder.Game.Claims(), *claim)
 	allSubClaims := s.gameBuilder.Game.SubClaims()
 	allSubClaims[claim.ID()] = subClaims
-	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, s.gameBuilder.Game.Nary().Int64(), allSubClaims)
+	splitDepth := s.gameBuilder.Game.SplitDepth()
+	nary := s.gameBuilder.Game.Nary().Int64()
+	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, splitDepth, nary, allSubClaims)
 }
 
 func (s *GameBuilderSeq) Attack(opts ...ClaimOpt) *GameBuilderSeq {

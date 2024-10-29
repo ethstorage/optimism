@@ -43,7 +43,8 @@ type Game interface {
 	// Returns the claim and true if the ancestor is found, or Claim{}, false if not.
 	AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bool)
 
-	AbsolutePrestate() Claim
+	SplitDepth() Depth
+	RootDepth() Depth
 	RootClaim() Claim
 	// 1<<NBits in multi-section fault proof
 	Nary() *big.Int
@@ -51,17 +52,19 @@ type Game interface {
 	MaxAttackBranch() Depth
 	SubClaims() map[ClaimID][]common.Hash
 	GetSubClaims(claim Claim) ([]common.Hash, error)
+	NBits() Depth
 }
 
 // gameState is a struct that represents the state of a dispute game.
 // The game state implements the [Game] interface.
 type gameState struct {
 	// claims is the list of claims in the same order as the contract
-	claims    []Claim
-	claimIDs  map[ClaimID]bool
-	depth     Depth
-	nary      *big.Int
-	subclaims map[ClaimID][]common.Hash
+	claims     []Claim
+	claimIDs   map[ClaimID]bool
+	depth      Depth
+	splitDepth Depth
+	nary       *big.Int
+	subclaims  map[ClaimID][]common.Hash
 }
 
 // NewGameState returns a new game state.
@@ -78,17 +81,18 @@ func NewGameState(claims []Claim, depth Depth) *gameState {
 	}
 }
 
-func NewGameState2(claims []Claim, depth Depth, nary int64, subclaims map[ClaimID][]common.Hash) *gameState {
+func NewGameState2(claims []Claim, depth Depth, splitDepth Depth, nary int64, subclaims map[ClaimID][]common.Hash) *gameState {
 	claimIDs := make(map[ClaimID]bool)
 	for _, claim := range claims {
 		claimIDs[claim.ID()] = true
 	}
 	return &gameState{
-		claims:    claims,
-		claimIDs:  claimIDs,
-		depth:     depth,
-		nary:      big.NewInt(nary),
-		subclaims: subclaims,
+		claims:     claims,
+		claimIDs:   claimIDs,
+		depth:      depth,
+		splitDepth: splitDepth,
+		nary:       big.NewInt(nary),
+		subclaims:  subclaims,
 	}
 }
 
@@ -181,11 +185,12 @@ func (g *gameState) AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bo
 	}
 }
 
-func (g *gameState) AbsolutePrestate() Claim {
-	// todo !
-	return Claim{
-		ClaimData: ClaimData{Value: common.Hash{0x00}},
-	}
+func (g *gameState) SplitDepth() Depth {
+	return g.splitDepth
+}
+
+func (g *gameState) RootDepth() Depth {
+	return g.splitDepth + g.NBits()
 }
 
 func (g *gameState) RootClaim() Claim {
@@ -198,6 +203,10 @@ func (g *gameState) MaxAttackBranch() Depth {
 
 func (g *gameState) Nary() *big.Int {
 	return g.nary
+}
+
+func (g *gameState) NBits() Depth {
+	return Depth(g.nary.BitLen() - 1)
 }
 
 func (g *gameState) SubClaims() map[ClaimID][]common.Hash {

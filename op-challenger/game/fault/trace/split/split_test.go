@@ -166,84 +166,265 @@ func TestBottomProviderAttackingTopLeaf(t *testing.T) {
 func TestFindAncestorProofAtDepth2(t *testing.T) {
 	var nbits uint64 = 2
 	nary := int64(1) << nbits
-	maxGameDepth := types.Depth(4)
+	maxGameDepth := types.Depth(8)
+	splitDepth := types.Depth(4)
 	claimBuilder := test.NewAlphabetClaimBuilder(t, big.NewInt(0), maxGameDepth)
 
 	{ // Attack the left most claim
-		gameBuilder := claimBuilder.GameBuilder2(nary)
+		expectedTopLeafBranch := uint64(0)
+
+		gameBuilder := claimBuilder.GameBuilder2(nary, splitDepth)
 		seq := gameBuilder.Seq()
 		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
 		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
 		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
 
-		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}}
-		seq = seq.Attack2(subClaimsDep4[:], nbits, 0)
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}} // claim at splitDepth
+		seq = seq.Attack2(subClaimsDep4[:], nbits, expectedTopLeafBranch)
 		depth4Claim := gameBuilder.Game.Claims()[2]
 
-		subClaimsDep6 := []common.Hash{{0x07}, {0x08}, {0x09}}
-		seq.Attack2(subClaimsDep6[:], nbits, 0)
+		subClaimsDep6 := []common.Hash{{0x07}} // claim at splitDepth + 1
+		seq = seq.Attack2(subClaimsDep6[:], nbits, 0)
 
-		expectedDaItem := types.DAItem{
-			DaType:   types.CallDataType,
-			DataHash: gameBuilder.Game.AbsolutePrestate().Value.Bytes(),
-			Proof:    []byte{},
+		subClaimsDep8 := []common.Hash{{0x11, 0x12, 0x13}}
+		seq.Attack2(subClaimsDep8[:], nbits, 0)
+		depth8Claim := gameBuilder.Game.Claims()[4]
+
+		game := gameBuilder.Game
+		splitLeaf, err := trace.FindAncestorAtDepth(game, depth8Claim, types.Depth(splitDepth+types.Depth(nbits)))
+		require.NoError(t, err)
+		// Find the ancestor claim at the leaf level splitDepth for the top game.
+		topLeaf, err := game.GetParent(splitLeaf)
+		require.NoError(t, err)
+		require.Equal(t, expectedTopLeafBranch, topLeaf.AttackBranch)
+
+		attackBranch := int64(splitLeaf.AttackBranch)
+		postTraceIdx := new(big.Int).Add(depth4Claim.TraceIndex(splitDepth), big.NewInt(attackBranch))
+		preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
+		expectedPre := types.Claim{}
+		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPre, pre)
+
+		expectedPost := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep4[0],
+				Position: types.NewPositionFromGIndex(postTraceIdx),
+			},
 		}
-		traceIdx := new(big.Int).Sub(depth4Claim.TraceIndex(gameBuilder.Game.MaxDepth()), big.NewInt(1))
-		preStateDaItem, err := findAncestorProofAtDepth2(gameBuilder.Game, depth4Claim, traceIdx)
-		require.Error(t, err)
-		require.Equal(t, expectedDaItem, preStateDaItem)
+		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPost, post)
+	}
+
+	{ // Attack the left claim
+		expectedTopLeafBranch := uint64(1)
+
+		gameBuilder := claimBuilder.GameBuilder2(nary, splitDepth)
+		seq := gameBuilder.Seq()
+		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
+		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
+		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
+
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}} // claim at splitDepth
+		seq = seq.Attack2(subClaimsDep4[:], nbits, expectedTopLeafBranch)
+		depth4Claim := gameBuilder.Game.Claims()[2]
+
+		subClaimsDep6 := []common.Hash{{0x07}} // claim at splitDepth + 1
+		seq = seq.Attack2(subClaimsDep6[:], nbits, 0)
+
+		subClaimsDep8 := []common.Hash{{0x11, 0x12, 0x13}}
+		seq.Attack2(subClaimsDep8[:], nbits, 0)
+		depth8Claim := gameBuilder.Game.Claims()[4]
+
+		game := gameBuilder.Game
+		splitLeaf, err := trace.FindAncestorAtDepth(game, depth8Claim, types.Depth(splitDepth+types.Depth(nbits)))
+		require.NoError(t, err)
+		// Find the ancestor claim at the leaf level splitDepth for the top game.
+		topLeaf, err := game.GetParent(splitLeaf)
+		require.NoError(t, err)
+		require.Equal(t, expectedTopLeafBranch, topLeaf.AttackBranch)
+
+		attackBranch := int64(splitLeaf.AttackBranch)
+		postTraceIdx := new(big.Int).Add(depth4Claim.TraceIndex(splitDepth), big.NewInt(attackBranch))
+		preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
+		expectedPre := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep2[0],
+				Position: types.NewPositionFromGIndex(preTraceIdx),
+			},
+		}
+		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPre, pre)
+
+		expectedPost := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep4[0],
+				Position: types.NewPositionFromGIndex(postTraceIdx),
+			},
+		}
+		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPost, post)
 	}
 
 	{ // Attack the middle claim
-		gameBuilder := claimBuilder.GameBuilder2(nary)
+		expectedTopLeafBranch := uint64(1)
+		expectedSplitBranch := uint64(1)
+
+		gameBuilder := claimBuilder.GameBuilder2(nary, splitDepth)
 		seq := gameBuilder.Seq()
 		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
 		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
 		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
 
-		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}}
-		seq = seq.Attack2(subClaimsDep4[:], nbits, 2)
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}} // claim at splitDepth
+		seq = seq.Attack2(subClaimsDep4[:], nbits, expectedTopLeafBranch)
 		depth4Claim := gameBuilder.Game.Claims()[2]
 
-		subClaimsDep6 := []common.Hash{{0x07}, {0x08}, {0x09}}
-		seq.Attack2(subClaimsDep6[:], nbits, 0)
+		subClaimsDep6 := []common.Hash{{0x07}} // claim at splitDepth + 1
+		seq = seq.Attack2(subClaimsDep6[:], nbits, expectedSplitBranch)
 
-		expectedDaItem := types.DAItem{
-			DaType:   types.CallDataType,
-			DataHash: subClaimsDep2[1][:],
-			Proof:    append(subClaimsDep2[0][:], subClaimsDep2[2][:]...),
-		}
-		traceIdx := new(big.Int).Sub(depth4Claim.TraceIndex(gameBuilder.Game.MaxDepth()), big.NewInt(1))
-		preStateDaItem, err := findAncestorProofAtDepth2(gameBuilder.Game, depth4Claim, traceIdx)
+		subClaimsDep8 := []common.Hash{{0x11, 0x12, 0x13}}
+		seq.Attack2(subClaimsDep8[:], nbits, 0)
+		depth8Claim := gameBuilder.Game.Claims()[4]
+
+		game := gameBuilder.Game
+		splitLeaf, err := trace.FindAncestorAtDepth(game, depth8Claim, types.Depth(splitDepth+types.Depth(nbits)))
 		require.NoError(t, err)
-		require.Equal(t, expectedDaItem, preStateDaItem)
+		// Find the ancestor claim at the leaf level splitDepth for the top game.
+		topLeaf, err := game.GetParent(splitLeaf)
+		require.NoError(t, err)
+		require.Equal(t, expectedTopLeafBranch, topLeaf.AttackBranch)
+		require.Equal(t, expectedSplitBranch, splitLeaf.AttackBranch)
+
+		attackBranch := int64(splitLeaf.AttackBranch)
+		postTraceIdx := new(big.Int).Add(depth4Claim.TraceIndex(splitDepth), big.NewInt(attackBranch))
+		preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
+		expectedPre := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep4[0],
+				Position: types.NewPositionFromGIndex(preTraceIdx),
+			},
+		}
+		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPre, pre)
+
+		expectedPost := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep4[1],
+				Position: types.NewPositionFromGIndex(postTraceIdx),
+			},
+		}
+		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPost, post)
+	}
+
+	{ // Attack the right claim
+		expectedTopLeafBranch := uint64(1)
+		expectedSplitBranch := uint64(3)
+
+		gameBuilder := claimBuilder.GameBuilder2(nary, splitDepth)
+		seq := gameBuilder.Seq()
+		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
+		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
+		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
+
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}} // claim at splitDepth
+		seq = seq.Attack2(subClaimsDep4[:], nbits, expectedTopLeafBranch)
+		depth4Claim := gameBuilder.Game.Claims()[2]
+
+		subClaimsDep6 := []common.Hash{{0x07}} // claim at splitDepth + 1
+		seq = seq.Attack2(subClaimsDep6[:], nbits, expectedSplitBranch)
+
+		subClaimsDep8 := []common.Hash{{0x11, 0x12, 0x13}}
+		seq.Attack2(subClaimsDep8[:], nbits, 0)
+		depth8Claim := gameBuilder.Game.Claims()[4]
+
+		game := gameBuilder.Game
+		splitLeaf, err := trace.FindAncestorAtDepth(game, depth8Claim, types.Depth(splitDepth+types.Depth(nbits)))
+		require.NoError(t, err)
+		// Find the ancestor claim at the leaf level splitDepth for the top game.
+		topLeaf, err := game.GetParent(splitLeaf)
+		require.NoError(t, err)
+		require.Equal(t, expectedTopLeafBranch, topLeaf.AttackBranch)
+		require.Equal(t, expectedSplitBranch, splitLeaf.AttackBranch)
+
+		attackBranch := int64(splitLeaf.AttackBranch)
+		postTraceIdx := new(big.Int).Add(depth4Claim.TraceIndex(splitDepth), big.NewInt(attackBranch))
+		preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
+		expectedPre := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep4[expectedSplitBranch-1],
+				Position: types.NewPositionFromGIndex(preTraceIdx),
+			},
+		}
+		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPre, pre)
+
+		expectedPost := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep2[expectedTopLeafBranch],
+				Position: types.NewPositionFromGIndex(postTraceIdx),
+			},
+		}
+		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPost, post)
 	}
 
 	{ // Attack the right most claim
-		gameBuilder := claimBuilder.GameBuilder2(nary)
+		expectedTopLeafBranch := uint64(3)
+		expectedSplitBranch := uint64(3)
+
+		gameBuilder := claimBuilder.GameBuilder2(nary, splitDepth)
 		seq := gameBuilder.Seq()
 		claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
 		subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}}
 		seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
 
-		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}}
-		seq = seq.Attack2(subClaimsDep4[:], nbits, 3)
+		subClaimsDep4 := []common.Hash{{0x04}, {0x05}, {0x06}} // claim at splitDepth
+		seq = seq.Attack2(subClaimsDep4[:], nbits, expectedTopLeafBranch)
 		depth4Claim := gameBuilder.Game.Claims()[2]
 
-		subClaimsDep6 := []common.Hash{{0x07}, {0x08}, {0x09}}
-		seq.Attack2(subClaimsDep6[:], nbits, 3)
+		subClaimsDep6 := []common.Hash{{0x07}} // claim at splitDepth + 1
+		seq = seq.Attack2(subClaimsDep6[:], nbits, expectedSplitBranch)
 
-		expectedDaItem := types.DAItem{
-			DaType:   types.CallDataType,
-			DataHash: gameBuilder.Game.RootClaim().Value.Bytes(),
-			Proof:    []byte{},
-		}
-		traceIdx := new(big.Int).Add(depth4Claim.TraceIndex(gameBuilder.Game.MaxDepth()), big.NewInt(3))
-		preStateDaItem, err := findAncestorProofAtDepth2(gameBuilder.Game, depth4Claim, traceIdx)
+		subClaimsDep8 := []common.Hash{{0x11, 0x12, 0x13}}
+		seq.Attack2(subClaimsDep8[:], nbits, 0)
+		depth8Claim := gameBuilder.Game.Claims()[4]
+
+		game := gameBuilder.Game
+		splitLeaf, err := trace.FindAncestorAtDepth(game, depth8Claim, types.Depth(splitDepth+types.Depth(nbits)))
 		require.NoError(t, err)
-		require.Equal(t, expectedDaItem, preStateDaItem)
-	}
+		// Find the ancestor claim at the leaf level splitDepth for the top game.
+		topLeaf, err := game.GetParent(splitLeaf)
+		require.NoError(t, err)
+		require.Equal(t, expectedTopLeafBranch, topLeaf.AttackBranch)
+		require.Equal(t, expectedSplitBranch, splitLeaf.AttackBranch)
 
+		attackBranch := int64(splitLeaf.AttackBranch)
+		postTraceIdx := new(big.Int).Add(depth4Claim.TraceIndex(splitDepth), big.NewInt(attackBranch))
+		preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
+		expectedPre := types.Claim{
+			ClaimData: types.ClaimData{
+				Value:    subClaimsDep4[expectedSplitBranch-1],
+				Position: types.NewPositionFromGIndex(preTraceIdx),
+			},
+		}
+		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPre, pre)
+
+		expectedPost := game.RootClaim()
+		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		require.NoError(t, err)
+		require.Equal(t, expectedPost, post)
+	}
 }
 
 func attackTopLeafGIndex8(_ *testing.T, gameBuilder *test.GameBuilder) (ref types.Claim, pos types.Position, expectPre types.Claim, expectPost types.Claim) {
