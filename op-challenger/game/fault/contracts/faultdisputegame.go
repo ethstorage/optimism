@@ -477,22 +477,22 @@ func (f *FaultDisputeGameContractLatest) GetSubClaims(ctx context.Context, block
 		return nil, fmt.Errorf("failed to decode tx: %w", err)
 	}
 
-	var subClaims []common.Hash
+	var subValues []common.Hash
 
 	if len(txn.BlobHashes()) > 0 {
-		// todo: fetch Blobs and unpack it into subClaims
+		// todo: fetch Blobs and unpack it into subValues
 		return nil, fmt.Errorf("blob tx hasn't been supported")
 	} else {
 		inputMap, err := txCall.UnpackCallData(txn)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unpack tx resp: %w", err)
 		}
-		// todo: replace claim with nary-subclaims
+		// todo: replace claim with nary-subValues
 		claim := *abi.ConvertType(inputMap[subClaimField], new([32]byte)).(*[32]byte)
-		subClaims = append(subClaims, claim)
+		subValues = append(subValues, claim)
 	}
 
-	return subClaims, nil
+	return subValues, nil
 }
 
 func (f *FaultDisputeGameContractLatest) IsResolved(ctx context.Context, block rpcblock.Block, claims ...types.Claim) ([]bool, error) {

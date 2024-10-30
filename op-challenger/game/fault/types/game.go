@@ -4,14 +4,12 @@ import (
 	"errors"
 	"math/big"
 	"time"
-
-	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
 	// ErrClaimNotFound is returned when a claim does not exist in the game state.
 	ErrClaimNotFound     = errors.New("claim not found in game state")
-	ErrSubClaimsNotFound = errors.New("subclaims not found in game state")
+	ErrSubClaimsNotFound = errors.New("subValues not found in game state")
 )
 
 // Game is an interface that represents the state of a dispute game.
@@ -50,8 +48,6 @@ type Game interface {
 	Nary() *big.Int
 	// MaxAttackBranch in multi-section fault proof
 	MaxAttackBranch() Depth
-	SubClaims() map[ClaimID][]common.Hash
-	GetSubClaims(claim Claim) ([]common.Hash, error)
 	NBits() Depth
 }
 
@@ -64,7 +60,6 @@ type gameState struct {
 	depth      Depth
 	splitDepth Depth
 	nary       *big.Int
-	subclaims  map[ClaimID][]common.Hash
 }
 
 // NewGameState returns a new game state.
@@ -81,7 +76,7 @@ func NewGameState(claims []Claim, depth Depth) *gameState {
 	}
 }
 
-func NewGameState2(claims []Claim, depth Depth, splitDepth Depth, nary int64, subclaims map[ClaimID][]common.Hash) *gameState {
+func NewGameState2(claims []Claim, depth Depth, splitDepth Depth, nary int64) *gameState {
 	claimIDs := make(map[ClaimID]bool)
 	for _, claim := range claims {
 		claimIDs[claim.ID()] = true
@@ -92,7 +87,6 @@ func NewGameState2(claims []Claim, depth Depth, splitDepth Depth, nary int64, su
 		depth:      depth,
 		splitDepth: splitDepth,
 		nary:       big.NewInt(nary),
-		subclaims:  subclaims,
 	}
 }
 
@@ -207,16 +201,4 @@ func (g *gameState) Nary() *big.Int {
 
 func (g *gameState) NBits() Depth {
 	return Depth(g.nary.BitLen() - 1)
-}
-
-func (g *gameState) SubClaims() map[ClaimID][]common.Hash {
-	return g.subclaims
-}
-
-func (g *gameState) GetSubClaims(claim Claim) ([]common.Hash, error) {
-	subClaims := g.subclaims[claim.ID()]
-	if subClaims == nil {
-		return nil, ErrSubClaimsNotFound
-	}
-	return subClaims, nil
 }

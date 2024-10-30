@@ -99,7 +99,7 @@ func (o *OutputTraceProvider) GetStepData(_ context.Context, _ types.Position) (
 }
 
 // GetStepData2 is not supported in the [OutputTraceProvider].
-func (o *OutputTraceProvider) GetStepData2(_ context.Context, _ types.Position, _ types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+func (o *OutputTraceProvider) GetStepData2(_ context.Context, _ types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
 	return nil, nil, nil, ErrGetStepData
 }
 

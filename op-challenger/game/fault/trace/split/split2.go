@@ -40,14 +40,11 @@ func findAncestorWithTraceIndex2(game types.Game, ref types.Claim, depth types.D
 	}
 
 	branch := new(big.Int).Div(new(big.Int).Sub(traceIdx, minTraceIndex), new(big.Int).Lsh(big.NewInt(1), uint(depth-ancestor.Depth()))).Int64()
-	subclaims, err := game.GetSubClaims(ancestor)
-	if err != nil {
-		return types.Claim{}, fmt.Errorf("failed to get subclaims of claim %v: %w", ref.ContractIndex, err)
-	}
+	subValues := ancestor.SubValues()
 
 	claim := types.Claim{
 		ClaimData: types.ClaimData{
-			Value:    subclaims[branch],
+			Value:    subValues[branch],
 			Position: types.NewPositionFromGIndex(traceIdx),
 		},
 	}

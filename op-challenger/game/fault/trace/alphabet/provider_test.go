@@ -161,6 +161,72 @@ func TestAlphabetProvider_GetStepData(t *testing.T) {
 	}
 }
 
+// TestAlphabetProvider_GetStepData tests the GetStepData function with traceOffSetDepth != 4.
+func TestAlphabetProvider_GetStepData2(t *testing.T) {
+	traceDepth := types.Depth(2)
+	rootDepth := types.Depth(3)
+	startingL2BlockNumber := big.NewInt(1)
+	ap := NewTraceProvider2(startingL2BlockNumber, traceDepth, rootDepth)
+	key := preimage.LocalIndexKey(L2ClaimBlockNumberLocalIndex).PreimageKey()
+	expectedPreimageData := types.NewPreimageOracleData(key[:], startingL2BlockNumber.Bytes(), 0)
+
+	initialTraceIndex := new(big.Int).Lsh(ap.startingBlockNumber, uint(ap.rootDepth))
+	initialClaim := new(big.Int).Add(absolutePrestateInt, initialTraceIndex)
+
+	tests := []struct {
+		name                 string
+		indexAtDepth         *big.Int
+		expectedResult       []byte
+		expectedPreimageData *types.PreimageOracleData
+		expectedError        error
+	}{
+		{
+			name:                 "AbsolutePrestate",
+			indexAtDepth:         big.NewInt(0),
+			expectedResult:       absolutePrestate,
+			expectedPreimageData: expectedPreimageData,
+			expectedError:        nil,
+		},
+		{
+			name:                 "SecondStep",
+			indexAtDepth:         big.NewInt(1),
+			expectedResult:       BuildAlphabetPreimage(new(big.Int).Add(initialTraceIndex, big.NewInt(1)), new(big.Int).Add(initialClaim, big.NewInt(1))),
+			expectedPreimageData: expectedPreimageData,
+			expectedError:        nil,
+		},
+		{
+			name:                 "LastStep",
+			indexAtDepth:         big.NewInt(4),
+			expectedResult:       BuildAlphabetPreimage(new(big.Int).Add(initialTraceIndex, big.NewInt(4)), new(big.Int).Add(initialClaim, big.NewInt(4))),
+			expectedPreimageData: expectedPreimageData,
+			expectedError:        nil,
+		},
+		{
+			name:                 "IndexTooLarge",
+			indexAtDepth:         big.NewInt(5),
+			expectedResult:       nil,
+			expectedPreimageData: nil,
+			expectedError:        ErrIndexTooLarge,
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+
+			result, proof, data, err := ap.GetStepData(context.Background(), types.NewPosition(traceDepth, test.indexAtDepth))
+			require.Equal(t, test.expectedResult, result)
+			require.Empty(t, proof)
+			require.Equal(t, test.expectedPreimageData, data)
+			if test.expectedError != nil {
+				require.ErrorIs(t, err, test.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 // TestAlphabetProvider_Get tests the Get function.
 func TestAlphabetProvider_Get(t *testing.T) {
 	tests := []struct {

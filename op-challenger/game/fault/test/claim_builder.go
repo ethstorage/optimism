@@ -23,6 +23,7 @@ type claimCfg struct {
 	clockTimestamp time.Time
 	clockDuration  time.Duration
 	branch         uint64
+	subValues      *[]common.Hash
 }
 
 func newClaimCfg(opts ...ClaimOpt) *claimCfg {
@@ -79,6 +80,12 @@ func WithClock(timestamp time.Time, duration time.Duration) ClaimOpt {
 func WithBranch(branch uint64) ClaimOpt {
 	return claimOptFn(func(cfg *claimCfg) {
 		cfg.branch = branch
+	})
+}
+
+func WithSubValues(subValues *[]common.Hash) ClaimOpt {
+	return claimOptFn(func(cfg *claimCfg) {
+		cfg.subValues = subValues
 	})
 }
 
@@ -160,6 +167,9 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 	} else {
 		claim.Value = c.CorrectClaimAtPosition(pos)
 	}
+	if cfg.subValues != nil {
+		claim.SetSubValues(cfg.subValues)
+	}
 	claim.ParentContractIndex = cfg.parentIdx
 	return claim
 }
@@ -202,8 +212,8 @@ func GetClaimsHash(values []common.Hash) common.Hash {
 	return hashes[0]
 }
 
-func (c *ClaimBuilder) AttackClaim2(claim types.Claim, subClaims []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) types.Claim {
+func (c *ClaimBuilder) AttackClaim2(claim types.Claim, subValues []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) types.Claim {
 	pos := claim.Position.Attack2(nbits, branch)
-	topClaim := GetClaimsHash(subClaims)
-	return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithValue(topClaim), WithBranch(branch)}, opts...)...)
+	topClaim := GetClaimsHash(subValues)
+	return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithValue(topClaim), WithBranch(branch), WithSubValues(&subValues)}, opts...)...)
 }

@@ -30,9 +30,9 @@ var _ types.TraceProvider = (*AlphabetTraceProvider)(nil)
 type AlphabetTraceProvider struct {
 	alphabetPrestateProvider
 	startingBlockNumber *big.Int
-	depth               types.Depth
+	depth               types.Depth // traceDepth
 	maxLen              uint64
-	splitDepth          types.Depth
+	rootDepth           types.Depth // splitDepth + Nbit
 }
 
 // NewTraceProvider returns a new [AlphabetProvider].
@@ -41,6 +41,7 @@ func NewTraceProvider(startingBlockNumber *big.Int, depth types.Depth) *Alphabet
 		startingBlockNumber: startingBlockNumber,
 		depth:               depth,
 		maxLen:              1 << depth,
+		rootDepth:           types.Depth(4),
 	}
 }
 
@@ -54,7 +55,7 @@ func (ap *AlphabetTraceProvider) GetStepData(ctx context.Context, pos types.Posi
 	if traceIndex.Cmp(new(big.Int).SetUint64(ap.maxLen)) > 0 {
 		return nil, nil, nil, fmt.Errorf("%w depth: %v index: %v max: %v", ErrIndexTooLarge, ap.depth, traceIndex, ap.maxLen)
 	}
-	initialTraceIndex := new(big.Int).Lsh(ap.startingBlockNumber, 4)
+	initialTraceIndex := new(big.Int).Lsh(ap.startingBlockNumber, uint(ap.rootDepth))
 	initialClaim := new(big.Int).Add(absolutePrestateInt, initialTraceIndex)
 	newTraceIndex := new(big.Int).Add(initialTraceIndex, traceIndex)
 	newClaim := new(big.Int).Add(initialClaim, traceIndex)

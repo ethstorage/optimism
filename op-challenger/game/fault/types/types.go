@@ -43,7 +43,9 @@ type PreimageOracleData struct {
 	BlobProof      []byte
 
 	// multi-sec proof for VM step
-	StepProof StepProofData
+	DAData DAData
+	// daitem for addLocalData
+	DAItem DAItem
 }
 
 type DaType uint32
@@ -59,9 +61,14 @@ type DAItem struct {
 	Proof    []byte
 }
 
-type StepProofData struct {
+type DAData struct {
 	Prestate  DAItem
 	PostState DAItem
+}
+
+type StepProof struct {
+	DAData
+	VmProof []byte
 }
 
 // GetIdent returns the ident for the preimage oracle data.
@@ -154,7 +161,7 @@ type TraceProvider interface {
 	// and any pre-image data that needs to be loaded into the oracle prior to execution (may be nil)
 	// The prestate returned from GetStepData for trace 10 should be the pre-image of the claim from trace 9
 	GetStepData(ctx context.Context, i Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
-	GetStepData2(ctx context.Context, i Position, parent Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
+	GetStepData2(ctx context.Context, i Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
 
 	// GetL2BlockNumberChallenge returns the data required to prove the correct L2 block number of the root claim.
 	// Returns ErrL2BlockNumberValid if the root claim is known to come from the same block as the claimed L2 block.
@@ -194,8 +201,8 @@ type Claim struct {
 	// for claims that have not made it to the contract.
 	ContractIndex       int
 	ParentContractIndex int
-	// Multi-section extended subclaims
-	subclaims    *[]ClaimID
+	// Multi-section extended subValues
+	subValues    *[]common.Hash
 	AttackBranch uint64
 }
 
@@ -213,12 +220,12 @@ func (c Claim) IsRoot() bool {
 }
 
 // IsRoot returns true if this claim is the root claim.
-func (c Claim) SetSubClaims(subClaims *[]ClaimID) {
-	c.subclaims = subClaims
+func (c *Claim) SetSubValues(subValues *[]common.Hash) {
+	c.subValues = subValues
 }
 
-func (c Claim) SubClaims() []ClaimID {
-	return append([]ClaimID{}, *c.subclaims...)
+func (c Claim) SubValues() []common.Hash {
+	return append([]common.Hash{}, *c.subValues...)
 }
 
 // Clock tracks the chess clock for a claim.

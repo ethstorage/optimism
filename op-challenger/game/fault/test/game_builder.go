@@ -32,7 +32,7 @@ func (c *ClaimBuilder) GameBuilder(rootOpts ...ClaimOpt) *GameBuilder {
 func (c *ClaimBuilder) GameBuilder2(nary int64, splitDepth types.Depth, rootOpts ...ClaimOpt) *GameBuilder {
 	return &GameBuilder{
 		builder: c,
-		Game:    types.NewGameState2([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth, splitDepth, nary, make(map[types.ClaimID][]common.Hash)),
+		Game:    types.NewGameState2([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth, splitDepth, nary),
 	}
 }
 
@@ -74,17 +74,15 @@ func (s *GameBuilderSeq) addClaimToGame(claim *types.Claim) {
 	s.gameBuilder.Game = types.NewGameState(claims, s.builder.maxDepth)
 }
 
-func (s *GameBuilderSeq) addClaimAndSubClaimsToGame(claim *types.Claim, subClaims []common.Hash) {
+func (s *GameBuilderSeq) addClaimToGame2(claim *types.Claim) {
 	if s.gameBuilder.Game.IsDuplicate(*claim) {
 		return
 	}
 	claim.ContractIndex = len(s.gameBuilder.Game.Claims())
 	claims := append(s.gameBuilder.Game.Claims(), *claim)
-	allSubClaims := s.gameBuilder.Game.SubClaims()
-	allSubClaims[claim.ID()] = subClaims
 	splitDepth := s.gameBuilder.Game.SplitDepth()
 	nary := s.gameBuilder.Game.Nary().Int64()
-	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, splitDepth, nary, allSubClaims)
+	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, splitDepth, nary)
 }
 
 func (s *GameBuilderSeq) Attack(opts ...ClaimOpt) *GameBuilderSeq {
@@ -97,9 +95,9 @@ func (s *GameBuilderSeq) Attack(opts ...ClaimOpt) *GameBuilderSeq {
 	}
 }
 
-func (s *GameBuilderSeq) Attack2(subClaims []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) *GameBuilderSeq {
-	claim := s.builder.AttackClaim2(s.lastClaim, subClaims, nbits, branch, opts...)
-	s.addClaimAndSubClaimsToGame(&claim, subClaims)
+func (s *GameBuilderSeq) Attack2(subValues []common.Hash, nbits uint64, branch uint64, opts ...ClaimOpt) *GameBuilderSeq {
+	claim := s.builder.AttackClaim2(s.lastClaim, subValues, nbits, branch, opts...)
+	s.addClaimToGame2(&claim)
 	return &GameBuilderSeq{
 		gameBuilder: s.gameBuilder,
 		builder:     s.builder,
