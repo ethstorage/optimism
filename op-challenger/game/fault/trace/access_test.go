@@ -119,20 +119,21 @@ func TestGetStepData2(t *testing.T) {
 	pos := claim.Position.MoveRight()
 
 	accessor := &Accessor{
-		selector: func(ctx context.Context, actualGame types.Game, ref types.Claim, pos types.Position) (types.TraceProvider, error) {
+		selector: nil,
+		selector2: func(ctx context.Context, actualGame types.Game, ref types.Claim, pos types.Position) (types.TraceProvider, types.DAData, error) {
 			require.Equal(t, game, actualGame)
 			require.Equal(t, claim, ref)
-			return translatedTracerovider, nil
+			return translatedTracerovider, types.DAData{}, nil
 		},
 	}
 
 	expectedStateDA := types.DAData{
-		Prestate: types.DAItem{
+		PreDA: types.DAItem{
 			DaType:   types.CallDataType,
 			DataHash: subClaimsDep8[0][:],
 			Proof:    append(subClaimsDep8[1][:], subClaimsDep8[2][:]...),
 		},
-		PostState: types.DAItem{
+		PostDA: types.DAItem{
 			DaType:   types.CallDataType,
 			DataHash: subClaimsDep8[1][:],
 			Proof:    append(subClaimsDep8[0][:], subClaimsDep8[2][:]...),
@@ -140,7 +141,7 @@ func TestGetStepData2(t *testing.T) {
 	}
 
 	expectedPrestate, expectedProofData, expectedPreimageData, err := translatedTracerovider.GetStepData(ctx, pos)
-	expectedPreimageData.DAData = expectedStateDA
+	expectedPreimageData.VMStateDA = expectedStateDA
 	require.NoError(t, err)
 
 	actualPrestate, actualProofData, actualPreimageData, err := accessor.GetStepData2(ctx, game, claim, pos)
@@ -149,6 +150,70 @@ func TestGetStepData2(t *testing.T) {
 	require.Equal(t, expectedPrestate, actualPrestate)
 	require.Equal(t, expectedProofData, actualProofData)
 	require.Equal(t, expectedPreimageData, actualPreimageData)
+}
+
+func TestGetStepDataWithStartingOutputRoot(t *testing.T) {
+	ctx := context.Background()
+	traceDepth := types.Depth(4)
+	splitDepth := types.Depth(2)
+	nbits := uint64(2)
+	nary := int64(1) << nbits
+	maxDepth := traceDepth + splitDepth + types.Depth(nbits)
+	pre := true
+	provider := test.NewAlphabetWithPreoutputRootProvider(t, big.NewInt(0), traceDepth, splitDepth, pre, nil)
+	translatedTracerovider := Translate(provider, splitDepth+types.Depth(nary))
+
+	claimBuilder := test.NewAlphabetClaimBuilder(t, big.NewInt(0), maxDepth)
+	gameBuilder := claimBuilder.GameBuilder2(nary, splitDepth)
+	seq := gameBuilder.Seq()
+	claimBuilder.CreateRootClaim(test.WithValue(common.Hash{0x00}))
+	subClaimsDep2 := []common.Hash{{0x01}, {0x02}, {0x03}} // claim at splitDepth
+	seq = seq.Attack2(subClaimsDep2[:], nbits, 0)
+	// traces
+	subClaimsDep4 := []common.Hash{{0x04}}
+	seq = seq.Attack2(subClaimsDep4[:], nbits, 0)
+	subClaimsDep6 := []common.Hash{{0x61}, {0x62}, {0x63}}
+	seq = seq.Attack2(subClaimsDep6[:], nbits, 0)
+	subClaimsDep8 := []common.Hash{{0x81}, {0x82}, {0x83}}
+	seq.Attack2(subClaimsDep8[:], nbits, 1)
+
+	game := gameBuilder.Game
+	claim := game.Claims()[len(game.Claims())-1]
+
+	pos := claim.Position.MoveRight()
+
+	outputRootDA := types.DAData{
+		PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: []byte{0x01}},
+		PostDA: types.DAItem{DaType: types.CallDataType, DataHash: []byte{0x02}},
+	}
+
+	preAccessor := &Accessor{
+		selector: nil,
+		selector2: func(ctx context.Context, actualGame types.Game, ref types.Claim, pos types.Position) (types.TraceProvider, types.DAData, error) {
+			require.Equal(t, game, actualGame)
+			require.Equal(t, claim, ref)
+			return translatedTracerovider, outputRootDA, nil
+		},
+	}
+
+	_, _, actualPreimageData, err := preAccessor.GetStepData2(ctx, game, claim, pos)
+	require.NoError(t, err)
+	require.Equal(t, outputRootDA.PreDA, actualPreimageData.OutputRootDAItem)
+
+	pre = false
+	provider = test.NewAlphabetWithPreoutputRootProvider(t, big.NewInt(0), traceDepth, splitDepth, pre, nil)
+	translatedTracerovider = Translate(provider, splitDepth+types.Depth(nary))
+	postAccessor := &Accessor{
+		selector: nil,
+		selector2: func(ctx context.Context, actualGame types.Game, ref types.Claim, pos types.Position) (types.TraceProvider, types.DAData, error) {
+			require.Equal(t, game, actualGame)
+			require.Equal(t, claim, ref)
+			return translatedTracerovider, outputRootDA, nil
+		},
+	}
+	_, _, actualPreimageData, err = postAccessor.GetStepData2(ctx, game, claim, pos)
+	require.NoError(t, err)
+	require.Equal(t, outputRootDA.PostDA, actualPreimageData.OutputRootDAItem)
 }
 
 func TestFindAncestorProofAtDepth2(t *testing.T) {

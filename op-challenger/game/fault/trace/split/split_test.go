@@ -202,9 +202,11 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 		postTraceIdx := new(big.Int).Add(depth4Claim.TraceIndex(splitDepth), big.NewInt(attackBranch))
 		preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 		expectedPre := types.Claim{}
-		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		expectedPreDA := types.DAItem{}
+		pre, preDA, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPre, pre)
+		require.Equal(t, expectedPreDA, preDA)
 
 		expectedPost := types.Claim{
 			ClaimData: types.ClaimData{
@@ -212,9 +214,16 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(postTraceIdx),
 			},
 		}
-		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+
+		expectedPostDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep4[0][:],
+			Proof:    append(subClaimsDep4[1][:], subClaimsDep4[2][:]...),
+		}
+		post, postDA, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPost, post)
+		require.Equal(t, expectedPostDA, postDA)
 	}
 
 	{ // Attack the left claim
@@ -254,9 +263,15 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(preTraceIdx),
 			},
 		}
-		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		expectedPreDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep2[0][:],
+			Proof:    append(subClaimsDep2[1][:], subClaimsDep2[2][:]...),
+		}
+		pre, preDA, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPre, pre)
+		require.Equal(t, expectedPreDA, preDA)
 
 		expectedPost := types.Claim{
 			ClaimData: types.ClaimData{
@@ -264,9 +279,15 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(postTraceIdx),
 			},
 		}
-		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		expectedPostDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep4[0][:],
+			Proof:    append(subClaimsDep4[1][:], subClaimsDep4[2][:]...),
+		}
+		post, postDA, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPost, post)
+		require.Equal(t, expectedPostDA, postDA)
 	}
 
 	{ // Attack the middle claim
@@ -308,9 +329,15 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(preTraceIdx),
 			},
 		}
-		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		expectedPreDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep4[0][:],
+			Proof:    append(subClaimsDep4[1][:], subClaimsDep4[2][:]...),
+		}
+		pre, preDA, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPre, pre)
+		require.Equal(t, expectedPreDA, preDA)
 
 		expectedPost := types.Claim{
 			ClaimData: types.ClaimData{
@@ -318,9 +345,15 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(postTraceIdx),
 			},
 		}
-		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		expectedPostDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep4[1][:],
+			Proof:    append(subClaimsDep4[0][:], subClaimsDep4[2][:]...),
+		}
+		post, postDA, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPost, post)
+		require.Equal(t, expectedPostDA, postDA)
 	}
 
 	{ // Attack the right claim
@@ -362,9 +395,15 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(preTraceIdx),
 			},
 		}
-		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		expectedPreDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep4[expectedSplitBranch-1][:],
+			Proof:    append(subClaimsDep4[expectedSplitBranch-3][:], subClaimsDep4[expectedSplitBranch-2][:]...),
+		}
+		pre, preDA, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPre, pre)
+		require.Equal(t, expectedPreDA, preDA)
 
 		expectedPost := types.Claim{
 			ClaimData: types.ClaimData{
@@ -372,9 +411,15 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(postTraceIdx),
 			},
 		}
-		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		expectedPostDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep2[expectedTopLeafBranch][:],
+			Proof:    append(subClaimsDep2[expectedTopLeafBranch-1][:], subClaimsDep2[expectedTopLeafBranch+1][:]...),
+		}
+		post, postDA, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPost, post)
+		require.Equal(t, expectedPostDA, postDA)
 	}
 
 	{ // Attack the right most claim
@@ -416,14 +461,22 @@ func TestFindAncestorProofAtDepth2(t *testing.T) {
 				Position: types.NewPositionFromGIndex(preTraceIdx),
 			},
 		}
-		pre, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
+		expectedPreDA := types.DAItem{
+			DaType:   types.CallDataType,
+			DataHash: subClaimsDep4[expectedSplitBranch-1][:],
+			Proof:    append(subClaimsDep4[expectedSplitBranch-3][:], subClaimsDep4[expectedSplitBranch-2][:]...),
+		}
+		pre, preDA, err := findAncestorWithTraceIndex2(game, topLeaf, splitDepth, preTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPre, pre)
+		require.Equal(t, expectedPreDA, preDA)
 
 		expectedPost := game.RootClaim()
-		post, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
+		expectedPostDA := types.DAItem{}
+		post, postDA, err := findAncestorWithTraceIndex2(gameBuilder.Game, topLeaf, splitDepth, postTraceIdx)
 		require.NoError(t, err)
 		require.Equal(t, expectedPost, post)
+		require.Equal(t, expectedPostDA, postDA)
 	}
 }
 

@@ -17,11 +17,12 @@ func NewSimpleTraceAccessor(trace types.TraceProvider) *Accessor {
 type ProviderSelector func(ctx context.Context, game types.Game, ref types.Claim, pos types.Position) (types.TraceProvider, error)
 
 func NewAccessor(selector ProviderSelector) *Accessor {
-	return &Accessor{selector}
+	return &Accessor{selector, nil}
 }
 
 type Accessor struct {
-	selector ProviderSelector
+	selector  ProviderSelector
+	selector2 ProviderSelector2
 }
 
 func (t *Accessor) Get(ctx context.Context, game types.Game, ref types.Claim, pos types.Position) (common.Hash, error) {

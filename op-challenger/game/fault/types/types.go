@@ -43,9 +43,9 @@ type PreimageOracleData struct {
 	BlobProof      []byte
 
 	// multi-sec proof for VM step
-	DAData DAData
+	VMStateDA DAData
 	// daitem for addLocalData
-	DAItem DAItem
+	OutputRootDAItem DAItem
 }
 
 type DaType uint32
@@ -61,9 +61,10 @@ type DAItem struct {
 	Proof    []byte
 }
 
+// Provide DA proof for addLocalData's outputRoot and stepV2's stateRoot
 type DAData struct {
-	Prestate  DAItem
-	PostState DAItem
+	PreDA  DAItem
+	PostDA DAItem
 }
 
 type StepProof struct {

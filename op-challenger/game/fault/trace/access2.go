@@ -6,7 +6,19 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
+	preimage "github.com/ethereum-optimism/optimism/op-preimage"
 )
+
+type ProviderSelector2 func(ctx context.Context, game types.Game, ref types.Claim, pos types.Position) (types.TraceProvider, types.DAData, error)
+
+const (
+	LocalPreimageKeyStartingOutputRoot = 0x02
+	LocalPreimageKeyDisputedOutputRoot = 0x03
+)
+
+func NewAccessor2(selector2 ProviderSelector2) *Accessor {
+	return &Accessor{nil, selector2}
+}
 
 // Get the traceIdx's accestor claims hash and its merkel proof in subValues. traceIdx can be ref's traceIdx ±1.
 // Params:
@@ -98,7 +110,7 @@ func findAncestorProofAtDepth2(ctx context.Context, provider types.TraceProvider
 func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.Claim, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
 	// Get oracle data
 	// prestate, proofData, preimageData, err = t.GetStepData(ctx, game, ref, pos)
-	provider, err := t.selector(ctx, game, ref, pos)
+	provider, outputRootDA, err := t.selector2(ctx, game, ref, pos)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -122,11 +134,23 @@ func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.
 		return nil, nil, nil, fmt.Errorf("failed to get postStateDaItem at trace index %v: %w", postTraceIdx, err)
 	}
 	stateData := types.DAData{
-		Prestate:  preStateDaItem,
-		PostState: postStateDaItem,
+		PreDA:  preStateDaItem,
+		PostDA: postStateDaItem,
 	}
 
-	preimageData.DAData = stateData
+	preimageData.VMStateDA = stateData
+
+	keyType := preimage.KeyType(preimageData.OracleKey[0])
+	if keyType == preimage.LocalKeyType {
+		ident := preimageData.GetIdent()
+		addlocalDataDaItem := types.DAItem{}
+		if ident.Cmp(big.NewInt(LocalPreimageKeyStartingOutputRoot)) == 0 {
+			addlocalDataDaItem = outputRootDA.PreDA
+		} else if ident.Cmp(big.NewInt(LocalPreimageKeyDisputedOutputRoot)) == 0 {
+			addlocalDataDaItem = outputRootDA.PostDA
+		}
+		preimageData.OutputRootDAItem = addlocalDataDaItem
+	}
 	return prestate, proofData, preimageData, nil
 }
 
