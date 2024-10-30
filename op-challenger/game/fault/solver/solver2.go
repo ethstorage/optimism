@@ -52,6 +52,3 @@ func (s *claimSolver) AttemptStep2(ctx context.Context, game types.Game, claim t
 		OracleData: oracleData,
 	}, nil
 }
-
-
-func findPrestateItem()

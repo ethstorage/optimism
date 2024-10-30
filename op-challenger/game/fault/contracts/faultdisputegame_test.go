@@ -390,7 +390,7 @@ func TestGetSubClaims(t *testing.T) {
 				require.NoError(t, err)
 				stubRpc.SetTxResponse(txHash, packed)
 
-				claims, err := game.GetSubClaims(context.Background(), block, &claim0)
+				claims, err := game.GetSubValues(context.Background(), block, &claim0)
 				require.NoError(t, err)
 				require.Equal(t, 1, len(claims))
 				require.Equal(t, claim0.ClaimData.Value, claims[0])
