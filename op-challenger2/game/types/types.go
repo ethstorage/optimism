@@ -48,9 +48,9 @@ type GameMetadata struct {
 	Proxy     common.Address
 }
 
-func GameStatusToOPChallenger2GameStatus(claim gameTypes.GameStatus) GameStatus {
-	var castedClaim GameStatus
-	jsonBytes, _ := json.Marshal(claim)
-	json.Unmarshal(jsonBytes, &castedClaim)
-	return castedClaim
+func GameStatusToOPChallenger2GameStatus(s gameTypes.GameStatus) GameStatus {
+	var castedStatus GameStatus
+	jsonBytes, _ := json.Marshal(s)
+	json.Unmarshal(jsonBytes, &castedStatus)
+	return castedStatus
 }
