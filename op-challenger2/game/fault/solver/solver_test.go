@@ -164,7 +164,7 @@ func TestAttemptStep(t *testing.T) {
 		t.Run(tableTest.name, func(t *testing.T) {
 			builder := claimBuilder.GameBuilder(faulttest.WithInvalidValue(tableTest.agreeWithOutputRoot))
 			tableTest.setupGame(builder)
-			alphabetSolver := newClaimSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()))
+			alphabetSolver := newClaimSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()), types.CallDataType)
 			game := builder.Game
 			claims := game.Claims()
 			lastClaim := claims[len(claims)-1]

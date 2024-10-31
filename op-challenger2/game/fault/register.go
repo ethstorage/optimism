@@ -73,23 +73,25 @@ func RegisterGameTypes(
 	}
 	syncValidator := newSyncStatusValidator(rollupClient)
 
+	datype := faultTypes.NewDaType(cfg.DAType)
+
 	if cfg.TraceTypeEnabled(config.TraceTypeCannon) {
-		if err := registerCannon(faultTypes.CannonGameType, registry, oracles, ctx, systemClock, l1Clock, logger, m, cfg, syncValidator, rollupClient, txSender, gameFactory, caller, l2Client, l1HeaderSource, selective, claimants); err != nil {
+		if err := registerCannon(faultTypes.CannonGameType, registry, oracles, ctx, systemClock, l1Clock, logger, m, cfg, syncValidator, rollupClient, txSender, gameFactory, caller, l2Client, l1HeaderSource, selective, claimants, datype); err != nil {
 			return nil, fmt.Errorf("failed to register cannon game type: %w", err)
 		}
 	}
 	if cfg.TraceTypeEnabled(config.TraceTypePermissioned) {
-		if err := registerCannon(faultTypes.PermissionedGameType, registry, oracles, ctx, systemClock, l1Clock, logger, m, cfg, syncValidator, rollupClient, txSender, gameFactory, caller, l2Client, l1HeaderSource, selective, claimants); err != nil {
+		if err := registerCannon(faultTypes.PermissionedGameType, registry, oracles, ctx, systemClock, l1Clock, logger, m, cfg, syncValidator, rollupClient, txSender, gameFactory, caller, l2Client, l1HeaderSource, selective, claimants, datype); err != nil {
 			return nil, fmt.Errorf("failed to register permissioned cannon game type: %w", err)
 		}
 	}
 	if cfg.TraceTypeEnabled(config.TraceTypeAsterisc) {
-		if err := registerAsterisc(faultTypes.AsteriscGameType, registry, oracles, ctx, systemClock, l1Clock, logger, m, cfg, syncValidator, rollupClient, txSender, gameFactory, caller, l2Client, l1HeaderSource, selective, claimants); err != nil {
+		if err := registerAsterisc(faultTypes.AsteriscGameType, registry, oracles, ctx, systemClock, l1Clock, logger, m, cfg, syncValidator, rollupClient, txSender, gameFactory, caller, l2Client, l1HeaderSource, selective, claimants, datype); err != nil {
 			return nil, fmt.Errorf("failed to register asterisc game type: %w", err)
 		}
 	}
 	if cfg.TraceTypeEnabled(config.TraceTypeAlphabet) {
-		if err := registerAlphabet(registry, oracles, ctx, systemClock, l1Clock, logger, m, syncValidator, rollupClient, l2Client, txSender, gameFactory, caller, l1HeaderSource, selective, claimants); err != nil {
+		if err := registerAlphabet(registry, oracles, ctx, systemClock, l1Clock, logger, m, syncValidator, rollupClient, l2Client, txSender, gameFactory, caller, l1HeaderSource, selective, claimants, datype); err != nil {
 			return nil, fmt.Errorf("failed to register alphabet game type: %w", err)
 		}
 	}
@@ -113,6 +115,7 @@ func registerAlphabet(
 	l1HeaderSource L1HeaderSource,
 	selective bool,
 	claimants []common.Address,
+	daType faultTypes.DAType,
 ) error {
 	playerCreator := func(game types.GameMetadata, dir string) (scheduler.GamePlayer, error) {
 		contract, err := contracts.NewFaultDisputeGameContract(ctx, m, game.Proxy, caller)
@@ -146,7 +149,7 @@ func registerAlphabet(
 		}
 		prestateValidator := NewPrestateValidator("alphabet", contract.GetAbsolutePrestateHash, alphabet.PrestateProvider)
 		startingValidator := NewPrestateValidator("output root", contract.GetStartingRootHash, prestateProvider)
-		return NewGamePlayer(ctx, systemClock, l1Clock, logger, m, dir, game.Proxy, txSender, contract, syncValidator, []Validator{prestateValidator, startingValidator}, creator, l1HeaderSource, selective, claimants)
+		return NewGamePlayer(ctx, systemClock, l1Clock, logger, m, dir, game.Proxy, txSender, contract, syncValidator, []Validator{prestateValidator, startingValidator}, creator, l1HeaderSource, selective, claimants, daType)
 	}
 	err := registerOracle(ctx, m, oracles, gameFactory, caller, faultTypes.AlphabetGameType)
 	if err != nil {
@@ -197,6 +200,7 @@ func registerAsterisc(
 	l1HeaderSource L1HeaderSource,
 	selective bool,
 	claimants []common.Address,
+	daType faultTypes.DAType,
 ) error {
 	var prestateSource PrestateSource
 	if cfg.AsteriscAbsolutePreStateBaseURL != nil {
@@ -256,7 +260,7 @@ func registerAsterisc(
 		}
 		prestateValidator := NewPrestateValidator("asterisc", contract.GetAbsolutePrestateHash, asteriscPrestateProvider)
 		genesisValidator := NewPrestateValidator("output root", contract.GetStartingRootHash, prestateProvider)
-		return NewGamePlayer(ctx, systemClock, l1Clock, logger, m, dir, game.Proxy, txSender, contract, syncValidator, []Validator{prestateValidator, genesisValidator}, creator, l1HeaderSource, selective, claimants)
+		return NewGamePlayer(ctx, systemClock, l1Clock, logger, m, dir, game.Proxy, txSender, contract, syncValidator, []Validator{prestateValidator, genesisValidator}, creator, l1HeaderSource, selective, claimants, daType)
 	}
 	err := registerOracle(ctx, m, oracles, gameFactory, caller, gameType)
 	if err != nil {
@@ -290,6 +294,7 @@ func registerCannon(
 	l1HeaderSource L1HeaderSource,
 	selective bool,
 	claimants []common.Address,
+	daType faultTypes.DAType,
 ) error {
 	var prestateSource PrestateSource
 	if cfg.CannonAbsolutePreStateBaseURL != nil {
@@ -351,7 +356,7 @@ func registerCannon(
 		}
 		prestateValidator := NewPrestateValidator("cannon", contract.GetAbsolutePrestateHash, cannonPrestateProvider)
 		startingValidator := NewPrestateValidator("output root", contract.GetStartingRootHash, prestateProvider)
-		return NewGamePlayer(ctx, systemClock, l1Clock, logger, m, dir, game.Proxy, txSender, contract, syncValidator, []Validator{prestateValidator, startingValidator}, creator, l1HeaderSource, selective, claimants)
+		return NewGamePlayer(ctx, systemClock, l1Clock, logger, m, dir, game.Proxy, txSender, contract, syncValidator, []Validator{prestateValidator, startingValidator}, creator, l1HeaderSource, selective, claimants, daType)
 	}
 	err := registerOracle(ctx, m, oracles, gameFactory, caller, gameType)
 	if err != nil {

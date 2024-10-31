@@ -31,6 +31,10 @@ type Responder interface {
 type ClaimLoader interface {
 	GetAllClaims(ctx context.Context, block rpcblock.Block) ([]types.Claim, error)
 	IsL2BlockNumberChallenged(ctx context.Context, block rpcblock.Block) (bool, error)
+	GetMaxGameDepth(ctx context.Context) (types.Depth, error)
+	GetSplitDepth(ctx context.Context) (types.Depth, error)
+	GetNBits(ctx context.Context) (uint64, error)
+	GetMaxAttackBranch(ctx context.Context) (uint64, error)
 }
 
 type Agent struct {
@@ -59,12 +63,13 @@ func NewAgent(
 	log log.Logger,
 	selective bool,
 	claimants []common.Address,
+	daType types.DAType,
 ) *Agent {
 	return &Agent{
 		metrics:          m,
 		systemClock:      systemClock,
 		l1Clock:          l1Clock,
-		solver:           solver.NewGameSolver(maxDepth, trace),
+		solver:           solver.NewGameSolver(maxDepth, trace, daType),
 		loader:           loader,
 		responder:        responder,
 		selective:        selective,
@@ -239,6 +244,18 @@ func (a *Agent) newGameFromContracts(ctx context.Context) (types.Game, error) {
 	if len(claims) == 0 {
 		return nil, errors.New("no claims")
 	}
-	game := types.NewGameState(claims, a.maxDepth)
+	maxDepth, err := a.loader.GetMaxGameDepth(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve max game depth: %w", err)
+	}
+	splitDepth, err := a.loader.GetSplitDepth(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve split depth: %w", err)
+	}
+	nbits, err := a.loader.GetNBits(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve nbits: %w", err)
+	}
+	game := types.NewGameState2(claims, maxDepth, nbits, splitDepth)
 	return game, nil
 }

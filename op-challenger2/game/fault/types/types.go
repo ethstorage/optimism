@@ -47,6 +47,8 @@ type PreimageOracleData struct {
 	OutputRootDAItem DAItem
 }
 
+type DAType *big.Int
+
 var (
 	CallDataType = big.NewInt(0)
 	BlobDataType = big.NewInt(1)
@@ -91,6 +93,16 @@ func (p *PreimageOracleData) GetPrecompileAddress() common.Address {
 
 func (p *PreimageOracleData) GetPrecompileInput() []byte {
 	return p.oracleData[28:]
+}
+
+// Param:
+// - datype: 0 for calldata; >=1  for blob
+func NewDaType(datype int64) DAType {
+	if datype == 0 {
+		return CallDataType
+	} else {
+		return BlobDataType
+	}
 }
 
 // NewPreimageOracleData creates a new [PreimageOracleData] instance.
@@ -208,6 +220,9 @@ type Claim struct {
 	// for claims that have not made it to the contract.
 	ContractIndex       int
 	ParentContractIndex int
+	// Used in multi-section fault proof, ClaimData.Value = hash(SubValues)
+	SubValues    *[]common.Hash
+	AttackBranch uint64
 }
 
 func (c Claim) ID() ClaimID {
