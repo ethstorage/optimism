@@ -803,12 +803,11 @@ func TestAttackV2Tx(t *testing.T) {
 		t.Run(version.version, func(t *testing.T) {
 			stubRpc, game := setupFaultDisputeGameTest(t, version)
 			bond := big.NewInt(1044)
-			value := common.Hash{0xaa}
-			var claims [96]byte
-			copy(claims[0:32], value[:])
-			copy(claims[32:64], value[:])
-			copy(claims[64:96], value[:])
 			nBits := uint64(2)
+			claims := make([]byte, ((1<<nBits)-1)*32)
+			for i := range claims {
+				claims[i] = common.Hash{0xaa}[i%32]
+			}
 			attackBranch := big.NewInt(0)
 			daType := big.NewInt(1)
 			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}}, ContractIndex: 111}

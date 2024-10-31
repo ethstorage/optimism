@@ -349,8 +349,8 @@ func TestMoveN(t *testing.T) {
 	}
 
 	tests3 := []struct {
-		startGIndex  *big.Int
-		defendGIndex *big.Int
+		startGIndex *big.Int
+		postGIndex  *big.Int
 	}{
 		{bi(4), bi(28)},
 		{bi(8), bi(44)},
@@ -360,15 +360,15 @@ func TestMoveN(t *testing.T) {
 	for _, test := range tests3 {
 		pos := NewPositionFromGIndex(test.startGIndex)
 		result := pos.MoveN(depth, branch)
-		require.Equalf(t, test.defendGIndex, result.ToGIndex(), "move GIndex %s, expected=%s, got=%s", test.startGIndex, test.defendGIndex, result.ToGIndex())
+		require.Equalf(t, test.postGIndex, result.ToGIndex(), "move GIndex %s, expected=%s, got=%s", test.startGIndex, test.postGIndex, result.ToGIndex())
 	}
 }
 
 func TestMoveRightN(t *testing.T) {
 	tests := []struct {
-		startGIndex  *big.Int
-		moveN        uint64
-		defendGIndex *big.Int
+		startGIndex *big.Int
+		moveN       uint64
+		postGIndex  *big.Int
 	}{
 		{bi(2), 1, bi(3)},
 		{bi(4), 2, bi(6)},
@@ -378,6 +378,6 @@ func TestMoveRightN(t *testing.T) {
 	for _, test := range tests {
 		pos := NewPositionFromGIndex(test.startGIndex)
 		result := pos.MoveRightN(test.moveN)
-		require.Equalf(t, test.defendGIndex, result.ToGIndex(), "move GIndex %s, MoveN %s, expected=%s, got=%s", test.startGIndex, test.moveN, test.defendGIndex, result.ToGIndex())
+		require.Equalf(t, test.postGIndex, result.ToGIndex(), "move GIndex %s, MoveN %s, expected=%s, got=%s", test.startGIndex, test.moveN, test.postGIndex, result.ToGIndex())
 	}
 }
