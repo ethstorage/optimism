@@ -51,26 +51,8 @@ const (
 
 var versions = []contractVersion{
 	{
-		version: vers080,
-		loadAbi: func() *abi.ABI {
-			return mustParseAbi(faultDisputeGameAbi020)
-		},
-	},
-	{
-		version: vers0180,
-		loadAbi: func() *abi.ABI {
-			return mustParseAbi(faultDisputeGameAbi0180)
-		},
-	},
-	{
-		version: vers111,
-		loadAbi: func() *abi.ABI {
-			return mustParseAbi(faultDisputeGameAbi111)
-		},
-	},
-	{
 		version: versLatest,
-		loadAbi: snapshots.LoadFaultDisputeGameABI,
+		loadAbi: snapshots.LoadFaultDisputeGameNABI,
 	},
 }
 
@@ -156,6 +138,24 @@ func TestSimpleGetters(t *testing.T) {
 			result:      types.GameStatusInProgress,
 			call: func(game FaultDisputeGameContract) (any, error) {
 				return game.CallResolve(context.Background())
+			},
+		},
+		{
+			methodAlias: "nBits",
+			method:      methodNBits,
+			result:      big.NewInt(2),
+			expected:    uint64(2),
+			call: func(game FaultDisputeGameContract) (any, error) {
+				return game.GetNBits(context.Background())
+			},
+		},
+		{
+			methodAlias: "maxAttackBranch",
+			method:      methodMaxAttackBranch,
+			result:      big.NewInt(3),
+			expected:    uint64(3),
+			call: func(game FaultDisputeGameContract) (any, error) {
+				return game.GetMaxAttackBranch(context.Background())
 			},
 		},
 	}
@@ -556,21 +556,30 @@ func TestGetStartingRootHash(t *testing.T) {
 func TestFaultDisputeGame_UpdateOracleTx(t *testing.T) {
 	for _, version := range versions {
 		version := version
+		outputRootDAItem := faultTypes.DAItem{
+			DaType:   faultTypes.CallDataType,
+			DataHash: common.Hash{},
+			Proof:    []byte{},
+		}
+		vmStateDA := faultTypes.DAData{
+			PreDA:  outputRootDAItem,
+			PostDA: outputRootDAItem,
+		}
 		t.Run(version.version, func(t *testing.T) {
 			t.Run("Local", func(t *testing.T) {
 				stubRpc, game := setupFaultDisputeGameTest(t, version)
-				data := faultTypes.NewPreimageOracleData(common.Hash{0x01, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7}, 16)
+				data := faultTypes.NewPreimageOracleDAData(common.Hash{0x01, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7}, 16, vmStateDA, outputRootDAItem)
 				claimIdx := uint64(6)
 				stubRpc.SetResponse(fdgAddr, methodAddLocalData, rpcblock.Latest, []interface{}{
 					data.GetIdent(),
 					new(big.Int).SetUint64(claimIdx),
 					new(big.Int).SetUint64(uint64(data.OracleOffset)),
+					outputRootDAItem,
 				}, nil)
 				tx, err := game.UpdateOracleTx(context.Background(), claimIdx, data)
 				require.NoError(t, err)
 				stubRpc.VerifyTxCandidate(tx)
 			})
-
 			t.Run("Global", func(t *testing.T) {
 				stubRpc, game := setupFaultDisputeGameTest(t, version)
 				data := faultTypes.NewPreimageOracleData(common.Hash{0x02, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7, 9, 10, 11, 12, 13, 14, 15}, 16)
@@ -786,4 +795,59 @@ func setupFaultDisputeGameTest(t *testing.T, version contractVersion) (*batching
 	game, err := NewFaultDisputeGameContract(context.Background(), contractMetrics.NoopContractMetrics, fdgAddr, caller)
 	require.NoError(t, err)
 	return stubRpc, game
+}
+
+func TestAttackV2Tx(t *testing.T) {
+	for _, version := range versions {
+		version := version
+		t.Run(version.version, func(t *testing.T) {
+			stubRpc, game := setupFaultDisputeGameTest(t, version)
+			bond := big.NewInt(1044)
+			nBits := uint64(2)
+			claims := make([]byte, ((1<<nBits)-1)*32)
+			for i := range claims {
+				claims[i] = common.Hash{0xaa}[i%32]
+			}
+			attackBranch := big.NewInt(0)
+			daType := big.NewInt(1)
+			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}}, ContractIndex: 111}
+			stubRpc.SetResponse(fdgAddr, methodNBits, rpcblock.Latest, nil, []interface{}{new(big.Int).SetUint64(nBits)})
+			stubRpc.SetResponse(fdgAddr, methodRequiredBond, rpcblock.Latest, []interface{}{parent.Position.MoveN(nBits, attackBranch.Uint64()).ToGIndex()}, []interface{}{bond})
+			stubRpc.SetResponse(fdgAddr, methodAttackV2, rpcblock.Latest, []interface{}{parent.Value, big.NewInt(111), attackBranch, daType, claims[:]}, nil)
+			tx, err := game.AttackV2Tx(context.Background(), parent, attackBranch.Uint64(), daType.Uint64(), claims[:])
+			require.NoError(t, err)
+			stubRpc.VerifyTxCandidate(tx)
+			require.Equal(t, bond, tx.Value)
+		})
+	}
+}
+
+func TestStepV2Tx(t *testing.T) {
+	for _, version := range versions {
+		version := version
+		t.Run(version.version, func(t *testing.T) {
+			stubRpc, game := setupFaultDisputeGameTest(t, version)
+			stateData := []byte{1, 2, 3}
+			vmProof := []byte{4, 5, 6, 7, 8, 9}
+			pre := faultTypes.DAItem{
+				DaType:   faultTypes.CallDataType,
+				DataHash: [32]byte{0x01, 0x02, 0x03},
+				Proof:    []byte("pre state proof"),
+			}
+			post := faultTypes.DAItem{
+				DaType:   faultTypes.CallDataType,
+				DataHash: [32]byte{0x04, 0x05, 0x06},
+				Proof:    []byte("post state proof"),
+			}
+			proofData := faultTypes.StepProof{
+				PreStateItem:  pre,
+				PostStateItem: post,
+				VmProof:       vmProof,
+			}
+			stubRpc.SetResponse(fdgAddr, methodStepV2, rpcblock.Latest, []interface{}{big.NewInt(111), big.NewInt(1), stateData, proofData}, nil)
+			tx, err := game.StepV2Tx(111, 1, stateData, proofData)
+			require.NoError(t, err)
+			stubRpc.VerifyTxCandidate(tx)
+		})
+	}
 }

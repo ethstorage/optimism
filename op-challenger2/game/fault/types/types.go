@@ -41,6 +41,33 @@ type PreimageOracleData struct {
 	BlobFieldIndex uint64
 	BlobCommitment []byte
 	BlobProof      []byte
+	// multi-sec proof for VM step
+	VMStateDA DAData
+	// daitem for addLocalData
+	OutputRootDAItem DAItem
+}
+
+var (
+	CallDataType = big.NewInt(0)
+	BlobDataType = big.NewInt(1)
+)
+
+type DAItem struct {
+	DaType   *big.Int
+	DataHash common.Hash
+	Proof    []byte
+}
+
+// Provide DA proof for addLocalData's outputRoot and stepV2's stateRoot
+type DAData struct {
+	PreDA  DAItem
+	PostDA DAItem
+}
+
+type StepProof struct {
+	PreStateItem  DAItem
+	PostStateItem DAItem
+	VmProof       []byte
 }
 
 // GetIdent returns the ident for the preimage oracle data.
@@ -73,6 +100,17 @@ func NewPreimageOracleData(key []byte, data []byte, offset uint32) *PreimageOrac
 		OracleKey:    key,
 		oracleData:   data,
 		OracleOffset: offset,
+	}
+}
+
+func NewPreimageOracleDAData(key []byte, data []byte, offset uint32, vmStateDA DAData, outputRootDAItem DAItem) *PreimageOracleData {
+	return &PreimageOracleData{
+		IsLocal:          len(key) > 0 && key[0] == byte(preimage.LocalKeyType),
+		OracleKey:        key,
+		oracleData:       data,
+		OracleOffset:     offset,
+		VMStateDA:        vmStateDA,
+		OutputRootDAItem: outputRootDAItem,
 	}
 }
 

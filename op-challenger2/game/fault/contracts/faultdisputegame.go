@@ -54,6 +54,10 @@ var (
 	methodL2BlockNumberChallenged = "l2BlockNumberChallenged"
 	methodL2BlockNumberChallenger = "l2BlockNumberChallenger"
 	methodChallengeRootL2Block    = "challengeRootL2Block"
+	methodNBits                   = "nBits"
+	methodMaxAttackBranch         = "maxAttackBranch"
+	methodAttackV2                = "attackV2"
+	methodStepV2                  = "stepV2"
 )
 
 var (
@@ -81,7 +85,7 @@ type outputRootProof struct {
 }
 
 func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMetricer, addr common.Address, caller *batching.MultiCaller) (FaultDisputeGameContract, error) {
-	contractAbi := snapshots.LoadFaultDisputeGameABI()
+	contractAbi := snapshots.LoadFaultDisputeGameNABI()
 
 	result, err := caller.SingleCall(ctx, rpcblock.Latest, batching.NewContractCall(contractAbi, addr, methodVersion))
 	if err != nil {
@@ -324,6 +328,7 @@ func (f *FaultDisputeGameContractLatest) addLocalDataTx(claimIdx uint64, data *t
 		data.GetIdent(),
 		new(big.Int).SetUint64(claimIdx),
 		new(big.Int).SetUint64(uint64(data.OracleOffset)),
+		data.OutputRootDAItem,
 	)
 	return call.ToTxCandidate()
 }
@@ -592,6 +597,43 @@ func (f *FaultDisputeGameContractLatest) decodeClaim(result *batching.CallResult
 	}
 }
 
+func (f *FaultDisputeGameContractLatest) GetNBits(ctx context.Context) (uint64, error) {
+	defer f.metrics.StartContractRequest("GetNBits")()
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, f.contract.Call(methodNBits))
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch nbits: %w", err)
+	}
+	return result.GetBigInt(0).Uint64(), nil
+}
+
+func (f *FaultDisputeGameContractLatest) GetMaxAttackBranch(ctx context.Context) (uint64, error) {
+	defer f.metrics.StartContractRequest("GetMaxAttackBranch")()
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, f.contract.Call(methodMaxAttackBranch))
+	if err != nil {
+		return 0, fmt.Errorf("failed to fetch max attack branch: %w", err)
+	}
+	return result.GetBigInt(0).Uint64(), nil
+}
+
+func (f *FaultDisputeGameContractLatest) AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error) {
+	nBits, err := f.GetNBits(ctx)
+	if err != nil {
+		return txmgr.TxCandidate{}, fmt.Errorf("failed to retrieve nbits: %w", err)
+	}
+	call := f.contract.Call(methodAttackV2,
+		parent.Value,
+		big.NewInt(int64(parent.ContractIndex)),
+		new(big.Int).SetUint64(attackBranch),
+		new(big.Int).SetUint64(daType),
+		claims)
+	return f.txWithBond(ctx, parent.Position.MoveN(nBits, attackBranch), call)
+}
+
+func (f *FaultDisputeGameContractLatest) StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error) {
+	call := f.contract.Call(methodStepV2, new(big.Int).SetUint64(claimIdx), new(big.Int).SetUint64(attackBranch), stateData, proof)
+	return call.ToTxCandidate()
+}
+
 type FaultDisputeGameContract interface {
 	GetBalance(ctx context.Context, block rpcblock.Block) (*big.Int, common.Address, error)
 	GetBlockRange(ctx context.Context) (prestateBlock uint64, poststateBlock uint64, retErr error)
@@ -624,4 +666,8 @@ type FaultDisputeGameContract interface {
 	ResolveClaimTx(claimIdx uint64) (txmgr.TxCandidate, error)
 	CallResolve(ctx context.Context) (gameTypes.GameStatus, error)
 	ResolveTx() (txmgr.TxCandidate, error)
+	AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error)
+	StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error)
+	GetNBits(ctx context.Context) (uint64, error)
+	GetMaxAttackBranch(ctx context.Context) (uint64, error)
 }

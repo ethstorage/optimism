@@ -13,6 +13,9 @@ var disputeGameFactory []byte
 //go:embed abi/FaultDisputeGame.json
 var faultDisputeGame []byte
 
+//go:embed abi/FaultDisputeGameN.json
+var faultDisputeGameN []byte
+
 //go:embed abi/PreimageOracle.json
 var preimageOracle []byte
 
@@ -27,6 +30,9 @@ func LoadDisputeGameFactoryABI() *abi.ABI {
 }
 func LoadFaultDisputeGameABI() *abi.ABI {
 	return loadABI(faultDisputeGame)
+}
+func LoadFaultDisputeGameNABI() *abi.ABI {
+	return loadABI(faultDisputeGameN)
 }
 func LoadPreimageOracleABI() *abi.ABI {
 	return loadABI(preimageOracle)
