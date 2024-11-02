@@ -195,7 +195,7 @@ func setupTestAgent(t *testing.T) (*Agent, *stubClaimLoader, *stubResponder) {
 	responder := &stubResponder{}
 	systemClock := clock.NewDeterministicClock(time.UnixMilli(120200))
 	l1Clock := clock.NewDeterministicClock(l1Time)
-	agent := NewAgent(metrics.NoopMetrics, systemClock, l1Clock, claimLoader, depth, gameDuration, trace.NewSimpleTraceAccessor(provider), responder, logger, false, []common.Address{})
+	agent := NewAgent(metrics.NoopMetrics, systemClock, l1Clock, claimLoader, depth, gameDuration, trace.NewSimpleTraceAccessor(provider), responder, logger, false, []common.Address{}, types.CallDataType)
 	return agent, claimLoader, responder
 }
 
@@ -204,6 +204,9 @@ type stubClaimLoader struct {
 	maxLoads           int
 	claims             []types.Claim
 	blockNumChallenged bool
+	maxDepth           types.Depth
+	splitDepth         types.Depth
+	nbits              uint64
 }
 
 func (s *stubClaimLoader) IsL2BlockNumberChallenged(_ context.Context, _ rpcblock.Block) (bool, error) {
@@ -216,6 +219,22 @@ func (s *stubClaimLoader) GetAllClaims(_ context.Context, _ rpcblock.Block) ([]t
 		return []types.Claim{}, nil
 	}
 	return s.claims, nil
+}
+
+func (s *stubClaimLoader) GetMaxGameDepth(_ context.Context) (types.Depth, error) {
+	return s.maxDepth, nil
+}
+
+func (s *stubClaimLoader) GetSplitDepth(_ context.Context) (types.Depth, error) {
+	return s.splitDepth, nil
+}
+
+func (s *stubClaimLoader) GetNBits(_ context.Context) (uint64, error) {
+	return s.nbits, nil
+}
+
+func (s *stubClaimLoader) GetMaxAttackBranch(_ context.Context) (uint64, error) {
+	return 1<<s.nbits - 1, nil
 }
 
 type stubResponder struct {

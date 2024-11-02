@@ -13,9 +13,9 @@ type GameSolver struct {
 	claimSolver *claimSolver
 }
 
-func NewGameSolver(gameDepth types.Depth, trace types.TraceAccessor) *GameSolver {
+func NewGameSolver(gameDepth types.Depth, trace types.TraceAccessor, daType types.DAType) *GameSolver {
 	return &GameSolver{
-		claimSolver: newClaimSolver(gameDepth, trace),
+		claimSolver: newClaimSolver(gameDepth, trace, daType),
 	}
 }
 

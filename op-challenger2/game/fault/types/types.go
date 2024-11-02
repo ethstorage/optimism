@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/config"
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -41,15 +42,17 @@ type PreimageOracleData struct {
 	BlobFieldIndex uint64
 	BlobCommitment []byte
 	BlobProof      []byte
-	// multi-sec proof for VM step
+	// multi-sec proof for VM stepV2 func
 	VMStateDA DAData
-	// daitem for addLocalData
+	// daitem for addLocalData func
 	OutputRootDAItem DAItem
 }
 
+type DAType *big.Int
+
 var (
-	CallDataType = big.NewInt(0)
-	BlobDataType = big.NewInt(1)
+	CallDataType = big.NewInt(config.DACalldata)
+	BlobDataType = big.NewInt(config.DABlob)
 )
 
 type DAItem struct {
@@ -93,6 +96,14 @@ func (p *PreimageOracleData) GetPrecompileInput() []byte {
 	return p.oracleData[28:]
 }
 
+func NewDaType(datype int64) DAType {
+	if datype == config.DACalldata {
+		return CallDataType
+	} else {
+		return BlobDataType
+	}
+}
+
 // NewPreimageOracleData creates a new [PreimageOracleData] instance.
 func NewPreimageOracleData(key []byte, data []byte, offset uint32) *PreimageOracleData {
 	return &PreimageOracleData{
@@ -103,7 +114,7 @@ func NewPreimageOracleData(key []byte, data []byte, offset uint32) *PreimageOrac
 	}
 }
 
-func NewPreimageOracleDAData(key []byte, data []byte, offset uint32, vmStateDA DAData, outputRootDAItem DAItem) *PreimageOracleData {
+func NewPreimageOracleDataWithDA(key []byte, data []byte, offset uint32, vmStateDA DAData, outputRootDAItem DAItem) *PreimageOracleData {
 	return &PreimageOracleData{
 		IsLocal:          len(key) > 0 && key[0] == byte(preimage.LocalKeyType),
 		OracleKey:        key,
@@ -208,6 +219,9 @@ type Claim struct {
 	// for claims that have not made it to the contract.
 	ContractIndex       int
 	ParentContractIndex int
+	// Used in multi-section fault proof, ClaimData.Value = hash(SubValues)
+	SubValues    *[]common.Hash
+	AttackBranch uint64
 }
 
 func (c Claim) ID() ClaimID {
