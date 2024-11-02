@@ -25,7 +25,7 @@ func TestGenerateProof(t *testing.T) {
 	input := "starting.json"
 	tempDir := t.TempDir()
 	dir := filepath.Join(tempDir, "gameDir")
-	datype := int64(0)
+	datype := config.DACalldata
 	cfg := config.NewConfig(common.Address{0xbb}, "http://localhost:8888", "http://localhost:9000", "http://localhost:9096", "http://localhost:9095", tempDir, datype, config.TraceTypeCannon)
 	cfg.L2Rpc = "http://localhost:9999"
 	prestate := "pre.json"

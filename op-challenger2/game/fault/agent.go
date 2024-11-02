@@ -46,7 +46,6 @@ type Agent struct {
 	responder        Responder
 	selective        bool
 	claimants        []common.Address
-	maxDepth         types.Depth
 	maxClockDuration time.Duration
 	log              log.Logger
 }
@@ -74,7 +73,6 @@ func NewAgent(
 		responder:        responder,
 		selective:        selective,
 		claimants:        claimants,
-		maxDepth:         maxDepth,
 		maxClockDuration: maxClockDuration,
 		log:              log,
 	}

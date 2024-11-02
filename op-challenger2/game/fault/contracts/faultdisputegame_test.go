@@ -568,7 +568,7 @@ func TestFaultDisputeGame_UpdateOracleTx(t *testing.T) {
 		t.Run(version.version, func(t *testing.T) {
 			t.Run("Local", func(t *testing.T) {
 				stubRpc, game := setupFaultDisputeGameTest(t, version)
-				data := faultTypes.NewPreimageOracleDAData(common.Hash{0x01, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7}, 16, vmStateDA, outputRootDAItem)
+				data := faultTypes.NewPreimageOracleDataWithDA(common.Hash{0x01, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7}, 16, vmStateDA, outputRootDAItem)
 				claimIdx := uint64(6)
 				stubRpc.SetResponse(fdgAddr, methodAddLocalData, rpcblock.Latest, []interface{}{
 					data.GetIdent(),
