@@ -155,10 +155,13 @@ func bigMSB(x *big.Int) Depth {
 	return Depth(x.BitLen() - 1)
 }
 
-func (p Position) MoveN(depth uint64, branch uint64) Position {
+// In a multi-section fault dispute game, depth and indexAtDepth work like in bisect dispute game:
+// depth: Tracks how many levels deep you are, but here you move nbits down with each step.
+// indexAtDepth: Identifies the position within each depth level, adjusted for nbits steps.
+func (p Position) MoveN(nbits uint64, branch uint64) Position {
 	return Position{
-		depth:        p.depth + Depth(depth),
-		indexAtDepth: new(big.Int).Add(p.IndexAtDepth(), new(big.Int).Lsh(big.NewInt(int64(branch)), uint(depth))),
+		depth:        p.depth + Depth(nbits),
+		indexAtDepth: new(big.Int).Or(p.lshIndex(Depth(nbits)), big.NewInt(int64(branch<<nbits))),
 	}
 }
 

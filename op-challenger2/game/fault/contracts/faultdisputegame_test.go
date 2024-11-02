@@ -809,7 +809,7 @@ func TestAttackV2Tx(t *testing.T) {
 				claims[i] = common.Hash{0xaa}[i%32]
 			}
 			attackBranch := big.NewInt(0)
-			daType := big.NewInt(1)
+			daType := faultTypes.CallDataType
 			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}}, ContractIndex: 111}
 			stubRpc.SetResponse(fdgAddr, methodNBits, rpcblock.Latest, nil, []interface{}{new(big.Int).SetUint64(nBits)})
 			stubRpc.SetResponse(fdgAddr, methodRequiredBond, rpcblock.Latest, []interface{}{parent.Position.MoveN(nBits, attackBranch.Uint64()).ToGIndex()}, []interface{}{bond})
