@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
@@ -66,4 +67,8 @@ func (c *CallResult) GetBytes32Slice(i int) [][32]byte {
 
 func (c *CallResult) GetString(i int) string {
 	return *abi.ConvertType(c.out[i], new(string)).(*string)
+}
+
+func (c *CallResult) GetTx() types.Transaction {
+	return *abi.ConvertType(c.out[0], new(types.Transaction)).(*types.Transaction)
 }

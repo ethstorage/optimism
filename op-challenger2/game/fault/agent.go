@@ -30,6 +30,7 @@ type Responder interface {
 
 type ClaimLoader interface {
 	GetAllClaims(ctx context.Context, block rpcblock.Block) ([]types.Claim, error)
+	GetAllClaimsWithSubValues(ctx context.Context) ([]types.Claim, error)
 	IsL2BlockNumberChallenged(ctx context.Context, block rpcblock.Block) (bool, error)
 	GetMaxGameDepth(ctx context.Context) (types.Depth, error)
 	GetSplitDepth(ctx context.Context) (types.Depth, error)
@@ -237,7 +238,7 @@ func (a *Agent) resolveClaims(ctx context.Context) error {
 
 // newGameFromContracts initializes a new game state from the state in the contract
 func (a *Agent) newGameFromContracts(ctx context.Context) (types.Game, error) {
-	claims, err := a.loader.GetAllClaims(ctx, rpcblock.Latest)
+	claims, err := a.loader.GetAllClaimsWithSubValues(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch claims: %w", err)
 	}
