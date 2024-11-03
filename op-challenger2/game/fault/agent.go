@@ -139,6 +139,8 @@ func (a *Agent) performAction(ctx context.Context, wg *sync.WaitGroup, action ty
 	switch action.Type {
 	case types.ActionTypeMove:
 		a.metrics.RecordGameMove()
+	case types.ActionTypeAttackV2:
+		a.metrics.RecordGameAttackV2()
 	case types.ActionTypeStep:
 		a.metrics.RecordGameStep()
 	case types.ActionTypeChallengeL2BlockNumber:

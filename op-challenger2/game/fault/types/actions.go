@@ -9,6 +9,7 @@ func (a ActionType) String() string {
 }
 
 const (
+	ActionTypeAttackV2               ActionType = "attackV2"
 	ActionTypeMove                   ActionType = "move"
 	ActionTypeStep                   ActionType = "step"
 	ActionTypeChallengeL2BlockNumber ActionType = "challenge-l2-block-number"
@@ -22,7 +23,10 @@ type Action struct {
 	IsAttack    bool
 
 	// Moves
-	Value common.Hash
+	Value        common.Hash
+	SubValues    *[]common.Hash
+	AttackBranch uint64
+	DAType       DAType
 
 	// Steps
 	PreState   []byte

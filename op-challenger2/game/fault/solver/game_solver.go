@@ -95,21 +95,29 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 }
 
 func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*types.Action, error) {
-	move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)
+	for branch, _ := range *claim.SubValues {
+		if claim.Position.Depth() == game.SplitDepth()+types.Depth(game.NBits()) && branch != 0 {
+			continue
+		}
+		move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims, uint64(branch))
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)
+		}
+		if move == nil {
+			continue
+		}
+		honestClaims.AddHonestClaim(claim, *move)
+		if game.IsDuplicate(*move) {
+			continue
+		}
+		return &types.Action{
+			Type:         types.ActionTypeAttackV2,
+			ParentClaim:  game.Claims()[move.ParentContractIndex],
+			Value:        move.Value,
+			SubValues:    move.SubValues,
+			AttackBranch: uint64(branch),
+			DAType:       s.claimSolver.daType,
+		}, nil
 	}
-	if move == nil {
-		return nil, nil
-	}
-	honestClaims.AddHonestClaim(claim, *move)
-	if game.IsDuplicate(*move) {
-		return nil, nil
-	}
-	return &types.Action{
-		Type:        types.ActionTypeMove,
-		IsAttack:    !game.DefendsParent(*move),
-		ParentClaim: game.Claims()[move.ParentContractIndex],
-		Value:       move.Value,
-	}, nil
+	return nil, nil
 }
