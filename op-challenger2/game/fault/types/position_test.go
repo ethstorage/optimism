@@ -338,7 +338,7 @@ func TestMoveN(t *testing.T) {
 	}{
 		{bi(2), bi(12)},
 		{bi(4), bi(20)},
-		{bi(8), bi(36)},
+		{bi(20), bi(84)},
 	}
 	depth = uint64(2)
 	branch = uint64(1)

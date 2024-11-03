@@ -39,15 +39,25 @@ type Game interface {
 	// AncestorWithTraceIndex finds the ancestor of claim with trace index idx if present.
 	// Returns the claim and true if the ancestor is found, or Claim{}, false if not.
 	AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bool)
+
+	// Multi-section fault proof related methods.
+	NBits() uint64
+	MaxAttackBranch() uint64
+	SplitDepth() Depth
+	// TraceRootDepth = MaxDepth - SplitDepth
+	TraceRootDepth() Depth
 }
 
 // gameState is a struct that represents the state of a dispute game.
 // The game state implements the [Game] interface.
 type gameState struct {
 	// claims is the list of claims in the same order as the contract
-	claims   []Claim
-	claimIDs map[ClaimID]bool
-	depth    Depth
+	claims     []Claim
+	claimIDs   map[ClaimID]bool
+	depth      Depth
+	nBits      uint64
+	splitDepth Depth
+	daType     DAType
 }
 
 // NewGameState returns a new game state.
@@ -61,6 +71,20 @@ func NewGameState(claims []Claim, depth Depth) *gameState {
 		claims:   claims,
 		claimIDs: claimIDs,
 		depth:    depth,
+	}
+}
+
+func NewGameState2(claims []Claim, depth Depth, nBits uint64, splitDepth Depth) *gameState {
+	claimIDs := make(map[ClaimID]bool)
+	for _, claim := range claims {
+		claimIDs[claim.ID()] = true
+	}
+	return &gameState{
+		claims:     claims,
+		claimIDs:   claimIDs,
+		depth:      depth,
+		nBits:      nBits,
+		splitDepth: splitDepth,
 	}
 }
 
@@ -151,4 +175,20 @@ func (g *gameState) AncestorWithTraceIndex(claim Claim, idx *big.Int) (Claim, bo
 		}
 		claim = *next
 	}
+}
+
+func (g *gameState) NBits() uint64 {
+	return g.nBits
+}
+
+func (g *gameState) MaxAttackBranch() uint64 {
+	return 1<<g.nBits - 1
+}
+
+func (g *gameState) SplitDepth() Depth {
+	return g.splitDepth
+}
+
+func (g *gameState) TraceRootDepth() Depth {
+	return g.depth - g.splitDepth
 }

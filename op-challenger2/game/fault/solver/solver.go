@@ -17,13 +17,15 @@ var (
 type claimSolver struct {
 	trace     types.TraceAccessor
 	gameDepth types.Depth
+	daType    types.DAType
 }
 
 // newClaimSolver creates a new [claimSolver] using the provided [TraceProvider].
-func newClaimSolver(gameDepth types.Depth, trace types.TraceAccessor) *claimSolver {
+func newClaimSolver(gameDepth types.Depth, trace types.TraceAccessor, daType types.DAType) *claimSolver {
 	return &claimSolver{
 		trace,
 		gameDepth,
+		daType,
 	}
 }
 

@@ -59,6 +59,11 @@ const (
 	TraceTypePermissioned TraceType = "permissioned"
 )
 
+const (
+	DACalldata int64 = 0
+	DABlob     int64 = 1
+)
+
 var TraceTypes = []TraceType{TraceTypeAlphabet, TraceTypeCannon, TraceTypePermissioned, TraceTypeAsterisc}
 
 func (t TraceType) String() string {
@@ -154,6 +159,8 @@ type Config struct {
 	TxMgrConfig   txmgr.CLIConfig
 	MetricsConfig opmetrics.CLIConfig
 	PprofConfig   oppprof.CLIConfig
+
+	DAType int64
 }
 
 func NewConfig(
@@ -163,6 +170,7 @@ func NewConfig(
 	l2RollupRpc string,
 	l2EthRpc string,
 	datadir string,
+	datype int64,
 	supportedTraceTypes ...TraceType,
 ) Config {
 	return Config{
@@ -189,6 +197,8 @@ func NewConfig(
 		AsteriscSnapshotFreq: DefaultAsteriscSnapshotFreq,
 		AsteriscInfoFreq:     DefaultAsteriscInfoFreq,
 		GameWindow:           DefaultGameWindow,
+
+		DAType: datype,
 	}
 }
 

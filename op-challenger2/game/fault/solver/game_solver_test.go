@@ -23,7 +23,7 @@ func TestCalculateNextActions_ChallengeL2BlockNumber(t *testing.T) {
 	}
 	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingBlock, maxDepth)
 	traceProvider := faulttest.NewAlphabetWithProofProvider(t, startingBlock, maxDepth, nil)
-	solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(traceProvider))
+	solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(traceProvider), types.CallDataType)
 
 	// Do not challenge when provider returns error indicating l2 block is valid
 	actions, err := solver.CalculateNextActions(context.Background(), claimBuilder.GameBuilder().Game)
@@ -205,7 +205,7 @@ func TestCalculateNextActions(t *testing.T) {
 			test.setupGame(builder)
 			game := builder.Game
 
-			solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()))
+			solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()), types.CallDataType)
 			postState, actions := runStep(t, solver, game, claimBuilder.CorrectTraceProvider())
 			for i, action := range builder.ExpectedActions {
 				t.Logf("Expect %v: Type: %v, ParentIdx: %v, Attack: %v, Value: %v, PreState: %v, ProofData: %v",
@@ -311,7 +311,7 @@ func TestMultipleRounds(t *testing.T) {
 				game := builder.Game
 
 				correctTrace := claimBuilder.CorrectTraceProvider()
-				solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(correctTrace))
+				solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(correctTrace), types.CallDataType)
 
 				roundNum := 0
 				done := false
@@ -356,5 +356,5 @@ func applyActions(game types.Game, claimant common.Address, actions []types.Acti
 			panic(fmt.Errorf("unknown move type: %v", action.Type))
 		}
 	}
-	return types.NewGameState(claims, game.MaxDepth())
+	return types.NewGameState2(claims, game.MaxDepth(), game.NBits(), game.SplitDepth())
 }

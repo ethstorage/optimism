@@ -568,7 +568,7 @@ func TestFaultDisputeGame_UpdateOracleTx(t *testing.T) {
 		t.Run(version.version, func(t *testing.T) {
 			t.Run("Local", func(t *testing.T) {
 				stubRpc, game := setupFaultDisputeGameTest(t, version)
-				data := faultTypes.NewPreimageOracleDAData(common.Hash{0x01, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7}, 16, vmStateDA, outputRootDAItem)
+				data := faultTypes.NewPreimageOracleDataWithDA(common.Hash{0x01, 0xbc}.Bytes(), []byte{1, 2, 3, 4, 5, 6, 7}, 16, vmStateDA, outputRootDAItem)
 				claimIdx := uint64(6)
 				stubRpc.SetResponse(fdgAddr, methodAddLocalData, rpcblock.Latest, []interface{}{
 					data.GetIdent(),
@@ -809,7 +809,7 @@ func TestAttackV2Tx(t *testing.T) {
 				claims[i] = common.Hash{0xaa}[i%32]
 			}
 			attackBranch := big.NewInt(0)
-			daType := big.NewInt(1)
+			daType := faultTypes.CallDataType
 			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}}, ContractIndex: 111}
 			stubRpc.SetResponse(fdgAddr, methodNBits, rpcblock.Latest, nil, []interface{}{new(big.Int).SetUint64(nBits)})
 			stubRpc.SetResponse(fdgAddr, methodRequiredBond, rpcblock.Latest, []interface{}{parent.Position.MoveN(nBits, attackBranch.Uint64()).ToGIndex()}, []interface{}{bond})
