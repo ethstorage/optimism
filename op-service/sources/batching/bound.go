@@ -32,6 +32,10 @@ func (b *BoundContract) Addr() common.Address {
 	return b.addr
 }
 
+func (b *BoundContract) Abi() *abi.ABI {
+	return b.abi
+}
+
 func (b *BoundContract) Call(method string, args ...interface{}) *ContractCall {
 	return NewContractCall(b.abi, b.addr, method, args...)
 }
