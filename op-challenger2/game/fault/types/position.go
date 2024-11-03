@@ -162,7 +162,7 @@ func bigMSB(x *big.Int) Depth {
 func (p Position) MoveN(nbits uint64, attackingBranch uint64) Position {
 	return Position{
 		depth:        p.depth + Depth(nbits),
-		indexAtDepth: new(big.Int).Lsh(new(big.Int).Add(p.indexAtDepth, big.NewInt(int64(attackingBranch))), uint(nbits)),
+		indexAtDepth: new(big.Int).Lsh(new(big.Int).Add(p.IndexAtDepth(), big.NewInt(int64(attackingBranch))), uint(nbits)),
 	}
 }
 

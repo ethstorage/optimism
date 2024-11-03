@@ -221,6 +221,14 @@ func (s *stubClaimLoader) GetAllClaims(_ context.Context, _ rpcblock.Block) ([]t
 	return s.claims, nil
 }
 
+func (s *stubClaimLoader) GetAllClaimsWithSubValues(_ context.Context) ([]types.Claim, error) {
+	s.callCount++
+	if s.callCount > s.maxLoads && s.maxLoads != 0 {
+		return []types.Claim{}, nil
+	}
+	return s.claims, nil
+}
+
 func (s *stubClaimLoader) GetMaxGameDepth(_ context.Context) (types.Depth, error) {
 	return s.maxDepth, nil
 }
