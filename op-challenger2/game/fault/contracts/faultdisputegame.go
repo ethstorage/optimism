@@ -13,12 +13,15 @@ import (
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts/metrics"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	gameTypes "github.com/ethereum-optimism/optimism/op-challenger2/game/types"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching"
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum-optimism/optimism/packages/contracts-bedrock/snapshots"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 )
 
@@ -58,6 +61,9 @@ var (
 	methodMaxAttackBranch         = "maxAttackBranch"
 	methodAttackV2                = "attackV2"
 	methodStepV2                  = "stepV2"
+	fieldSubValues                = "_claims"
+	fieldAttackBranch             = "_attackBranch"
+	eventMove                     = "Move"
 )
 
 var (
@@ -138,6 +144,23 @@ func mustParseAbi(json []byte) *abi.ABI {
 		panic(err)
 	}
 	return &loaded
+}
+
+func SubValuesHash(values []common.Hash) common.Hash {
+	nelem := len(values)
+	hashes := make([]common.Hash, nelem)
+	copy(hashes, values)
+	for nelem != 1 {
+		for i := 0; i < nelem/2; i++ {
+			hashes[i] = crypto.Keccak256Hash(hashes[i*2][:], hashes[i*2+1][:])
+		}
+		// directly copy the last item
+		if nelem%2 == 1 {
+			hashes[nelem/2] = hashes[nelem-1]
+		}
+		nelem = (nelem + 1) / 2
+	}
+	return hashes[0]
 }
 
 // GetBalance returns the total amount of ETH controlled by this contract.
@@ -447,6 +470,79 @@ func (f *FaultDisputeGameContractLatest) GetAllClaims(ctx context.Context, block
 	return claims, nil
 }
 
+func (f *FaultDisputeGameContractLatest) GetAllClaimsWithSubValues(ctx context.Context) ([]types.Claim, error) {
+	claims, err := f.GetAllClaims(ctx, rpcblock.Latest)
+	if err != nil {
+		return nil, err
+	}
+	for idx, claim := range claims {
+		subValues, attackBranch, err := f.getSubValuesAndAttackBranch(ctx, &claim)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load subValues: %w", err)
+		}
+		claim.SubValues = &subValues
+		claim.AttackBranch = attackBranch
+		claims[idx] = claim
+	}
+	return claims, nil
+}
+
+func (f *FaultDisputeGameContractLatest) getSubValuesAndAttackBranch(ctx context.Context, aggClaim *types.Claim) ([]common.Hash, uint64, error) {
+	defer f.metrics.StartContractRequest("GetSubValues")()
+
+	filter, err := bindings.NewFaultDisputeGameFilterer(f.contract.Addr(), f.multiCaller)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	parentIndex := [...]*big.Int{big.NewInt(int64(aggClaim.ParentContractIndex))}
+	claim := [...][32]byte{aggClaim.ClaimData.ValueBytes()}
+	claimant := [...]common.Address{aggClaim.Claimant}
+	moveIter, err := filter.FilterMove(&bind.FilterOpts{Context: ctx}, parentIndex[:], claim[:], claimant[:])
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to filter move event log: %w", err)
+	}
+	ok := moveIter.Next()
+	if !ok {
+		return nil, 0, fmt.Errorf("failed to get move event log: %w", moveIter.Error())
+	}
+	txHash := moveIter.Event.Raw.TxHash
+
+	getTxByHashCall := batching.NewTxGetByHash(f.contract.Abi(), txHash, methodAttackV2)
+	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, getTxByHashCall)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to load attackV2's calldata: %w", err)
+	}
+
+	txn := result.GetTx()
+	var subValues []common.Hash
+	var attackBranch uint64
+	if len(txn.BlobHashes()) > 0 {
+		// todo: fetch Blobs and unpack it into subValues and attackBranch
+		return nil, 0, fmt.Errorf("blob tx hasn't been supported")
+	} else {
+		inputMap, err := getTxByHashCall.UnpackCallData(&txn)
+		if err != nil {
+			return nil, 0, fmt.Errorf("failed to unpack tx resp: %w", err)
+		}
+		attackBranchU256 := *abi.ConvertType(inputMap[fieldAttackBranch], new(big.Int)).(*big.Int)
+		attackBranch = attackBranchU256.Uint64()
+
+		maxAttackBranch, err := f.GetMaxAttackBranch(ctx)
+		if err != nil {
+			return nil, 0, err
+		}
+		valuesBytesLen := uint(32 * maxAttackBranch)
+		bytes := abi.ConvertType(inputMap[fieldSubValues], make([]byte, valuesBytesLen)).([]byte)
+		for i := uint64(0); i < maxAttackBranch; i++ {
+			hash := common.BytesToHash(bytes[i*32 : (i+1)*32])
+			subValues = append(subValues, hash)
+		}
+	}
+
+	return subValues, attackBranch, nil
+}
+
 func (f *FaultDisputeGameContractLatest) IsResolved(ctx context.Context, block rpcblock.Block, claims ...types.Claim) ([]bool, error) {
 	defer f.metrics.StartContractRequest("IsResolved")()
 	calls := make([]batching.Call, 0, len(claims))
@@ -670,4 +766,5 @@ type FaultDisputeGameContract interface {
 	StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error)
 	GetNBits(ctx context.Context) (uint64, error)
 	GetMaxAttackBranch(ctx context.Context) (uint64, error)
+	GetAllClaimsWithSubValues(ctx context.Context) ([]types.Claim, error)
 }

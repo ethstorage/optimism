@@ -23,6 +23,8 @@ import (
 	"github.com/ethereum-optimism/optimism/packages/contracts-bedrock/snapshots"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	coreTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rlp"
 	"github.com/stretchr/testify/require"
 )
@@ -849,5 +851,129 @@ func TestStepV2Tx(t *testing.T) {
 			require.NoError(t, err)
 			stubRpc.VerifyTxCandidate(tx)
 		})
+	}
+}
+
+func TestGetAllClaimsWithSubValues(t *testing.T) {
+	for _, version := range versions {
+		t.Run(version.version, func(t *testing.T) {
+			stubRpc, game := setupFaultDisputeGameTest(t, version)
+			block := rpcblock.Latest
+
+			claimant := common.Address{0xbb}
+			bond := big.NewInt(1044)
+			nBits := uint64(2)
+			claimsBytes := make([]byte, ((1<<nBits)-1)*32)
+			subValues := []common.Hash{{0x10}, {0x11}, {0x12}}
+			for i := range claimsBytes {
+				claimsBytes[i] = subValues[i/32][i%32]
+			}
+			daType := faultTypes.CallDataType
+			parentPos := faultTypes.NewPosition(0, big.NewInt(0))
+			// attackBranch must be 0, because we can only attach the first branch of rootClaim
+			attackBranch := big.NewInt(0)
+			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}, Position: parentPos}, ContractIndex: 111}
+			stubRpc.SetResponse(fdgAddr, methodNBits, block, nil, []interface{}{new(big.Int).SetUint64(nBits)})
+			stubRpc.SetResponse(fdgAddr, methodRequiredBond, block, []interface{}{parent.Position.MoveN(nBits, attackBranch.Uint64()).ToGIndex()}, []interface{}{bond})
+			stubRpc.SetResponse(fdgAddr, methodAttackV2, block, []interface{}{parent.Value, big.NewInt(111), attackBranch, daType, claimsBytes[:]}, nil)
+			txCandidate, err := game.AttackV2Tx(context.Background(), parent, attackBranch.Uint64(), daType.Uint64(), claimsBytes[:])
+			require.NoError(t, err)
+			tx := coreTypes.NewTx(&coreTypes.LegacyTx{
+				Nonce:    0,
+				GasPrice: big.NewInt(11111),
+				Gas:      1111,
+				To:       &claimant,
+				Value:    big.NewInt(111),
+				Data:     txCandidate.TxData,
+			})
+			packed, err := tx.MarshalBinary()
+			require.NoError(t, err)
+			txHash := tx.Hash()
+			stubRpc.SetGetTxByHashResponse(txHash, packed)
+
+			// mock eventLog
+			eventName := eventMove
+			fdgAbi := version.loadAbi()
+			challgenIndex := []interface{}{big.NewInt(int64(parent.ContractIndex))}
+			claim := []interface{}{SubValuesHash(subValues)}
+			address := []interface{}{claimant}
+			query := [][]interface{}{challgenIndex, claim, address}
+
+			query = append([][]interface{}{{fdgAbi.Events[eventName].ID}}, query...)
+			topics, err := abi.MakeTopics(query...)
+			require.NoError(t, err)
+			var queryTopics []common.Hash
+			for _, item := range topics {
+				queryTopics = append(queryTopics, item[0])
+			}
+			out := []coreTypes.Log{
+				{
+					Address: fdgAddr,
+					Topics:  queryTopics,
+					Data:    []byte{},
+					TxHash:  txHash,
+				},
+			}
+
+			stubRpc.SetFilterLogResponse(topics, fdgAddr, block, out)
+			stubRpc.SetResponse(fdgAddr, methodClaimCount, block, nil, []interface{}{big.NewInt(1)})
+			stubRpc.SetResponse(fdgAddr, methodMaxAttackBranch, block, nil, []interface{}{big.NewInt(1<<nBits - 1)})
+			claim0 := faultTypes.Claim{
+				ClaimData: faultTypes.ClaimData{
+					Value:    SubValuesHash(subValues),
+					Position: parent.Position.MoveN(nBits, attackBranch.Uint64()),
+					Bond:     bond,
+				},
+				CounteredBy: common.Address{0x00},
+				Claimant:    claimant,
+				Clock:       decodeClock(big.NewInt(1234)),
+				// contractIndex is mocked to 0, because there is only one claim for GetAllClaimsWithSubValues
+				ContractIndex:       0,
+				ParentContractIndex: parent.ContractIndex,
+				SubValues:           &subValues,
+				AttackBranch:        attackBranch.Uint64(),
+			}
+			expectedClaims := []faultTypes.Claim{claim0}
+			for _, claim := range expectedClaims {
+				expectGetClaim(stubRpc, block, claim)
+			}
+
+			claims, err := game.GetAllClaimsWithSubValues(context.Background())
+			require.NoError(t, err)
+			require.Equal(t, 1, len(claims))
+			require.Equal(t, claim0.SubValues, claims[0].SubValues)
+			claim0.SubValues = nil
+			claims[0].SubValues = nil
+			require.Equal(t, 0, claim0.ClaimData.IndexAtDepth().Cmp(claims[0].ClaimData.IndexAtDepth()))
+			claim0.ClaimData = faultTypes.ClaimData{}
+			claims[0].ClaimData = faultTypes.ClaimData{}
+			require.Equal(t, claim0, claims[0])
+		})
+	}
+}
+
+func TestSubValuesHash(t *testing.T) {
+	allClaims := [][]common.Hash{
+		{{0x01}, {0x02}, {0x03}},
+		{{0x01}, {0x02}, {0x03}, {0x04}},
+	}
+	Hash := crypto.Keccak256Hash
+	tests := []struct {
+		claims       []common.Hash
+		expectedHash common.Hash
+	}{
+		{
+			claims:       allClaims[0],
+			expectedHash: Hash(Hash(allClaims[0][0][:], allClaims[0][1][:]).Bytes(), allClaims[0][2][:]),
+		},
+		{
+			claims:       allClaims[1],
+			expectedHash: Hash(Hash(allClaims[1][0][:], allClaims[1][1][:]).Bytes(), Hash(allClaims[1][2][:], allClaims[1][3][:]).Bytes()),
+		},
+	}
+
+	for _, test := range tests {
+		actualHash := SubValuesHash(test.claims)
+		require.Equal(t, test.expectedHash, actualHash)
 	}
 }
