@@ -10,15 +10,17 @@ import (
 type TranslatingProvider struct {
 	rootDepth types.Depth
 	provider  types.TraceProvider
+	localData types.DAData
 }
 
 // Translate returns a new TraceProvider that translates any requested positions before passing them on to the
 // specified provider.
 // The translation is done such that the root node for provider is at rootDepth.
-func Translate(provider types.TraceProvider, rootDepth types.Depth) types.TraceProvider {
+func Translate(provider types.TraceProvider, rootDepth types.Depth, outputRootDA types.DAData) types.TraceProvider {
 	return &TranslatingProvider{
 		rootDepth: rootDepth,
 		provider:  provider,
+		localData: outputRootDA,
 	}
 }
 
@@ -42,12 +44,24 @@ func (p *TranslatingProvider) GetStepData(ctx context.Context, pos types.Positio
 	return p.provider.GetStepData(ctx, relativePos)
 }
 
+func (p *TranslatingProvider) GetStepData2(ctx context.Context, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	relativePos, err := pos.RelativeToAncestorAtDepth(p.rootDepth)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return p.provider.GetStepData(ctx, relativePos)
+}
+
 func (p *TranslatingProvider) AbsolutePreStateCommitment(ctx context.Context) (hash common.Hash, err error) {
 	return p.provider.AbsolutePreStateCommitment(ctx)
 }
 
 func (p *TranslatingProvider) GetL2BlockNumberChallenge(ctx context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
 	return p.provider.GetL2BlockNumberChallenge(ctx)
+}
+
+func (p *TranslatingProvider) GetLocalData(ctx context.Context) (types.DAData, error) {
+	return p.localData, nil
 }
 
 var _ types.TraceProvider = (*TranslatingProvider)(nil)

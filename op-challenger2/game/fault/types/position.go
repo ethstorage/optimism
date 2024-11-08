@@ -117,6 +117,10 @@ func (p Position) parentIndexAtDepth() *big.Int {
 	return new(big.Int).Div(p.IndexAtDepth(), big.NewInt(2))
 }
 
+func (p Position) parentIndexAtDepthN(nbits uint64) *big.Int {
+	return new(big.Int).Div(p.IndexAtDepth(), big.NewInt(1<<nbits))
+}
+
 func (p Position) RightOf(parent Position) bool {
 	return p.parentIndexAtDepth().Cmp(parent.IndexAtDepth()) != 0
 }
@@ -126,6 +130,13 @@ func (p Position) parent() Position {
 	return Position{
 		depth:        p.depth - 1,
 		indexAtDepth: p.parentIndexAtDepth(),
+	}
+}
+
+func (p Position) ParentN(nbits uint64) Position {
+	return Position{
+		depth:        p.depth - Depth(nbits),
+		indexAtDepth: p.parentIndexAtDepthN(nbits),
 	}
 }
 

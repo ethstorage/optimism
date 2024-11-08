@@ -60,6 +60,10 @@ func (ap *AlphabetTraceProvider) GetStepData(ctx context.Context, pos types.Posi
 	return BuildAlphabetPreimage(newTraceIndex, newClaim), []byte{}, preimageData, nil
 }
 
+func (p *AlphabetTraceProvider) GetStepData2(ctx context.Context, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	return nil, nil, nil, fmt.Errorf("alphabet GetStepData2 is not supported, use GetStepData instead")
+}
+
 // Get returns the claim value at the given index in the trace.
 func (ap *AlphabetTraceProvider) Get(ctx context.Context, i types.Position) (common.Hash, error) {
 	if i.Depth() > ap.depth {
@@ -77,6 +81,10 @@ func (ap *AlphabetTraceProvider) Get(ctx context.Context, i types.Position) (com
 
 func (ap *AlphabetTraceProvider) GetL2BlockNumberChallenge(_ context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
 	return nil, types.ErrL2BlockNumberValid
+}
+
+func (ap *AlphabetTraceProvider) GetLocalData(_ context.Context) (types.DAData, error) {
+	return types.DAData{}, nil
 }
 
 // BuildAlphabetPreimage constructs the claim bytes for the index and claim.

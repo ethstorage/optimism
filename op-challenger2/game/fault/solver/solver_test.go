@@ -15,7 +15,9 @@ import (
 func TestAttemptStep(t *testing.T) {
 	maxDepth := types.Depth(3)
 	startingL2BlockNumber := big.NewInt(0)
-	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingL2BlockNumber, maxDepth)
+	nbits := uint64(1)
+	splitDepth := types.Depth(3)
+	claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
 
 	// Last accessible leaf is the second last trace index
 	// The root node is used for the last trace index and can only be attacked.
@@ -42,9 +44,9 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(common.Big0),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack(faulttest.WithValue(common.Hash{0xaa})).
-					Attack().
-					Attack(faulttest.WithValue(common.Hash{0xbb}))
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xaa})).
+					Attack2(nil, 0).
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xbb}))
 			},
 		},
 		{
@@ -55,9 +57,9 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(1)),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack(faulttest.WithValue(common.Hash{0xaa})).
-					Attack().
-					Attack()
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xaa})).
+					Attack2(nil, 0).
+					Attack2(nil, 0)
 			},
 		},
 		{
@@ -68,9 +70,9 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(4)),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack().
-					Defend().
-					Attack(faulttest.WithValue(common.Hash{0xaa}))
+					Attack2(nil, 0).
+					Attack2(nil, 1).
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xaa}))
 			},
 		},
 		{
@@ -81,9 +83,9 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(5)),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack().
-					Defend().
-					Attack()
+					Attack2(nil, 0).
+					Attack2(nil, 1).
+					Attack2(nil, 0)
 			},
 		},
 		{
@@ -94,9 +96,9 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(lastLeafTraceIndex),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack().
-					Defend().
-					Defend(faulttest.WithValue(common.Hash{0xaa}))
+					Attack2(nil, 0).
+					Attack2(nil, 1).
+					Attack2(nil, 1, faulttest.WithValue(common.Hash{0xaa}))
 			},
 		},
 		{
@@ -107,15 +109,15 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(lastLeafTraceIndexPlusOne),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack().
-					Defend().
-					Defend()
+					Attack2(nil, 0).
+					Attack2(nil, 1).
+					Attack2(nil, 1)
 			},
 		},
 		{
 			name: "CannotStepNonLeaf",
 			setupGame: func(builder *faulttest.GameBuilder) {
-				builder.Seq().Attack().Attack()
+				builder.Seq().Attack2(nil, 0).Attack2(nil, 0)
 			},
 			expectedErr:         ErrStepNonLeafNode,
 			agreeWithOutputRoot: true,
@@ -124,9 +126,9 @@ func TestAttemptStep(t *testing.T) {
 			name: "CannotStepAgreedNode",
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack().
-					Attack(faulttest.WithValue(common.Hash{0xaa})).
-					Attack()
+					Attack2(nil, 0).
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xaa})).
+					Attack2(nil, 0)
 			},
 			expectNoStep:        true,
 			agreeWithOutputRoot: true,
@@ -135,9 +137,9 @@ func TestAttemptStep(t *testing.T) {
 			name: "CannotStepInvalidPath",
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack(faulttest.WithValue(common.Hash{0xaa})).
-					Attack(faulttest.WithValue(common.Hash{0xbb})).
-					Attack(faulttest.WithValue(common.Hash{0xcc}))
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xaa})).
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xbb})).
+					Attack2(nil, 0, faulttest.WithValue(common.Hash{0xcc}))
 			},
 			expectNoStep:        true,
 			agreeWithOutputRoot: true,
@@ -150,9 +152,9 @@ func TestAttemptStep(t *testing.T) {
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(4)),
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
-					Attack().
-					Defend().
-					Defend()
+					Attack2(nil, 0).
+					Attack2(nil, 1).
+					Attack2(nil, 1)
 			},
 			expectNoStep:        true,
 			agreeWithOutputRoot: true,
