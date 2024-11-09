@@ -2,6 +2,7 @@ package trace
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -45,11 +46,7 @@ func (p *TranslatingProvider) GetStepData(ctx context.Context, pos types.Positio
 }
 
 func (p *TranslatingProvider) GetStepData2(ctx context.Context, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
-	relativePos, err := pos.RelativeToAncestorAtDepth(p.rootDepth)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	return p.provider.GetStepData(ctx, relativePos)
+	return nil, nil, nil, fmt.Errorf("GetStepData2 is not implemented for TranslatingProvider")
 }
 
 func (p *TranslatingProvider) AbsolutePreStateCommitment(ctx context.Context) (hash common.Hash, err error) {

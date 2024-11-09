@@ -56,7 +56,7 @@ func NewSplitProviderSelector(topProvider types.TraceProvider, topDepth types.De
 		outputRootDA.PostDA = postDA
 
 		// The top game runs from depth 0 to split depth *inclusive*.
-		// The - 1 here accounts for the fact that the split depth is included in the top game.
+		// The - nbits here accounts for the fact that the split depth is included in the top game.
 		bottomDepth := game.MaxDepth() - topDepth - types.Depth(game.NBits())
 		provider, err := bottomProviderCreator(ctx, bottomDepth, pre, post)
 		if err != nil {

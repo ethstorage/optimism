@@ -11,15 +11,15 @@ import (
 	oppreimage "github.com/ethereum-optimism/optimism/op-preimage"
 )
 
-type TestKeyType int
+type OracleKeyType int
 
 const (
-	OraclePreKey     TestKeyType = iota
-	OraclPostKey     TestKeyType = iota
-	OracleDefaultKey TestKeyType = iota
+	OraclePreKey     OracleKeyType = iota
+	OraclPostKey     OracleKeyType = iota
+	OracleDefaultKey OracleKeyType = iota
 )
 
-func NewAlphabetWithProofProvider(t *testing.T, startingL2BlockNumber *big.Int, maxDepth types.Depth, oracleError error, rootDepth types.Depth, oracleKey TestKeyType) *AlphabetWithProofProvider {
+func NewAlphabetWithProofProvider(t *testing.T, startingL2BlockNumber *big.Int, maxDepth types.Depth, oracleError error, rootDepth types.Depth, oracleKey OracleKeyType) *AlphabetWithProofProvider {
 	return &AlphabetWithProofProvider{
 		alphabet.NewTraceProvider(startingL2BlockNumber, maxDepth),
 		maxDepth,
@@ -39,7 +39,7 @@ type AlphabetWithProofProvider struct {
 	depth            types.Depth
 	OracleError      error
 	L2BlockChallenge *types.InvalidL2BlockNumberChallenge
-	pre              TestKeyType
+	oracleKey        OracleKeyType
 }
 
 func (a *AlphabetWithProofProvider) GetStepData(ctx context.Context, i types.Position) ([]byte, []byte, *types.PreimageOracleData, error) {
@@ -49,7 +49,7 @@ func (a *AlphabetWithProofProvider) GetStepData(ctx context.Context, i types.Pos
 	}
 	traceIndex := i.TraceIndex(a.depth).Uint64()
 	var key []byte
-	switch a.pre {
+	switch a.oracleKey {
 	case OraclePreKey:
 		// localPreimageKey(1) + STARTING_OUTPUT_ROOT(2)
 		key = []byte{byte(oppreimage.LocalKeyType), types.LocalPreimageKeyStartingOutputRoot}

@@ -110,7 +110,6 @@ func (g *gameState) Claims() []Claim {
 }
 
 func (g *gameState) RootClaim() Claim {
-	// Defensively copy to avoid modifications to the underlying array.
 	return g.claims[0]
 }
 

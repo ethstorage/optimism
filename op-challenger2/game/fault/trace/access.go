@@ -100,14 +100,6 @@ func findAncestorProofAtDepth2(ctx context.Context, provider types.TraceProvider
 	subValues := *ancestor.SubValues
 	ancestorClaim := subValues[branch]
 	merkleProof := utils.GenerateProofForSubValues(subValues, uint32(branch))
-	// merkleProof := make([]byte, 0)
-	// for i := int64(0); i < branch; i++ {
-	// 	merkleProof = append(merkleProof, subValues[i].Bytes()...)
-	// }
-
-	// for i := branch + 1; i < int64(game.MaxAttackBranch()); i++ {
-	// 	merkleProof = append(merkleProof, subValues[i].Bytes()...)
-	// }
 
 	return types.DAItem{
 		DaType:   types.CallDataType,

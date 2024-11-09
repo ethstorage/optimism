@@ -197,7 +197,7 @@ func TestGetStepDataWithOutputRoot(t *testing.T) {
 	}
 
 	tests := []struct {
-		oracalKeyType  test.TestKeyType
+		oracalKeyType  test.OracleKeyType
 		expectedDAItem types.DAItem
 	}{
 		{test.OraclePreKey, outputRootDA.PreDA},
