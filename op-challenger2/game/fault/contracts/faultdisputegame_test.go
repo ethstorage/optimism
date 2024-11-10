@@ -956,18 +956,29 @@ func TestSubValuesHash(t *testing.T) {
 	allClaims := [][]common.Hash{
 		{{0x01}, {0x02}, {0x03}},
 		{{0x01}, {0x02}, {0x03}, {0x04}},
+		{},
+		nil,
 	}
+	Hash := crypto.Keccak256Hash
 	tests := []struct {
 		claims       []common.Hash
 		expectedHash common.Hash
 	}{
 		{
 			claims:       allClaims[0],
-			expectedHash: crypto.Keccak256Hash(crypto.Keccak256Hash(allClaims[0][0][:], allClaims[0][1][:]).Bytes(), allClaims[0][2][:]),
+			expectedHash: Hash(Hash(allClaims[0][0][:], allClaims[0][1][:]).Bytes(), allClaims[0][2][:]),
 		},
 		{
 			claims:       allClaims[1],
-			expectedHash: crypto.Keccak256Hash(crypto.Keccak256Hash(allClaims[1][0][:], allClaims[1][1][:]).Bytes(), crypto.Keccak256Hash(allClaims[1][2][:], allClaims[1][3][:]).Bytes()),
+			expectedHash: Hash(Hash(allClaims[1][0][:], allClaims[1][1][:]).Bytes(), Hash(allClaims[1][2][:], allClaims[1][3][:]).Bytes()),
+		},
+		{
+			claims:       allClaims[2],
+			expectedHash: common.Hash{},
+		},
+		{
+			claims:       allClaims[3],
+			expectedHash: common.Hash{},
 		},
 	}
 

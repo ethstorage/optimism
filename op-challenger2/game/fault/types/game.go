@@ -46,6 +46,7 @@ type Game interface {
 	SplitDepth() Depth
 	// TraceRootDepth = MaxDepth - SplitDepth
 	TraceRootDepth() Depth
+	RootClaim() Claim
 }
 
 // gameState is a struct that represents the state of a dispute game.
@@ -57,7 +58,6 @@ type gameState struct {
 	depth      Depth
 	nBits      uint64
 	splitDepth Depth
-	daType     DAType
 }
 
 // NewGameState returns a new game state.
@@ -107,6 +107,10 @@ func (g *gameState) IsDuplicate(claim Claim) bool {
 func (g *gameState) Claims() []Claim {
 	// Defensively copy to avoid modifications to the underlying array.
 	return append([]Claim(nil), g.claims...)
+}
+
+func (g *gameState) RootClaim() Claim {
+	return g.claims[0]
 }
 
 func (g *gameState) MaxDepth() Depth {
@@ -190,5 +194,5 @@ func (g *gameState) SplitDepth() Depth {
 }
 
 func (g *gameState) TraceRootDepth() Depth {
-	return g.depth - g.splitDepth
+	return g.splitDepth + Depth(g.nBits)
 }

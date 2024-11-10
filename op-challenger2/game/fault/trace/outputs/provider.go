@@ -14,8 +14,10 @@ import (
 )
 
 var (
-	ErrGetStepData = errors.New("GetStepData not supported")
-	ErrIndexTooBig = errors.New("trace index is greater than max uint64")
+	ErrGetStepData  = errors.New("GetStepData not supported")
+	ErrGetStepData2 = errors.New("GetStepData2 not supported")
+	ErrGetLocalData = errors.New("GetLocalData not supported")
+	ErrIndexTooBig  = errors.New("trace index is greater than max uint64")
 )
 
 var _ types.TraceProvider = (*OutputTraceProvider)(nil)
@@ -96,6 +98,14 @@ func (o *OutputTraceProvider) Get(ctx context.Context, pos types.Position) (comm
 // GetStepData is not supported in the [OutputTraceProvider].
 func (o *OutputTraceProvider) GetStepData(_ context.Context, _ types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
 	return nil, nil, nil, ErrGetStepData
+}
+
+func (o *OutputTraceProvider) GetStepData2(_ context.Context, _ types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	return nil, nil, nil, ErrGetStepData2
+}
+
+func (o *OutputTraceProvider) GetLocalData(_ context.Context) (localDA types.DAData, err error) {
+	return types.DAData{}, ErrGetLocalData
 }
 
 func (o *OutputTraceProvider) GetL2BlockNumberChallenge(ctx context.Context) (*types.InvalidL2BlockNumberChallenge, error) {

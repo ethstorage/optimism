@@ -147,6 +147,9 @@ func mustParseAbi(json []byte) *abi.ABI {
 }
 
 func SubValuesHash(values []common.Hash) common.Hash {
+	if len(values) == 0 {
+		return common.Hash{}
+	}
 	nelem := len(values)
 	hashes := make([]common.Hash, nelem)
 	copy(hashes, values)

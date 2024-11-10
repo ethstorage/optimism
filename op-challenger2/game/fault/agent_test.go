@@ -72,13 +72,15 @@ func TestDoNotMakeMovesWhenL2BlockNumberChallenged(t *testing.T) {
 }
 
 func createClaimsWithClaimants(t *testing.T, d types.Depth) []types.Claim {
-	claimBuilder := test.NewClaimBuilder(t, d, alphabet.NewTraceProvider(big.NewInt(0), d))
+	nbits := uint64(1)
+	splitDepth := types.Depth(3)
+	claimBuilder := test.NewClaimBuilder2(t, d, nbits, splitDepth, alphabet.NewTraceProvider(big.NewInt(0), d))
 	rootClaim := claimBuilder.CreateRootClaim()
 	claim1 := rootClaim
 	claim1.Claimant = common.BigToAddress(big.NewInt(1))
-	claim2 := claimBuilder.AttackClaim(claim1)
+	claim2 := claimBuilder.AttackClaim2(claim1, nil, 0)
 	claim2.Claimant = common.BigToAddress(big.NewInt(2))
-	claim3 := claimBuilder.AttackClaim(claim2)
+	claim3 := claimBuilder.AttackClaim2(claim2, nil, 0)
 	claim3.Claimant = common.BigToAddress(big.NewInt(3))
 	return []types.Claim{claim1, claim2, claim3}
 }
@@ -150,14 +152,16 @@ func TestSkipAttemptingToResolveClaimsWhenClockNotExpired(t *testing.T) {
 	responder.callResolveErr = errors.New("game is not resolvable")
 	responder.callResolveClaimErr = errors.New("claim is not resolvable")
 	depth := types.Depth(4)
-	claimBuilder := test.NewClaimBuilder(t, depth, alphabet.NewTraceProvider(big.NewInt(0), depth))
+	nbits := uint64(1)
+	splitDepth := types.Depth(3)
+	claimBuilder := test.NewClaimBuilder2(t, depth, nbits, splitDepth, alphabet.NewTraceProvider(big.NewInt(0), depth))
 
 	rootTime := l1Time.Add(-agent.maxClockDuration - 5*time.Minute)
 	gameBuilder := claimBuilder.GameBuilder(test.WithClock(rootTime, 0))
 	gameBuilder.Seq().
-		Attack(test.WithClock(rootTime.Add(5*time.Minute), 5*time.Minute)).
-		Defend(test.WithClock(rootTime.Add(7*time.Minute), 2*time.Minute)).
-		Attack(test.WithClock(rootTime.Add(11*time.Minute), 4*time.Minute))
+		Attack2(nil, 0, test.WithClock(rootTime.Add(5*time.Minute), 5*time.Minute)).
+		Attack2(nil, 1, test.WithClock(rootTime.Add(7*time.Minute), 2*time.Minute)).
+		Attack2(nil, 0, test.WithClock(rootTime.Add(11*time.Minute), 4*time.Minute))
 	claimLoader.claims = gameBuilder.Game.Claims()
 
 	require.NoError(t, agent.Act(context.Background()))
@@ -173,7 +177,9 @@ func TestLoadClaimsWhenGameNotResolvable(t *testing.T) {
 	responder.callResolveErr = errors.New("game is not resolvable")
 	responder.callResolveClaimErr = errors.New("claim is not resolvable")
 	depth := types.Depth(4)
-	claimBuilder := test.NewClaimBuilder(t, depth, alphabet.NewTraceProvider(big.NewInt(0), depth))
+	nbits := uint64(1)
+	splitDepth := types.Depth(3)
+	claimBuilder := test.NewClaimBuilder2(t, depth, nbits, splitDepth, alphabet.NewTraceProvider(big.NewInt(0), depth))
 
 	claimLoader.claims = []types.Claim{
 		claimBuilder.CreateRootClaim(),

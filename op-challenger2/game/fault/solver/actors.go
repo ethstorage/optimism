@@ -43,63 +43,63 @@ var doNothingActor builderFn = func(builder *test.GameBuilder) bool {
 }
 
 var correctAttackLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
-	seq.Attack()
+	seq.Attack2(nil, 0)
 })
 
 var correctDefendLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
 	if seq.IsRoot() {
 		// Must attack the root
-		seq.Attack()
+		seq.Attack2(nil, 0)
 	} else {
-		seq.Defend()
+		seq.Attack2(nil, 1)
 	}
 })
 
 var incorrectAttackLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
-	seq.Attack(test.WithValue(common.Hash{0xaa}))
+	seq.Attack2(nil, 0, test.WithValue(common.Hash{0xaa}))
 })
 
 var incorrectDefendLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
 	if seq.IsRoot() {
 		// Must attack the root
-		seq.Attack(test.WithValue(common.Hash{0xdd}))
+		seq.Attack2(nil, 0, test.WithValue(common.Hash{0xdd}))
 	} else {
-		seq.Defend(test.WithValue(common.Hash{0xdd}))
+		seq.Attack2(nil, 1, test.WithValue(common.Hash{0xdd}))
 	}
 })
 
 var attackEverythingCorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
-	seq.Attack()
+	seq.Attack2(nil, 0)
 })
 
 var defendEverythingCorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
 	if seq.IsRoot() {
 		// Must attack root
-		seq.Attack()
+		seq.Attack2(nil, 0)
 	} else {
-		seq.Defend()
+		seq.Attack2(nil, 1)
 	}
 })
 
 var attackEverythingIncorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
-	seq.Attack(test.WithValue(common.Hash{0xaa}))
+	seq.Attack2(nil, 0, test.WithValue(common.Hash{0xaa}))
 })
 
 var defendEverythingIncorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
 	if seq.IsRoot() {
 		// Must attack root
-		seq.Attack(test.WithValue(common.Hash{0xbb}))
+		seq.Attack2(nil, 0, test.WithValue(common.Hash{0xbb}))
 	} else {
-		seq.Defend(test.WithValue(common.Hash{0xbb}))
+		seq.Attack2(nil, 1, test.WithValue(common.Hash{0xbb}))
 	}
 })
 
 var exhaustive = respondAllClaims(func(seq *test.GameBuilderSeq) {
-	seq.Attack()
-	seq.Attack(test.WithValue(common.Hash{0xaa}))
+	seq.Attack2(nil, 0)
+	seq.Attack2(nil, 0, test.WithValue(common.Hash{0xaa}))
 	if !seq.IsRoot() {
-		seq.Defend()
-		seq.Defend(test.WithValue(common.Hash{0xdd}))
+		seq.Attack2(nil, 1)
+		seq.Attack2(nil, 1, test.WithValue(common.Hash{0xdd}))
 	}
 })
 

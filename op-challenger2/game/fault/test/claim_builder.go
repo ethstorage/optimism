@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,8 @@ type claimCfg struct {
 	parentIdx      int
 	clockTimestamp time.Time
 	clockDuration  time.Duration
+	branch         uint64
+	subValues      *[]common.Hash
 }
 
 func newClaimCfg(opts ...ClaimOpt) *claimCfg {
@@ -74,19 +77,35 @@ func WithClock(timestamp time.Time, duration time.Duration) ClaimOpt {
 	})
 }
 
+func WithBranch(branch uint64) ClaimOpt {
+	return claimOptFn(func(cfg *claimCfg) {
+		cfg.branch = branch
+	})
+}
+
+func WithSubValues(subValues *[]common.Hash) ClaimOpt {
+	return claimOptFn(func(cfg *claimCfg) {
+		cfg.subValues = subValues
+	})
+}
+
 // ClaimBuilder is a test utility to enable creating claims in a wide range of situations
 type ClaimBuilder struct {
-	require  *require.Assertions
-	maxDepth types.Depth
-	correct  types.TraceProvider
+	require    *require.Assertions
+	maxDepth   types.Depth
+	nbits      uint64
+	splitDepth types.Depth
+	correct    types.TraceProvider
 }
 
 // NewClaimBuilder creates a new [ClaimBuilder].
-func NewClaimBuilder(t *testing.T, maxDepth types.Depth, provider types.TraceProvider) *ClaimBuilder {
+func NewClaimBuilder2(t *testing.T, maxDepth types.Depth, nbits uint64, splitDepth types.Depth, provider types.TraceProvider) *ClaimBuilder {
 	return &ClaimBuilder{
-		require:  require.New(t),
-		maxDepth: maxDepth,
-		correct:  provider,
+		require:    require.New(t),
+		maxDepth:   maxDepth,
+		nbits:      nbits,
+		splitDepth: splitDepth,
+		correct:    provider,
 	}
 }
 
@@ -140,6 +159,7 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 			Duration:  cfg.clockDuration,
 			Timestamp: cfg.clockTimestamp,
 		},
+		AttackBranch: cfg.branch,
 	}
 	if cfg.claimant != (common.Address{}) {
 		claim.Claimant = cfg.claimant
@@ -150,6 +170,11 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 		claim.Value = c.incorrectClaim(pos)
 	} else {
 		claim.Value = c.CorrectClaimAtPosition(pos)
+		// when nbits is 1, subValues is also filled with claim.Value
+		claim.SubValues = &[]common.Hash{claim.Value}
+	}
+	if cfg.subValues != nil {
+		claim.SubValues = cfg.subValues
 	}
 	claim.ParentContractIndex = cfg.parentIdx
 	return claim
@@ -165,9 +190,15 @@ func (c *ClaimBuilder) CreateLeafClaim(traceIndex *big.Int, opts ...ClaimOpt) ty
 	return c.claim(pos, opts...)
 }
 
-func (c *ClaimBuilder) AttackClaim(claim types.Claim, opts ...ClaimOpt) types.Claim {
-	pos := claim.Position.Attack()
-	return c.claim(pos, append([]ClaimOpt{WithParent(claim)}, opts...)...)
+func (c *ClaimBuilder) AttackClaim2(claim types.Claim, subValues []common.Hash, branch uint64, opts ...ClaimOpt) types.Claim {
+	pos := claim.Position.MoveN(c.nbits, branch)
+	if subValues == nil {
+		// aggCLaim will be auto generated in this function
+		return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithBranch(branch)}, opts...)...)
+	} else {
+		aggClaim := contracts.SubValuesHash(subValues)
+		return c.claim(pos, append([]ClaimOpt{WithParent(claim), WithValue(aggClaim), WithBranch(branch), WithSubValues(&subValues)}, opts...)...)
+	}
 }
 
 func (c *ClaimBuilder) DefendClaim(claim types.Claim, opts ...ClaimOpt) types.Claim {

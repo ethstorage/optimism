@@ -11,7 +11,9 @@ import (
 
 func TestHonestClaimTracker_RootClaim(t *testing.T) {
 	tracker := newHonestClaimTracker()
-	builder := test.NewAlphabetClaimBuilder(t, big.NewInt(3), 4)
+	nBits := uint64(1)
+	splitDepth := types.Depth(3)
+	builder := test.NewAlphabetClaimBuilder2(t, big.NewInt(3), 4, nBits, splitDepth)
 
 	claim := builder.Seq().Get()
 	require.False(t, tracker.IsHonest(claim))
@@ -22,11 +24,13 @@ func TestHonestClaimTracker_RootClaim(t *testing.T) {
 
 func TestHonestClaimTracker_ChildClaim(t *testing.T) {
 	tracker := newHonestClaimTracker()
-	builder := test.NewAlphabetClaimBuilder(t, big.NewInt(3), 4)
+	nBits := uint64(1)
+	splitDepth := types.Depth(3)
+	builder := test.NewAlphabetClaimBuilder2(t, big.NewInt(3), 4, nBits, splitDepth)
 
-	seq := builder.Seq().Attack().Defend()
+	seq := builder.Seq().Attack2(nil, 0).Attack2(nil, 1)
 	parent := seq.Get()
-	child := seq.Attack().Get()
+	child := seq.Attack2(nil, 0).Get()
 	require.Zero(t, child.ContractIndex, "should work for claims that are not in the game state yet")
 
 	tracker.AddHonestClaim(parent, child)
