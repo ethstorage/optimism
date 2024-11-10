@@ -77,25 +77,28 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 	if claim.CounteredBy != (common.Address{}) {
 		return nil, nil
 	}
-	step, err := s.claimSolver.AttemptStep(ctx, game, claim, agreedClaims)
-	if err != nil {
-		return nil, err
+	for branch := range *claim.SubValues {
+		step, err := s.claimSolver.AttemptStep(ctx, game, claim, agreedClaims, uint64(branch))
+		if err != nil {
+			return nil, err
+		}
+		if step == nil {
+			continue
+		}
+		return &types.Action{
+			Type:        types.ActionTypeStep,
+			ParentClaim: step.LeafClaim,
+			IsAttack:    step.IsAttack,
+			PreState:    step.PreState,
+			ProofData:   step.ProofData,
+			OracleData:  step.OracleData,
+		}, nil
 	}
-	if step == nil {
-		return nil, nil
-	}
-	return &types.Action{
-		Type:        types.ActionTypeStep,
-		ParentClaim: step.LeafClaim,
-		IsAttack:    step.IsAttack,
-		PreState:    step.PreState,
-		ProofData:   step.ProofData,
-		OracleData:  step.OracleData,
-	}, nil
+	return nil, nil
 }
 
 func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*types.Action, error) {
-	for branch, _ := range *claim.SubValues {
+	for branch := range *claim.SubValues {
 		if claim.Position.Depth() == game.SplitDepth()+types.Depth(game.NBits()) && branch != 0 {
 			continue
 		}

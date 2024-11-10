@@ -23,6 +23,7 @@ type GameContract interface {
 	AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error)
 	DefendTx(ctx context.Context, parent types.Claim, pivot common.Hash) (txmgr.TxCandidate, error)
 	StepTx(claimIdx uint64, isAttack bool, stateData []byte, proof []byte) (txmgr.TxCandidate, error)
+	StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error)
 	ChallengeL2BlockNumberTx(challenge *types.InvalidL2BlockNumberChallenge) (txmgr.TxCandidate, error)
 }
 
@@ -127,7 +128,12 @@ func (r *FaultResponder) PerformAction(ctx context.Context, action types.Action)
 		daTypeUint64 := (*big.Int)(action.DAType).Uint64()
 		candidate, err = r.contract.AttackV2Tx(ctx, action.ParentClaim, action.AttackBranch, daTypeUint64, subValues)
 	case types.ActionTypeStep:
-		candidate, err = r.contract.StepTx(uint64(action.ParentClaim.ContractIndex), action.IsAttack, action.PreState, action.ProofData)
+		stepProof := types.StepProof{
+			PreStateItem:  action.OracleData.VMStateDA.PreDA,
+			PostStateItem: action.OracleData.VMStateDA.PostDA,
+			VmProof:       action.ProofData,
+		}
+		candidate, err = r.contract.StepV2Tx(uint64(action.ParentClaim.ContractIndex), action.AttackBranch, action.PreState, stepProof)
 	case types.ActionTypeChallengeL2BlockNumber:
 		candidate, err = r.contract.ChallengeL2BlockNumberTx(action.InvalidL2BlockNumberChallenge)
 	}

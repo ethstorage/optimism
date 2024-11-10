@@ -101,7 +101,7 @@ type StepData struct {
 // AttemptStep determines what step, if any, should occur for a given leaf claim.
 // An error will be returned if the claim is not at the max depth.
 // Returns nil, nil if no step should be performed.
-func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*StepData, error) {
+func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker, branch uint64) (*StepData, error) {
 	if claim.Depth() != s.gameDepth {
 		return nil, ErrStepNonLeafNode
 	}
@@ -112,7 +112,7 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 		return nil, nil
 	}
 
-	claimCorrect, err := s.agreeWithClaim(ctx, game, claim)
+	claimCorrect, err := s.agreeWithClaimV2(ctx, game, claim, branch)
 	if err != nil {
 		return nil, err
 	}
@@ -120,11 +120,11 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 	var position types.Position
 	if !claimCorrect {
 		// Attack the claim by executing step index, so we need to get the pre-state of that index
-		position = claim.Position
+		position = claim.Position.MoveRightN(branch)
 	} else {
 		// Defend and use this claim as the starting point to execute the step after.
 		// Thus, we need the pre-state of the next step.
-		position = claim.Position.MoveRight()
+		position = claim.Position.MoveRightN(branch + 1)
 	}
 
 	preState, proofData, oracleData, err := s.trace.GetStepData(ctx, game, claim, position)
