@@ -169,9 +169,18 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 	} else if cfg.invalidValue {
 		claim.Value = c.incorrectClaim(pos)
 	} else {
-		claim.Value = c.CorrectClaimAtPosition(pos)
-		// when nbits is 1, subValues is also filled with claim.Value
-		claim.SubValues = &[]common.Hash{claim.Value}
+		// when subValues is not provided, correct trace is provided as default.
+		subValues := []common.Hash{}
+		if pos.IsRootPosition() || pos.Depth() == c.splitDepth+types.Depth(c.nbits) {
+			subValues = append(subValues, c.CorrectClaimAtPosition(pos))
+		} else {
+			for i := uint64(0); i < 1<<c.nbits-1; i++ {
+				value := c.CorrectClaimAtPosition(pos.MoveRightN(i))
+				subValues = append(subValues, value)
+			}
+		}
+		claim.Value = contracts.SubValuesHash(subValues)
+		claim.SubValues = &subValues
 	}
 	if cfg.subValues != nil {
 		claim.SubValues = cfg.subValues

@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
-	"github.com/ethereum-optimism/optimism/op-challenger2/game/keccak/merkle"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -91,11 +91,11 @@ func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game type
 }
 
 type StepData struct {
-	LeafClaim  types.Claim
-	IsAttack   bool
-	PreState   []byte
-	ProofData  []byte
-	OracleData *types.PreimageOracleData
+	LeafClaim    types.Claim
+	AttackBranch uint64
+	PreState     []byte
+	ProofData    []byte
+	OracleData   *types.PreimageOracleData
 }
 
 // AttemptStep determines what step, if any, should occur for a given leaf claim.
@@ -118,6 +118,7 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 	}
 
 	var position types.Position
+	attackBranch := branch
 	if !claimCorrect {
 		// Attack the claim by executing step index, so we need to get the pre-state of that index
 		position = claim.Position.MoveRightN(branch)
@@ -125,19 +126,20 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 		// Defend and use this claim as the starting point to execute the step after.
 		// Thus, we need the pre-state of the next step.
 		position = claim.Position.MoveRightN(branch + 1)
+		attackBranch = branch + 1
 	}
 
-	preState, proofData, oracleData, err := s.trace.GetStepData(ctx, game, claim, position)
+	preState, proofData, oracleData, err := s.trace.GetStepData2(ctx, game, claim, position)
 	if err != nil {
 		return nil, err
 	}
 
 	return &StepData{
-		LeafClaim:  claim,
-		IsAttack:   !claimCorrect,
-		PreState:   preState,
-		ProofData:  proofData,
-		OracleData: oracleData,
+		LeafClaim:    claim,
+		AttackBranch: attackBranch,
+		PreState:     preState,
+		ProofData:    proofData,
+		OracleData:   oracleData,
 	}, nil
 }
 
@@ -170,19 +172,11 @@ func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types
 		}
 		values = append(values, value)
 	}
-	hash := getClaimsHash(values)
+	hash := contracts.SubValuesHash(values)
 	return &types.Claim{
 		ClaimData:           types.ClaimData{Value: hash, Position: position},
 		ParentContractIndex: claim.ContractIndex,
 		SubValues:           &values,
 		AttackBranch:        branch,
 	}, nil
-}
-
-func getClaimsHash(values []common.Hash) common.Hash {
-	tree := merkle.NewBinaryMerkleTree()
-	for i := 0; i < len(values); i++ {
-		tree.AddLeaf(values[i])
-	}
-	return tree.RootHash()
 }
