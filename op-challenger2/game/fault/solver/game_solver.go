@@ -102,6 +102,9 @@ func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim t
 		if claim.Position.Depth() == game.SplitDepth()+types.Depth(game.NBits()) && branch != 0 {
 			continue
 		}
+		if claim.IsRoot() && branch != 0 {
+			continue
+		}
 		move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims, uint64(branch))
 		if err != nil {
 			return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)

@@ -179,7 +179,8 @@ func TestAttemptStep(t *testing.T) {
 				grandParentClaim := claims[parentClaim.ParentContractIndex]
 				agreedClaims.AddHonestClaim(grandParentClaim, parentClaim)
 			}
-			step, err := alphabetSolver.AttemptStep(ctx, game, lastClaim, agreedClaims)
+			// todo: add test for oracle data
+			step, err := alphabetSolver.AttemptStep(ctx, game, lastClaim, agreedClaims, 0)
 			require.ErrorIs(t, err, tableTest.expectedErr)
 			if !tableTest.expectNoStep && tableTest.expectedErr == nil {
 				require.NotNil(t, step)

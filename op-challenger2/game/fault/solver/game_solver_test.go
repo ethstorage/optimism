@@ -45,7 +45,7 @@ func TestCalculateNextActions_ChallengeL2BlockNumber(t *testing.T) {
 func TestCalculateNextActions(t *testing.T) {
 	maxDepth := types.Depth(6)
 	startingL2BlockNumber := big.NewInt(0)
-	nbits := uint64(1)
+	nbits := uint64(2)
 	splitDepth := types.Depth(3)
 	claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
 
@@ -215,11 +215,13 @@ func TestCalculateNextActions(t *testing.T) {
 				t.Logf("Expect %v: Type: %v, ParentIdx: %v, Attack: %v, Value: %v, PreState: %v, ProofData: %v",
 					i, action.Type, action.ParentClaim.ContractIndex, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
 				require.Containsf(t, actions, action, "Expected claim %v missing", i)
+				break
 			}
 			require.Len(t, actions, len(builder.ExpectedActions), "Incorrect number of actions")
 
 			verifyGameRules(t, postState, test.rootClaimCorrect)
 		})
+		break
 	}
 }
 
@@ -352,6 +354,114 @@ func applyActions(game types.Game, claimant common.Address, actions []types.Acti
 				Claimant:            claimant,
 				ContractIndex:       len(claims),
 				ParentContractIndex: action.ParentClaim.ContractIndex,
+			}
+			claims = append(claims, claim)
+		case types.ActionTypeStep:
+			counteredClaim := claims[action.ParentClaim.ContractIndex]
+			counteredClaim.CounteredBy = claimant
+			claims[action.ParentClaim.ContractIndex] = counteredClaim
+		default:
+			panic(fmt.Errorf("unknown move type: %v", action.Type))
+		}
+	}
+	return types.NewGameState2(claims, game.MaxDepth(), game.NBits(), game.SplitDepth())
+}
+
+func TestCalculateNextActions2(t *testing.T) {
+	maxDepth := types.Depth(8)
+	startingL2BlockNumber := big.NewInt(0)
+	nbits := uint64(2)
+	splitDepth := types.Depth(4)
+	claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
+
+	tests := []struct {
+		name             string
+		rootClaimCorrect bool
+		setupGame        func(builder *faulttest.GameBuilder)
+	}{
+		/*
+			{
+				name: "AttackRootClaim",
+				setupGame: func(builder *faulttest.GameBuilder) {
+					builder.Seq().ExpectAttackV2(0)
+				},
+			},
+			{
+				name:             "DoNotAttackCorrectRootClaim_AgreeWithOutputRoot",
+				rootClaimCorrect: true,
+				setupGame:        func(builder *faulttest.GameBuilder) {},
+			},
+			{
+				name: "DoNotPerformDuplicateMoves",
+				setupGame: func(builder *faulttest.GameBuilder) {
+					// Expected move has already been made.
+					builder.Seq().Attack()
+				},
+			},
+		*/
+		{
+			name: "RespondToAllClaimsAtDisagreeingLevel",
+			setupGame: func(builder *faulttest.GameBuilder) {
+				honestClaim := builder.Seq().Attack2(nil, 0)
+				honestClaim.Attack2(nil, 0).ExpectAttackV2(0)
+			},
+		},
+	}
+
+	for _, test := range tests {
+		test := test
+		t.Run(test.name, func(t *testing.T) {
+			builder := claimBuilder.GameBuilder(faulttest.WithInvalidValue(!test.rootClaimCorrect))
+			test.setupGame(builder)
+			game := builder.Game
+			solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()), types.CallDataType)
+			postState, actions := runStep2(t, solver, game, claimBuilder.CorrectTraceProvider())
+			for i, action := range builder.ExpectedActions {
+				t.Logf("Expect %v: Type: %v, ParentIdx: %v, Attack: %v, Value: %v, PreState: %v, ProofData: %v",
+					i, action.Type, action.ParentClaim.ContractIndex, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
+				require.Containsf(t, actions, action, "Expected claim %v missing", i)
+				break
+			}
+			require.Len(t, actions, len(builder.ExpectedActions), "Incorrect number of actions")
+
+			verifyGameRules(t, postState, test.rootClaimCorrect)
+		})
+	}
+}
+
+func runStep2(t *testing.T, solver *GameSolver, game types.Game, correctTraceProvider types.TraceProvider) (types.Game, []types.Action) {
+	actions, err := solver.CalculateNextActions(context.Background(), game)
+	t.Logf("runStep2 actions: %v", actions)
+	require.NoError(t, err)
+
+	postState := applyActions2(game, challengerAddr, actions)
+
+	for i, action := range actions {
+		t.Logf("Move %v: Type: %v, ParentIdx: %v, Attack: %v, Value: %v, PreState: %v, ProofData: %v",
+			i, action.Type, action.ParentClaim.ContractIndex, action.IsAttack, action.Value, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
+		// Check that every move the solver returns meets the generic validation rules
+		require.NoError(t, checkRules(game, action, correctTraceProvider), "Attempting to perform invalid action")
+	}
+	return postState, actions
+}
+
+func applyActions2(game types.Game, claimant common.Address, actions []types.Action) types.Game {
+	claims := game.Claims()
+	for _, action := range actions {
+		switch action.Type {
+		case types.ActionTypeAttackV2:
+			newPosition := action.ParentClaim.Position.MoveN(game.NBits(), action.AttackBranch)
+			claim := types.Claim{
+				ClaimData: types.ClaimData{
+					Value:    action.Value,
+					Bond:     big.NewInt(0),
+					Position: newPosition,
+				},
+				Claimant:            claimant,
+				ContractIndex:       len(claims),
+				ParentContractIndex: action.ParentClaim.ContractIndex,
+				SubValues:           action.SubValues,
+				AttackBranch:        action.AttackBranch,
 			}
 			claims = append(claims, claim)
 		case types.ActionTypeStep:

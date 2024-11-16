@@ -20,10 +20,10 @@ type actionRule func(game types.Game, action types.Action, correctTrace types.Tr
 var rules = []actionRule{
 	parentMustExist,
 	onlyStepAtMaxDepth,
-	onlyMoveBeforeMaxDepth,
+	onlyAttackBeforeMaxDepth,
 	doNotDuplicateExistingMoves,
 	doNotStepAlreadyCounteredClaims,
-	doNotDefendRootClaim,
+	onlyAttackRootClaimZeroBranch,
 	avoidPoisonedPrestate,
 	detectPoisonedStepPrestate,
 	detectFailedStep,
@@ -66,15 +66,13 @@ func onlyStepAtMaxDepth(game types.Game, action types.Action, _ types.TraceProvi
 	return nil
 }
 
-// onlyMoveBeforeMaxDepth verifies that move actions are not performed against leaf claims
-// Rationale: The action would be rejected by the contracts
-func onlyMoveBeforeMaxDepth(game types.Game, action types.Action, _ types.TraceProvider) error {
-	if action.Type == types.ActionTypeMove {
+func onlyAttackBeforeMaxDepth(game types.Game, action types.Action, _ types.TraceProvider) error {
+	if action.Type == types.ActionTypeAttackV2 {
 		return nil
 	}
 	parentDepth := game.Claims()[action.ParentClaim.ContractIndex].Position.Depth()
 	if parentDepth < game.MaxDepth() {
-		return fmt.Errorf("parent (%v) not at max depth (%v) but attempting to perform %v action instead of move",
+		return fmt.Errorf("parent (%v) not at max depth (%v) but attempting to perform %v action instead of attackV2",
 			parentDepth, game.MaxDepth(), action.Type)
 	}
 	return nil
@@ -103,11 +101,9 @@ func doNotStepAlreadyCounteredClaims(game types.Game, action types.Action, _ typ
 	return nil
 }
 
-// doNotDefendRootClaim checks the challenger doesn't attempt to defend the root claim
-// Rationale: The action would be rejected by the contracts
-func doNotDefendRootClaim(game types.Game, action types.Action, _ types.TraceProvider) error {
-	if game.Claims()[action.ParentClaim.ContractIndex].IsRootPosition() && !action.IsAttack {
-		return fmt.Errorf("defending the root claim at idx %v", action.ParentClaim.ContractIndex)
+func onlyAttackRootClaimZeroBranch(game types.Game, action types.Action, _ types.TraceProvider) error {
+	if game.Claims()[action.ParentClaim.ContractIndex].IsRootPosition() && action.AttackBranch != 0 {
+		return fmt.Errorf("attacking the root claim at idx %v with branch %v", action.ParentClaim.ContractIndex, action.AttackBranch)
 	}
 	return nil
 }
@@ -272,8 +268,5 @@ func resultingPosition(game types.Game, action types.Action) types.Position {
 	if action.Type == types.ActionTypeStep {
 		return parentPos
 	}
-	if action.IsAttack {
-		return parentPos.Attack()
-	}
-	return parentPos.Defend()
+	return parentPos.MoveN(uint64(game.NBits()), action.AttackBranch)
 }

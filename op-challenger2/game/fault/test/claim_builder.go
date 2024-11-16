@@ -2,6 +2,7 @@ package test
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -161,22 +162,35 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 		},
 		AttackBranch: cfg.branch,
 	}
-	if cfg.claimant != (common.Address{}) {
-		claim.Claimant = cfg.claimant
-	}
-	if cfg.value != (common.Hash{}) {
-		claim.Value = cfg.value
-	} else if cfg.invalidValue {
-		claim.Value = c.incorrectClaim(pos)
-	} else {
-		claim.Value = c.CorrectClaimAtPosition(pos)
-		// when nbits is 1, subValues is also filled with claim.Value
-		claim.SubValues = &[]common.Hash{claim.Value}
-	}
 	if cfg.subValues != nil {
 		claim.SubValues = cfg.subValues
+		claim.Value = contracts.SubValuesHash(*claim.SubValues)
+	} else {
+		values := []common.Hash{}
+		if pos.ToGIndex().Cmp(big.NewInt(1)) == 0 {
+			if cfg.invalidValue {
+				values = append(values, c.incorrectClaim(pos))
+			} else {
+				values = append(values, c.CorrectClaimAtPosition(pos))
+			}
+			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
+				values = append(values, common.Hash{})
+			}
+		} else {
+			for i := uint64(0); i < c.MaxAttackBranch(); i++ {
+				pos := pos.MoveRightN(i)
+				if cfg.invalidValue {
+					values = append(values, c.incorrectClaim(pos))
+				} else {
+					values = append(values, c.CorrectClaimAtPosition(pos))
+				}
+			}
+		}
+		claim.SubValues = &values
+		claim.Value = contracts.SubValuesHash(*claim.SubValues)
 	}
 	claim.ParentContractIndex = cfg.parentIdx
+	fmt.Printf("claim.Value: %v\n", claim.Value)
 	return claim
 }
 
@@ -204,4 +218,20 @@ func (c *ClaimBuilder) AttackClaim2(claim types.Claim, subValues []common.Hash, 
 func (c *ClaimBuilder) DefendClaim(claim types.Claim, opts ...ClaimOpt) types.Claim {
 	pos := claim.Position.Defend()
 	return c.claim(pos, append([]ClaimOpt{WithParent(claim)}, opts...)...)
+}
+
+func (c *ClaimBuilder) NBits() uint64 {
+	return c.nbits
+}
+
+func (c *ClaimBuilder) MaxAttackBranch() uint64 {
+	return 1<<c.nbits - 1
+}
+
+func (c *ClaimBuilder) SplitDepth() types.Depth {
+	return c.splitDepth
+}
+
+func (c *ClaimBuilder) TraceRootDepth() types.Depth {
+	return c.splitDepth + types.Depth(c.nbits)
 }

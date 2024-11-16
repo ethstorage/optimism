@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
-	"github.com/ethereum-optimism/optimism/op-challenger2/game/keccak/merkle"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -170,19 +170,11 @@ func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types
 		}
 		values = append(values, value)
 	}
-	hash := getClaimsHash(values)
+	hash := contracts.SubValuesHash(values)
 	return &types.Claim{
 		ClaimData:           types.ClaimData{Value: hash, Position: position},
 		ParentContractIndex: claim.ContractIndex,
 		SubValues:           &values,
 		AttackBranch:        branch,
 	}, nil
-}
-
-func getClaimsHash(values []common.Hash) common.Hash {
-	tree := merkle.NewBinaryMerkleTree()
-	for i := 0; i < len(values); i++ {
-		tree.AddLeaf(values[i])
-	}
-	return tree.RootHash()
 }
