@@ -9,6 +9,7 @@ import (
 )
 
 func TestUnpaddingMerkelProof(t *testing.T) {
+	oneleave := []common.Hash{{0xaa}}
 	twoLeaves := []common.Hash{{0xaa}, {0xbb}}
 	fourLeaves := []common.Hash{{0xaa}, {0xbb}, {0xcc}, {0xdd}}
 	fiveLeaves := []common.Hash{{0xaa}, {0xbb}, {0xcc}, {0xdd}, {0xee}}
@@ -17,6 +18,12 @@ func TestUnpaddingMerkelProof(t *testing.T) {
 		index       uint32
 		expectProof []byte
 	}{
+		// 1 leave
+		{
+			data:        oneleave,
+			index:       0,
+			expectProof: nil,
+		},
 		// 2 leaves
 		{
 			data:        twoLeaves,

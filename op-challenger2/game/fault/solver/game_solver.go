@@ -86,12 +86,12 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 			continue
 		}
 		return &types.Action{
-			Type:        types.ActionTypeStep,
-			ParentClaim: step.LeafClaim,
-			IsAttack:    step.IsAttack,
-			PreState:    step.PreState,
-			ProofData:   step.ProofData,
-			OracleData:  step.OracleData,
+			Type:         types.ActionTypeStep,
+			ParentClaim:  step.LeafClaim,
+			AttackBranch: step.AttackBranch,
+			PreState:     step.PreState,
+			ProofData:    step.ProofData,
+			OracleData:   step.OracleData,
 		}, nil
 	}
 	return nil, nil

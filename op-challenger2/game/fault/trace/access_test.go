@@ -138,12 +138,10 @@ func TestGetStepData2(t *testing.T) {
 
 	expectedStateDA := types.DAData{
 		PreDA: types.DAItem{
-			DaType:   types.CallDataType,
 			DataHash: subClaimsDep8[0],
 			Proof:    append(subClaimsDep8[1][:], subClaimsDep8[2][:]...),
 		},
 		PostDA: types.DAItem{
-			DaType:   types.CallDataType,
 			DataHash: subClaimsDep8[1],
 			Proof:    append(subClaimsDep8[0][:], subClaimsDep8[2][:]...),
 		},
@@ -190,7 +188,6 @@ func TestGetStepDataWithOutputRoot(t *testing.T) {
 	outputRootDA := types.DAData{
 		PreDA: types.DAItem{},
 		PostDA: types.DAItem{
-			DaType:   types.CallDataType,
 			DataHash: subClaimsDep2[0],
 			Proof:    append(subClaimsDep2[1][:], subClaimsDep2[2][:]...),
 		},
@@ -287,13 +284,10 @@ func attackLeftMost(t *testing.T, ctx context.Context, gameBuilder *test.GameBui
 	absolutePre, err := provider.AbsolutePreStateCommitment(ctx)
 	require.NoError(t, err)
 	expectPreDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: absolutePre,
-		Proof:    []byte{},
 	}
 
 	expectPostDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep8[0],
 		Proof:    append(subClaimsDep8[1][:], subClaimsDep8[2][:]...),
 	}
@@ -327,13 +321,11 @@ func attackFirstBranch(t *testing.T, ctx context.Context, gameBuilder *test.Game
 	preTraceIdx = new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 
 	expectPreDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep6[0],
 		Proof:    append(subClaimsDep6[1][:], subClaimsDep6[2][:]...),
 	}
 
 	expectPostDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep8[0],
 		Proof:    append(subClaimsDep8[1][:], subClaimsDep8[2][:]...),
 	}
@@ -365,13 +357,11 @@ func attackMidBranch(t *testing.T, ctx context.Context, gameBuilder *test.GameBu
 	preTraceIdx = new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 
 	expectPreDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep8[0],
 		Proof:    append(subClaimsDep8[1][:], subClaimsDep8[2][:]...),
 	}
 
 	expectPostDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep8[1],
 		Proof:    append(subClaimsDep8[0][:], subClaimsDep8[2][:]...),
 	}
@@ -404,13 +394,11 @@ func attackMaxBranch(t *testing.T, ctx context.Context, gameBuilder *test.GameBu
 	preTraceIdx = new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 
 	expectPreDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep8[2],
 		Proof:    crypto.Keccak256(subClaimsDep8[0][:], subClaimsDep8[1][:]),
 	}
 
 	expectPostDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep6[1],
 		Proof:    append(subClaimsDep6[0][:], subClaimsDep6[2][:]...),
 	}
@@ -442,16 +430,13 @@ func attackRightMost(t *testing.T, ctx context.Context, gameBuilder *test.GameBu
 	preTraceIdx = new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 
 	expectPreDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: subClaimsDep8[2],
 		Proof:    crypto.Keccak256(subClaimsDep8[0][:], subClaimsDep8[1][:]),
 	}
 
 	splitLeaf := game.Claims()[2]
 	expectPostDA = types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: splitLeaf.Value,
-		Proof:    []byte{},
 	}
 	return
 }
