@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/split"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -370,12 +371,7 @@ func TestAttemptStepNary4(t *testing.T) {
 	nbits := uint64(2)
 	splitDepth := types.Depth(2)
 	claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
-	// traceDepth := maxDepth - splitDepth - types.Depth(nbits)
 
-	// Last accessible leaf is the second last trace index
-	// The root node is used for the last trace index and can only be attacked.
-	// lastLeafTraceIndex := big.NewInt(1<<traceDepth - 2)
-	// lastLeafTraceIndexPlusOne := big.NewInt(1<<traceDepth - 1)
 	ctx := context.Background()
 	absolutePrestate, err := claimBuilder.CorrectTraceProvider().AbsolutePreStateCommitment(ctx)
 	require.NoError(t, err)
@@ -384,6 +380,7 @@ func TestAttemptStepNary4(t *testing.T) {
 	tests := []struct {
 		name                string
 		agreeWithOutputRoot bool
+		attackBranch        uint64
 		expectedErr         error
 		expectNoStep        bool
 		expectAttackBranch  uint64
@@ -398,6 +395,7 @@ func TestAttemptStepNary4(t *testing.T) {
 		{
 			name:                "AttackLeftMostBranch",
 			expectAttackBranch:  0,
+			attackBranch:        0,
 			agreeWithOutputRoot: true,
 			expectPreState:      claimBuilder.CorrectPreState(common.Big0),
 			expectProofData:     claimBuilder.CorrectProofData(common.Big0),
@@ -421,6 +419,7 @@ func TestAttemptStepNary4(t *testing.T) {
 		{
 			name:                "AttackFirstBranch",
 			expectAttackBranch:  0,
+			attackBranch:        0,
 			agreeWithOutputRoot: true,
 			expectPreState:      claimBuilder.CorrectPreState(big.NewInt(4)),
 			expectProofData:     claimBuilder.CorrectProofData(big.NewInt(4)),
@@ -449,19 +448,23 @@ func TestAttemptStepNary4(t *testing.T) {
 		},
 		{
 			name:                "AttackMidBranch",
-			expectAttackBranch:  1,
+			expectAttackBranch:  2,
+			attackBranch:        2,
 			agreeWithOutputRoot: true,
-			expectPreState:      claimBuilder.CorrectPreState(big.NewInt(5)),
-			expectProofData:     claimBuilder.CorrectProofData(big.NewInt(5)),
-			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(5)),
+			expectPreState:      claimBuilder.CorrectPreState(big.NewInt(6)),
+			expectProofData:     claimBuilder.CorrectProofData(big.NewInt(6)),
+			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(6)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
-					DataHash: common.Hash{0x81},
-					Proof:    append(common.Hash{0x82}.Bytes(), common.Hash{0x83}.Bytes()...),
+					DataHash: claimAt(types.NewPosition(types.Depth(8), big.NewInt(5))),
+					Proof:    append(claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))).Bytes(), common.Hash{0x83}.Bytes()...),
 				},
 				PostDA: types.DAItem{
-					DataHash: common.Hash{0x82},
-					Proof:    append(common.Hash{0x81}.Bytes(), common.Hash{0x83}.Bytes()...),
+					DataHash: common.Hash{0x83},
+					Proof: crypto.Keccak256(
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))).Bytes(),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(5))).Bytes(),
+					),
 				},
 			},
 			expectedLocalData: &types.DAItem{},
@@ -470,21 +473,28 @@ func TestAttemptStepNary4(t *testing.T) {
 					Attack2(nil, 0). // splitDepth
 					Attack2(nil, 0).
 					Attack2(nil, 0).
-					Attack2([]common.Hash{{0x81}, {0x82}, {0x83}}, 1)
+					Attack2([]common.Hash{
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(5))),
+						{0x83},
+					}, 1)
 			},
 		},
-		// fix the following failing test
-		{
+		{ // if subValues at [0, maxAttackBranck -1] are correct, step would attack the maxAttackBranck
 			name:                "AttackMaxBranch",
 			expectAttackBranch:  3,
+			attackBranch:        2,
 			agreeWithOutputRoot: true,
 			expectPreState:      claimBuilder.CorrectPreState(big.NewInt(7)),
 			expectProofData:     claimBuilder.CorrectProofData(big.NewInt(7)),
 			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(7)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
-					DataHash: common.Hash{0x83},
-					Proof:    append(common.Hash{0x81}.Bytes(), common.Hash{0x82}.Bytes()...),
+					DataHash: claimAt(types.NewPosition(types.Depth(8), big.NewInt(6))),
+					Proof: crypto.Keccak256(
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))).Bytes(),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(5))).Bytes(),
+					),
 				},
 				PostDA: types.DAItem{
 					DataHash: claimAt(types.NewPosition(types.Depth(6), common.Big1)),
@@ -500,20 +510,28 @@ func TestAttemptStepNary4(t *testing.T) {
 					Attack2(nil, 0). // splitDepth
 					Attack2(nil, 0).
 					Attack2(nil, 0).
-					Attack2([]common.Hash{{0x81}, {0x82}, {0x83}}, 1)
+					Attack2([]common.Hash{
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(5))),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(6))),
+					}, 1)
 			},
 		},
 		{
 			name:                "AttackRightMost",
 			expectAttackBranch:  3,
+			attackBranch:        2,
 			agreeWithOutputRoot: true,
-			expectPreState:      claimBuilder.CorrectPreState(big.NewInt(7)),
-			expectProofData:     claimBuilder.CorrectProofData(big.NewInt(7)),
-			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(7)),
+			expectPreState:      claimBuilder.CorrectPreState(big.NewInt(15)),
+			expectProofData:     claimBuilder.CorrectProofData(big.NewInt(15)),
+			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(15)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
-					DataHash: common.Hash{0x83},
-					Proof:    append(common.Hash{0x81}.Bytes(), common.Hash{0x82}.Bytes()...),
+					DataHash: claimAt(types.NewPosition(types.Depth(8), big.NewInt(14))),
+					Proof: crypto.Keccak256(
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(12))).Bytes(),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(13))).Bytes(),
+					),
 				},
 				PostDA: types.DAItem{
 					DataHash: claimAt(types.NewPosition(types.Depth(4), common.Big0)),
@@ -525,7 +543,11 @@ func TestAttemptStepNary4(t *testing.T) {
 					Attack2(nil, 0). // splitDepth
 					Attack2(nil, 0).
 					Attack2(nil, 0).
-					Attack2([]common.Hash{{0x81}, {0x82}, {0x83}}, 3)
+					Attack2([]common.Hash{
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(12))),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(13))),
+						claimAt(types.NewPosition(types.Depth(8), big.NewInt(14))),
+					}, 3)
 			},
 		},
 	}
@@ -548,7 +570,7 @@ func TestAttemptStepNary4(t *testing.T) {
 				grandParentClaim := claims[parentClaim.ParentContractIndex]
 				agreedClaims.AddHonestClaim(grandParentClaim, parentClaim)
 			}
-			step, err := alphabetSolver.AttemptStep(ctx, game, lastClaim, agreedClaims, tableTest.expectAttackBranch)
+			step, err := alphabetSolver.AttemptStep(ctx, game, lastClaim, agreedClaims, tableTest.attackBranch)
 			require.ErrorIs(t, err, tableTest.expectedErr)
 			if !tableTest.expectNoStep && tableTest.expectedErr == nil {
 				require.NotNil(t, step)
