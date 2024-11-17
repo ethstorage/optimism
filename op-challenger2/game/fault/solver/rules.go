@@ -159,7 +159,8 @@ func avoidPoisonedPrestate(game types.Game, action types.Action, correctTrace ty
 	if err != nil {
 		return fmt.Errorf("failed to get correct trace at position %v: %w", preStateClaim.Position, err)
 	}
-	if correctValue != preStateClaim.Value {
+	preStateClaimValue := (*preStateClaim.SubValues)[0]
+	if correctValue != preStateClaimValue {
 		err = fmt.Errorf("prestate poisoned claim %v has invalid prestate and is left of honest claim countering %v at trace index %v", preStateClaim.ContractIndex, action.ParentClaim.ContractIndex, honestTraceIndex)
 		return err
 	}
