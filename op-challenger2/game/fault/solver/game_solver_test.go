@@ -21,8 +21,10 @@ func TestCalculateNextActions_ChallengeL2BlockNumber(t *testing.T) {
 	challenge := &types.InvalidL2BlockNumberChallenge{
 		Output: &eth.OutputResponse{OutputRoot: eth.Bytes32{0xbb}},
 	}
-	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingBlock, maxDepth)
-	traceProvider := faulttest.NewAlphabetWithProofProvider(t, startingBlock, maxDepth, nil)
+	nbits := uint64(1)
+	splitDepth := types.Depth(3)
+	claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingBlock, maxDepth, nbits, splitDepth)
+	traceProvider := faulttest.NewAlphabetWithProofProvider(t, startingBlock, maxDepth, nil, 0, faulttest.OracleDefaultKey)
 	solver := NewGameSolver(maxDepth, trace.NewSimpleTraceAccessor(traceProvider), types.CallDataType)
 
 	// Do not challenge when provider returns error indicating l2 block is valid
@@ -43,7 +45,9 @@ func TestCalculateNextActions_ChallengeL2BlockNumber(t *testing.T) {
 func TestCalculateNextActions(t *testing.T) {
 	maxDepth := types.Depth(6)
 	startingL2BlockNumber := big.NewInt(0)
-	claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingL2BlockNumber, maxDepth)
+	nbits := uint64(1)
+	splitDepth := types.Depth(3)
+	claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
 
 	tests := []struct {
 		name             string
@@ -306,7 +310,9 @@ func TestMultipleRounds(t *testing.T) {
 
 				maxDepth := types.Depth(6)
 				startingL2BlockNumber := big.NewInt(50)
-				claimBuilder := faulttest.NewAlphabetClaimBuilder(t, startingL2BlockNumber, maxDepth)
+				nbits := uint64(1)
+				splitDepth := types.Depth(3)
+				claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
 				builder := claimBuilder.GameBuilder(faulttest.WithInvalidValue(!rootClaimCorrect))
 				game := builder.Game
 

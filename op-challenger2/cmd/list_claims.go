@@ -92,8 +92,12 @@ func listClaims(ctx context.Context, game contracts.FaultDisputeGameContract, ve
 	}
 
 	// The top game runs from depth 0 to split depth *inclusive*.
-	// The - 1 here accounts for the fact that the split depth is included in the top game.
-	bottomDepth := maxDepth - splitDepth - 1
+	// The - nbits here accounts for the fact that the split depth is included in the top game.
+	nbits, err := game.GetNBits(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve nbits: %w", err)
+	}
+	bottomDepth := maxDepth - splitDepth - types.Depth(nbits)
 
 	resolved, err := game.IsResolved(ctx, rpcblock.Latest, claims...)
 	if err != nil {

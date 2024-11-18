@@ -956,6 +956,8 @@ func TestSubValuesHash(t *testing.T) {
 	allClaims := [][]common.Hash{
 		{{0x01}, {0x02}, {0x03}},
 		{{0x01}, {0x02}, {0x03}, {0x04}},
+		{},
+		nil,
 	}
 	Hash := crypto.Keccak256Hash
 	tests := []struct {
@@ -969,6 +971,14 @@ func TestSubValuesHash(t *testing.T) {
 		{
 			claims:       allClaims[1],
 			expectedHash: Hash(Hash(allClaims[1][0][:], allClaims[1][1][:]).Bytes(), Hash(allClaims[1][2][:], allClaims[1][3][:]).Bytes()),
+		},
+		{
+			claims:       allClaims[2],
+			expectedHash: common.Hash{},
+		},
+		{
+			claims:       allClaims[3],
+			expectedHash: common.Hash{},
 		},
 	}
 

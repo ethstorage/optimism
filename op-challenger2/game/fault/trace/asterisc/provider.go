@@ -43,6 +43,8 @@ type AsteriscTraceProvider struct {
 	lastStep uint64
 }
 
+var _ types.TraceProvider = (*AsteriscTraceProvider)(nil)
+
 func NewTraceProvider(logger log.Logger, m AsteriscMetricer, cfg *config.Config, prestateProvider types.PrestateProvider, asteriscPrestate string, localInputs utils.LocalGameInputs, dir string, gameDepth types.Depth) *AsteriscTraceProvider {
 	return &AsteriscTraceProvider{
 		logger:           logger,
@@ -96,8 +98,16 @@ func (p *AsteriscTraceProvider) GetStepData(ctx context.Context, pos types.Posit
 	return value, data, oracleData, nil
 }
 
+func (p *AsteriscTraceProvider) GetStepData2(ctx context.Context, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	return nil, nil, nil, fmt.Errorf("asterisc GetStepData2 is not supported, use GetStepData instead")
+}
+
 func (p *AsteriscTraceProvider) GetL2BlockNumberChallenge(_ context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
 	return nil, types.ErrL2BlockNumberValid
+}
+
+func (ap *AsteriscTraceProvider) GetLocalData(_ context.Context) (types.DAData, error) {
+	return types.DAData{}, nil
 }
 
 // loadProof will attempt to load or generate the proof data at the specified index

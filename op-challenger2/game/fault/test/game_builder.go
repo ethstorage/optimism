@@ -15,17 +15,17 @@ type GameBuilder struct {
 }
 
 func NewGameBuilderFromGame(t *testing.T, provider types.TraceProvider, game types.Game) *GameBuilder {
-	claimBuilder := NewClaimBuilder(t, game.MaxDepth(), provider)
+	claimBuilder := NewClaimBuilder2(t, game.MaxDepth(), game.NBits(), game.SplitDepth(), provider)
 	return &GameBuilder{
 		builder: claimBuilder,
-		Game:    types.NewGameState(game.Claims(), game.MaxDepth()),
+		Game:    types.NewGameState2(game.Claims(), game.MaxDepth(), game.NBits(), game.SplitDepth()),
 	}
 }
 
 func (c *ClaimBuilder) GameBuilder(rootOpts ...ClaimOpt) *GameBuilder {
 	return &GameBuilder{
 		builder: c,
-		Game:    types.NewGameState([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth),
+		Game:    types.NewGameState2([]types.Claim{c.CreateRootClaim(rootOpts...)}, c.maxDepth, c.nbits, c.splitDepth),
 	}
 }
 
@@ -55,6 +55,10 @@ func (g *GameBuilderSeq) IsRoot() bool {
 	return g.lastClaim.IsRoot()
 }
 
+func (g *GameBuilderSeq) LastClaim() types.Claim {
+	return g.lastClaim
+}
+
 // addClaimToGame replaces the game being built with a new instance that has claim as the latest claim.
 // The ContractIndex in claim is updated with its position in the game's claim array.
 // Does nothing if the claim already exists
@@ -64,11 +68,11 @@ func (s *GameBuilderSeq) addClaimToGame(claim *types.Claim) {
 	}
 	claim.ContractIndex = len(s.gameBuilder.Game.Claims())
 	claims := append(s.gameBuilder.Game.Claims(), *claim)
-	s.gameBuilder.Game = types.NewGameState(claims, s.builder.maxDepth)
+	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, s.builder.nbits, s.builder.splitDepth)
 }
 
 func (s *GameBuilderSeq) Attack(opts ...ClaimOpt) *GameBuilderSeq {
-	claim := s.builder.AttackClaim(s.lastClaim, opts...)
+	claim := s.builder.AttackClaim2(s.lastClaim, nil, 0, opts...)
 	s.addClaimToGame(&claim)
 	return &GameBuilderSeq{
 		gameBuilder: s.gameBuilder,
@@ -87,6 +91,16 @@ func (s *GameBuilderSeq) Defend(opts ...ClaimOpt) *GameBuilderSeq {
 	}
 }
 
+func (s *GameBuilderSeq) Attack2(subValues []common.Hash, branch uint64, opts ...ClaimOpt) *GameBuilderSeq {
+	claim := s.builder.AttackClaim2(s.lastClaim, subValues, branch, opts...)
+	s.addClaimToGame(&claim)
+	return &GameBuilderSeq{
+		gameBuilder: s.gameBuilder,
+		builder:     s.builder,
+		lastClaim:   claim,
+	}
+}
+
 func (s *GameBuilderSeq) Step(opts ...ClaimOpt) {
 	cfg := newClaimCfg(opts...)
 	claimant := DefaultClaimant
@@ -95,7 +109,7 @@ func (s *GameBuilderSeq) Step(opts ...ClaimOpt) {
 	}
 	claims := s.gameBuilder.Game.Claims()
 	claims[len(claims)-1].CounteredBy = claimant
-	s.gameBuilder.Game = types.NewGameState(claims, s.builder.maxDepth)
+	s.gameBuilder.Game = types.NewGameState2(claims, s.builder.maxDepth, s.builder.nbits, s.builder.splitDepth)
 }
 
 func (s *GameBuilderSeq) ExpectAttack() *GameBuilderSeq {

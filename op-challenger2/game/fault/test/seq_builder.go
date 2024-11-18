@@ -2,6 +2,7 @@ package test
 
 import (
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type SequenceBuilder struct {
@@ -20,8 +21,8 @@ func (c *ClaimBuilder) Seq(rootOpts ...ClaimOpt) *SequenceBuilder {
 	}
 }
 
-func (s *SequenceBuilder) Attack(opts ...ClaimOpt) *SequenceBuilder {
-	claim := s.builder.AttackClaim(s.lastClaim, opts...)
+func (s *SequenceBuilder) Attack2(subValues []common.Hash, branch uint64, opts ...ClaimOpt) *SequenceBuilder {
+	claim := s.builder.AttackClaim2(s.lastClaim, subValues, branch, opts...)
 	return &SequenceBuilder{
 		builder:   s.builder,
 		lastClaim: claim,

@@ -26,6 +26,11 @@ const (
 	AlphabetGameType     uint32 = 255
 )
 
+const (
+	LocalPreimageKeyStartingOutputRoot = 0x02
+	LocalPreimageKeyDisputedOutputRoot = 0x03
+)
+
 type ClockReader interface {
 	Now() time.Time
 }
@@ -180,6 +185,10 @@ type TraceProvider interface {
 	// and any pre-image data that needs to be loaded into the oracle prior to execution (may be nil)
 	// The prestate returned from GetStepData for trace 10 should be the pre-image of the claim from trace 9
 	GetStepData(ctx context.Context, i Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
+	// GetStepData2 returns the data required to execute the step for MSFDG
+	GetStepData2(ctx context.Context, i Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
+	// GetLocalData returns outputRootDA for contract's addLocalData function in MSFDG
+	GetLocalData(ctx context.Context) (outputRootDA DAData, err error)
 
 	// GetL2BlockNumberChallenge returns the data required to prove the correct L2 block number of the root claim.
 	// Returns ErrL2BlockNumberValid if the root claim is known to come from the same block as the claimed L2 block.

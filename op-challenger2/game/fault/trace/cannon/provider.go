@@ -41,6 +41,8 @@ type CannonTraceProvider struct {
 	lastStep uint64
 }
 
+var _ types.TraceProvider = (*CannonTraceProvider)(nil)
+
 func NewTraceProvider(logger log.Logger, m CannonMetricer, cfg *config.Config, prestateProvider types.PrestateProvider, prestate string, localInputs utils.LocalGameInputs, dir string, gameDepth types.Depth) *CannonTraceProvider {
 	return &CannonTraceProvider{
 		logger:           logger,
@@ -94,8 +96,16 @@ func (p *CannonTraceProvider) GetStepData(ctx context.Context, pos types.Positio
 	return value, data, oracleData, nil
 }
 
+func (p *CannonTraceProvider) GetStepData2(ctx context.Context, pos types.Position) (prestate []byte, proofData []byte, preimageData *types.PreimageOracleData, err error) {
+	return nil, nil, nil, fmt.Errorf("cannon GetStepData2 is not supported, use GetStepData instead")
+}
+
 func (p *CannonTraceProvider) GetL2BlockNumberChallenge(_ context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
 	return nil, types.ErrL2BlockNumberValid
+}
+
+func (ap *CannonTraceProvider) GetLocalData(_ context.Context) (types.DAData, error) {
+	return types.DAData{}, nil
 }
 
 // loadProof will attempt to load or generate the proof data at the specified index
