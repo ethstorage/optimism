@@ -557,7 +557,8 @@ func TestAttemptStepNary4(t *testing.T) {
 		t.Run(tableTest.name, func(t *testing.T) {
 			builder := claimBuilder.GameBuilder(faulttest.WithInvalidValue(tableTest.agreeWithOutputRoot))
 			tableTest.setupGame(builder)
-			alphabetSolver := newClaimSolver(maxDepth, trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider()), types.CallDataType)
+			accessor := trace.NewSimpleTraceAccessor(claimBuilder.CorrectTraceProvider())
+			alphabetSolver := newClaimSolver(maxDepth, accessor, types.CallDataType)
 			game := builder.Game
 			claims := game.Claims()
 			lastClaim := claims[len(claims)-1]
@@ -572,6 +573,8 @@ func TestAttemptStepNary4(t *testing.T) {
 			}
 			step, err := alphabetSolver.AttemptStep(ctx, game, lastClaim, agreedClaims, tableTest.attackBranch)
 			require.ErrorIs(t, err, tableTest.expectedErr)
+			_, _, preimage, err := accessor.GetStepData2(ctx, game, lastClaim, lastClaim.MoveRightN(tableTest.expectAttackBranch))
+			require.NoError(t, err)
 			if !tableTest.expectNoStep && tableTest.expectedErr == nil {
 				require.NotNil(t, step)
 				require.Equal(t, lastClaim, step.LeafClaim)
@@ -584,6 +587,8 @@ func TestAttemptStepNary4(t *testing.T) {
 				require.Equal(t, tableTest.expectedOracleData.OracleOffset, step.OracleData.OracleOffset)
 				require.Equal(t, tableTest.expectedVMStateData.PreDA, step.OracleData.VMStateDA.PreDA)
 				require.Equal(t, tableTest.expectedVMStateData.PostDA, step.OracleData.VMStateDA.PostDA)
+				require.Equal(t, tableTest.expectedVMStateData.PreDA, preimage.VMStateDA.PreDA)
+				require.Equal(t, tableTest.expectedVMStateData.PostDA, preimage.VMStateDA.PostDA)
 				require.Equal(t, tableTest.expectedLocalData.DaType, step.OracleData.OutputRootDAItem.DaType)
 				require.Equal(t, tableTest.expectedLocalData.DataHash, step.OracleData.OutputRootDAItem.DataHash)
 				require.Equal(t, tableTest.expectedLocalData.Proof, step.OracleData.OutputRootDAItem.Proof)
