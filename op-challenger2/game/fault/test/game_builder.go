@@ -1,7 +1,6 @@
 package test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -170,6 +169,7 @@ func (s *GameBuilderSeq) ExpectAttackV2(branch uint64) *GameBuilderSeq {
 	nBits := s.builder.NBits()
 	maxAttackBranch := s.builder.MaxAttackBranch()
 	position := s.lastClaim.Position.MoveN(nBits, branch)
+
 	for i := uint64(0); i < maxAttackBranch; i++ {
 		tmpPosition := position.MoveRightN(i)
 		if tmpPosition.Depth() == (s.builder.SplitDepth()+types.Depth(nBits)) && i != 0 {
@@ -177,7 +177,6 @@ func (s *GameBuilderSeq) ExpectAttackV2(branch uint64) *GameBuilderSeq {
 		} else {
 			value = s.builder.CorrectClaimAtPosition(tmpPosition)
 		}
-		fmt.Printf("i: %v, value: %v, position: %v\n", i, value, tmpPosition.ToGIndex())
 		values = append(values, value)
 	}
 	hash := contracts.SubValuesHash(values)
@@ -193,15 +192,15 @@ func (s *GameBuilderSeq) ExpectAttackV2(branch uint64) *GameBuilderSeq {
 	return s
 }
 
-func (s *GameBuilderSeq) ExpectStepAttackV2(branch uint64) *GameBuilderSeq {
-	traceIdx := new(big.Int).Add(s.lastClaim.TraceIndex(s.builder.maxDepth), big.NewInt(1))
+func (s *GameBuilderSeq) ExpectStepV2(branch uint64) *GameBuilderSeq {
+	traceIdx := new(big.Int).Add(s.lastClaim.TraceIndex(s.builder.maxDepth), big.NewInt(int64(branch)))
 	s.gameBuilder.ExpectedActions = append(s.gameBuilder.ExpectedActions, types.Action{
-		Type:        types.ActionTypeStep,
-		ParentClaim: s.lastClaim,
-		IsAttack:    true,
-		PreState:    s.builder.CorrectPreState(traceIdx),
-		ProofData:   s.builder.CorrectProofData(traceIdx),
-		OracleData:  s.builder.CorrectOracleData(traceIdx),
+		Type:         types.ActionTypeStep,
+		ParentClaim:  s.lastClaim,
+		AttackBranch: branch,
+		PreState:     s.builder.CorrectPreState(traceIdx),
+		ProofData:    s.builder.CorrectProofData(traceIdx),
+		OracleData:   s.builder.CorrectOracleData(traceIdx),
 	})
 	return s
 }

@@ -2,7 +2,6 @@ package test
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -167,7 +166,7 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 		claim.Value = contracts.SubValuesHash(*claim.SubValues)
 	} else {
 		values := []common.Hash{}
-		if pos.ToGIndex().Cmp(big.NewInt(1)) == 0 {
+		if pos.IsRootPosition() {
 			if cfg.invalidValue {
 				values = append(values, c.incorrectClaim(pos))
 			} else {
@@ -176,21 +175,21 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
 				values = append(values, common.Hash{})
 			}
+		} else if pos.Depth() == c.splitDepth+types.Depth(c.nbits) {
+			values = append(values, c.CorrectClaimAtPosition(pos))
+			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
+				values = append(values, common.Hash{})
+			}
 		} else {
 			for i := uint64(0); i < c.MaxAttackBranch(); i++ {
 				pos := pos.MoveRightN(i)
-				if cfg.invalidValue {
-					values = append(values, c.incorrectClaim(pos))
-				} else {
-					values = append(values, c.CorrectClaimAtPosition(pos))
-				}
+				values = append(values, c.CorrectClaimAtPosition(pos))
 			}
 		}
 		claim.SubValues = &values
 		claim.Value = contracts.SubValuesHash(*claim.SubValues)
 	}
 	claim.ParentContractIndex = cfg.parentIdx
-	fmt.Printf("claim.Value: %v\n", claim.Value)
 	return claim
 }
 
@@ -234,4 +233,46 @@ func (c *ClaimBuilder) SplitDepth() types.Depth {
 
 func (c *ClaimBuilder) TraceRootDepth() types.Depth {
 	return c.splitDepth + types.Depth(c.nbits)
+}
+
+func (c *ClaimBuilder) GetClaimsAtPosition(pos types.Position, invalidBranchList []uint64) []common.Hash {
+	values := []common.Hash{}
+	if pos.IsRootPosition() {
+		if contains(invalidBranchList, uint64(0)) {
+			values = append(values, c.incorrectClaim(pos))
+		} else {
+			values = append(values, c.CorrectClaimAtPosition(pos))
+		}
+		for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
+			values = append(values, common.Hash{})
+		}
+	} else if pos.Depth() == c.splitDepth+types.Depth(c.nbits) {
+		if contains(invalidBranchList, uint64(0)) {
+			values = append(values, c.incorrectClaim(pos))
+		} else {
+			values = append(values, c.CorrectClaimAtPosition(pos))
+		}
+		for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
+			values = append(values, common.Hash{})
+		}
+	} else {
+		for i := uint64(0); i < c.MaxAttackBranch(); i++ {
+			pos := pos.MoveRightN(i)
+			if contains(invalidBranchList, i) {
+				values = append(values, c.incorrectClaim(pos))
+			} else {
+				values = append(values, c.CorrectClaimAtPosition(pos))
+			}
+		}
+	}
+	return values
+}
+
+func contains(slice []uint64, value uint64) bool {
+	for _, v := range slice {
+		if v == value {
+			return true
+		}
+	}
+	return false
 }

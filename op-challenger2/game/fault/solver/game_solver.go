@@ -20,7 +20,7 @@ func NewGameSolver(gameDepth types.Depth, trace types.TraceAccessor, daType type
 }
 
 func (s *GameSolver) AgreeWithRootClaim(ctx context.Context, game types.Game) (bool, error) {
-	return s.claimSolver.agreeWithClaim(ctx, game, game.Claims()[0])
+	return s.claimSolver.agreeWithClaimV2(ctx, game, game.Claims()[0], 0)
 }
 
 func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) ([]types.Action, error) {
@@ -114,14 +114,14 @@ func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim t
 		}
 		honestClaims.AddHonestClaim(claim, *move)
 		if game.IsDuplicate(*move) {
-			continue
+			break
 		}
 		return &types.Action{
 			Type:         types.ActionTypeAttackV2,
 			ParentClaim:  game.Claims()[move.ParentContractIndex],
 			Value:        move.Value,
 			SubValues:    move.SubValues,
-			AttackBranch: uint64(branch),
+			AttackBranch: move.AttackBranch,
 			DAType:       s.claimSolver.daType,
 		}, nil
 	}

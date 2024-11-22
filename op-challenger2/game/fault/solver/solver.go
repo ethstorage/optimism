@@ -123,17 +123,18 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 		// Attack the claim by executing step index, so we need to get the pre-state of that index
 		position = claim.Position.MoveRightN(branch)
 	} else {
-		// Defend and use this claim as the starting point to execute the step after.
-		// Thus, we need the pre-state of the next step.
-		position = claim.Position.MoveRightN(branch + 1)
-		attackBranch = branch + 1
+		if branch == game.MaxAttackBranch()-1 {
+			// If we are at the max attack branch, we need to step on the next branch
+			position = claim.Position.MoveRightN(branch + 1)
+			attackBranch = branch + 1
+		} else {
+			return nil, nil
+		}
 	}
-
 	preState, proofData, oracleData, err := s.trace.GetStepData2(ctx, game, claim, position)
 	if err != nil {
 		return nil, err
 	}
-
 	return &StepData{
 		LeafClaim:    claim,
 		AttackBranch: attackBranch,
@@ -144,11 +145,6 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 }
 
 // agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
-func (s *claimSolver) agreeWithClaim(ctx context.Context, game types.Game, claim types.Claim) (bool, error) {
-	ourValue, err := s.trace.Get(ctx, game, claim, claim.Position)
-	return bytes.Equal(ourValue[:], claim.Value[:]), err
-}
-
 func (s *claimSolver) agreeWithClaimV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (bool, error) {
 	if branch >= uint64(len(*claim.SubValues)) {
 		return true, fmt.Errorf("branch must be lesser than maxAttachBranch")

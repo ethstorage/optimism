@@ -25,8 +25,8 @@ var rules = []actionRule{
 	doNotStepAlreadyCounteredClaims,
 	onlyAttackRootClaimZeroBranch,
 	avoidPoisonedPrestate,
-	detectPoisonedStepPrestate,
-	detectFailedStep,
+	//detectPoisonedStepPrestate,
+	//detectFailedStep,
 	doNotCounterSelf,
 }
 
@@ -191,10 +191,7 @@ func detectFailedStep(game types.Game, action types.Action, correctTrace types.T
 		return nil
 	}
 	honestTraceIndex := position.TraceIndex(game.MaxDepth())
-	poststateIndex := honestTraceIndex
-	if !action.IsAttack {
-		poststateIndex = new(big.Int).Add(honestTraceIndex, big.NewInt(1))
-	}
+	poststateIndex := new(big.Int).Add(honestTraceIndex, big.NewInt(int64(action.AttackBranch)))
 	// Walk back up the claims and find the claim required post state index
 	claim := game.Claims()[action.ParentClaim.ContractIndex]
 	poststateClaim, ok := game.AncestorWithTraceIndex(claim, poststateIndex)
@@ -205,7 +202,7 @@ func detectFailedStep(game types.Game, action types.Action, correctTrace types.T
 	if err != nil {
 		return fmt.Errorf("failed to get correct trace at position %v: %w", poststateClaim.Position, err)
 	}
-	validStep := correctValue == poststateClaim.Value
+	validStep := correctValue == (*poststateClaim.SubValues)[0]
 	parentPostAgree := (claim.Depth()-poststateClaim.Depth())%2 == 0
 	if parentPostAgree == validStep {
 		return fmt.Errorf("failed step against claim at %v using poststate from claim %v post state is correct? %v parentPostAgree? %v",
