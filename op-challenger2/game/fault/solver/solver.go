@@ -81,6 +81,14 @@ func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game type
 		return nil, err
 	}
 	if agree {
+		if claim.Depth() == game.TraceRootDepth() && branch == 0 {
+			// Only useful in alphabet game, because the alphabet game has a constant status byte, and is not safe from someone being dishonest in
+			// output bisection and then posting a correct execution trace bisection root claim.
+			// when root claim of output bisection is dishonest,
+			// root claim of execution trace bisection is made by the dishonest actor but is honest
+			// we should counter it.
+			return s.attackV2(ctx, game, claim, branch)
+		}
 		if branch < game.MaxAttackBranch()-1 {
 			return nil, nil
 		}

@@ -99,11 +99,12 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 
 func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*types.Action, error) {
 	for branch := range *claim.SubValues {
+		// attack branch 0 can be attacked at root or splitDepth+nbits
 		if claim.Position.Depth() == game.SplitDepth()+types.Depth(game.NBits()) && branch != 0 {
-			continue
+			return nil, nil
 		}
 		if claim.IsRoot() && branch != 0 {
-			continue
+			return nil, nil
 		}
 		move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims, uint64(branch))
 		if err != nil {

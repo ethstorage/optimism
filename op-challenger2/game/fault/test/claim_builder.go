@@ -161,7 +161,13 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 		},
 		AttackBranch: cfg.branch,
 	}
-	if cfg.subValues != nil {
+	if cfg.claimant != (common.Address{}) {
+		claim.Claimant = cfg.claimant
+	}
+	if cfg.invalidValue {
+		claim.Value = c.incorrectClaim(pos)
+		claim.SubValues = &[]common.Hash{claim.Value}
+	} else if cfg.subValues != nil {
 		claim.SubValues = cfg.subValues
 		claim.Value = contracts.SubValuesHash(*claim.SubValues)
 	} else {

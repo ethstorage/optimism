@@ -56,8 +56,20 @@ func (g *GameBuilderSeq) IsRoot() bool {
 	return g.lastClaim.IsRoot()
 }
 
+func (g *GameBuilderSeq) IsTraceRoot() bool {
+	return g.lastClaim.Depth() == g.gameBuilder.Game.SplitDepth()+types.Depth(g.gameBuilder.Game.NBits())
+}
+
+func (g *GameBuilderSeq) IsSplitDepth() bool {
+	return g.lastClaim.Depth() == g.gameBuilder.Game.SplitDepth()
+}
+
 func (g *GameBuilderSeq) LastClaim() types.Claim {
 	return g.lastClaim
+}
+
+func (g *GameBuilderSeq) MaxAttackBranch() uint64 {
+	return g.gameBuilder.builder.MaxAttackBranch()
 }
 
 // addClaimToGame replaces the game being built with a new instance that has claim as the latest claim.

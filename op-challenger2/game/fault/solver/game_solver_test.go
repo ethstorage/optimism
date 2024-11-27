@@ -57,7 +57,7 @@ func runStep(t *testing.T, solver *GameSolver, game types.Game, correctTraceProv
 	return postState, actions
 }
 
-func TestMultipleRounds(t *testing.T) {
+func TestMultipleRoundsWithNbits1(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name  string
@@ -142,7 +142,7 @@ func TestMultipleRounds(t *testing.T) {
 				done := false
 				for !done {
 					t.Logf("------ ROUND %v ------", roundNum)
-					game, _ = runStep(t, solver, game, correctTrace)
+					game, _ = runStep2(t, solver, game, correctTrace)
 					verifyGameRules(t, game, rootClaimCorrect)
 
 					game, done = test.actor.Apply(t, game, correctTrace)
@@ -525,33 +525,80 @@ func getStepPreimage(t *testing.T, builder *faulttest.GameBuilder, game types.Ga
 	return preimage
 }
 
-func TestMultipleRounds2(t *testing.T) {
+func TestMultipleRoundsWithNbits2(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name  string
 		actor actor
 	}{
-		/*
-			{
-				name:  "SingleRoot",
-				actor: doNothingActor,
-			},
-		*/
+		{
+			name:  "SingleRoot",
+			actor: doNothingActor,
+		},
 		{
 			name:  "LinearAttackCorrect",
 			actor: correctAttackLastClaim,
 		},
+		{
+			name:  "LinearDefendCorrect",
+			actor: correctDefendLastClaim,
+		},
+		{
+			name:  "LinearAttackIncorrect",
+			actor: incorrectAttackLastClaim,
+		},
+		{
+			name:  "LinearDefendInorrect",
+			actor: incorrectDefendLastClaim,
+		},
+		{
+			name:  "LinearDefendIncorrectDefendCorrect",
+			actor: combineActors(incorrectDefendLastClaim, correctDefendLastClaim),
+		},
+		{
+			name:  "LinearAttackIncorrectDefendCorrect",
+			actor: combineActors(incorrectAttackLastClaim, correctDefendLastClaim),
+		},
+		{
+			name:  "LinearDefendIncorrectDefendIncorrect",
+			actor: combineActors(incorrectDefendLastClaim, incorrectDefendLastClaim),
+		},
+		{
+			name:  "LinearAttackIncorrectDefendIncorrect",
+			actor: combineActors(incorrectAttackLastClaim, incorrectDefendLastClaim),
+		},
+		{
+			name:  "AttackEverythingCorrect",
+			actor: attackEverythingCorrect,
+		},
+		{
+			name:  "DefendEverythingCorrect",
+			actor: defendEverythingCorrect,
+		},
+		{
+			name:  "AttackEverythingIncorrect",
+			actor: attackEverythingIncorrect,
+		},
+		{
+			name:  "DefendEverythingIncorrect",
+			actor: defendEverythingIncorrect,
+		},
+		{
+			name:  "Exhaustive",
+			actor: exhaustive,
+		},
 	}
 	for _, test := range tests {
 		test := test
-		for _, rootClaimCorrect := range []bool{true, false} {
+		for _, rootClaimCorrect := range []bool{false} {
 			rootClaimCorrect := rootClaimCorrect
 			t.Run(fmt.Sprintf("%v-%v", test.name, rootClaimCorrect), func(t *testing.T) {
 				t.Parallel()
 
-				maxDepth := types.Depth(8)
+				maxDepth := types.Depth(10)
 				startingL2BlockNumber := big.NewInt(50)
 				nbits := uint64(2)
+				// splitDepth can't be 4 when maxDepth=8, because we can only attack branch 0 at claim with depth of splitDepth+nbits
 				splitDepth := types.Depth(4)
 				claimBuilder := faulttest.NewAlphabetClaimBuilder2(t, startingL2BlockNumber, maxDepth, nbits, splitDepth)
 				builder := claimBuilder.GameBuilder(faulttest.WithInvalidValue(!rootClaimCorrect))

@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
 	faulttest "github.com/ethereum-optimism/optimism/op-challenger2/game/fault/test"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/alphabet"
@@ -534,7 +535,7 @@ func TestAttemptStepNary4(t *testing.T) {
 					),
 				},
 				PostDA: types.DAItem{
-					DataHash: claimAt(types.NewPosition(types.Depth(4), common.Big0)),
+					DataHash: contracts.SubValuesHash(append([]common.Hash{}, claimAt(types.NewPosition(types.Depth(4), common.Big0)), common.Hash{}, common.Hash{})),
 				},
 			},
 			expectedLocalData: &types.DAItem{},

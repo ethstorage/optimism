@@ -152,7 +152,7 @@ func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.
 	preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 	preStateDaItem, err := findAncestorProofAtDepth2(ctx, provider, game, ref, preTraceIdx)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get postStateDaItem at trace index %v: %w", preTraceIdx, err)
+		return nil, nil, nil, fmt.Errorf("failed to get preStateDaItem at trace index %v: %w", preTraceIdx, err)
 	}
 	postStateDaItem, err := findAncestorProofAtDepth2(ctx, provider, game, ref, postTraceIdx)
 	if err != nil {
