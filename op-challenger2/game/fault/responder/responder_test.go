@@ -146,37 +146,54 @@ func TestPerformAction(t *testing.T) {
 		require.Equal(t, ([]byte)("attack"), mockTxMgr.sent[0].TxData)
 	})
 
-	t.Run("defend", func(t *testing.T) {
+	t.Run("attackV2", func(t *testing.T) {
 		responder, mockTxMgr, contract, _, _ := newTestFaultResponder(t)
 		action := types.Action{
-			Type:        types.ActionTypeMove,
-			ParentClaim: types.Claim{ContractIndex: 123},
-			IsAttack:    false,
-			Value:       common.Hash{0xaa},
+			Type:         types.ActionTypeAttackV2,
+			ParentClaim:  types.Claim{ContractIndex: 123},
+			IsAttack:     false,
+			AttackBranch: 0,
+			DAType:       types.CallDataType,
+			SubValues:    &[]common.Hash{{0xaa}},
 		}
 		err := responder.PerformAction(context.Background(), action)
 		require.NoError(t, err)
 
 		require.Len(t, mockTxMgr.sent, 1)
-		require.EqualValues(t, []interface{}{action.ParentClaim, action.Value}, contract.defendArgs)
-		require.Equal(t, ([]byte)("defend"), mockTxMgr.sent[0].TxData)
+		daTypeUint64 := (*big.Int)(action.DAType).Uint64()
+		subValues := make([]byte, 0, len(*action.SubValues))
+		for _, subValue := range *action.SubValues {
+			subValues = append(subValues, subValue[:]...)
+		}
+		require.EqualValues(t, []interface{}{action.ParentClaim, action.AttackBranch, daTypeUint64, subValues}, contract.attackV2Args)
+		require.Equal(t, ([]byte)("attackV2"), mockTxMgr.sent[0].TxData)
 	})
 
 	t.Run("step", func(t *testing.T) {
 		responder, mockTxMgr, contract, _, _ := newTestFaultResponder(t)
 		action := types.Action{
-			Type:        types.ActionTypeStep,
-			ParentClaim: types.Claim{ContractIndex: 123},
-			IsAttack:    true,
-			PreState:    []byte{1, 2, 3},
-			ProofData:   []byte{4, 5, 6},
+			Type:         types.ActionTypeStep,
+			ParentClaim:  types.Claim{ContractIndex: 123},
+			IsAttack:     true,
+			AttackBranch: 0,
+			PreState:     []byte{1, 2, 3},
+			ProofData:    []byte{4, 5, 6},
+			OracleData: &types.PreimageOracleData{
+				VMStateDA:        types.DAData{},
+				OutputRootDAItem: types.DAItem{},
+			},
+		}
+		stepProof := types.StepProof{
+			PreStateItem:  action.OracleData.VMStateDA.PreDA,
+			PostStateItem: action.OracleData.VMStateDA.PostDA,
+			VmProof:       action.ProofData,
 		}
 		err := responder.PerformAction(context.Background(), action)
 		require.NoError(t, err)
 
 		require.Len(t, mockTxMgr.sent, 1)
-		require.EqualValues(t, []interface{}{uint64(123), action.IsAttack, action.PreState, action.ProofData}, contract.stepArgs)
-		require.Equal(t, ([]byte)("step"), mockTxMgr.sent[0].TxData)
+		require.EqualValues(t, []interface{}{uint64(123), action.AttackBranch, action.PreState, stepProof}, contract.stepV2Args)
+		require.Equal(t, ([]byte)("stepV2"), mockTxMgr.sent[0].TxData)
 	})
 
 	t.Run("stepWithLocalOracleData", func(t *testing.T) {
@@ -188,7 +205,9 @@ func TestPerformAction(t *testing.T) {
 			PreState:    []byte{1, 2, 3},
 			ProofData:   []byte{4, 5, 6},
 			OracleData: &types.PreimageOracleData{
-				IsLocal: true,
+				IsLocal:          true,
+				VMStateDA:        types.DAData{},
+				OutputRootDAItem: types.DAItem{},
 			},
 		}
 		err := responder.PerformAction(context.Background(), action)
@@ -196,7 +215,7 @@ func TestPerformAction(t *testing.T) {
 
 		require.Len(t, mockTxMgr.sent, 1)
 		require.Nil(t, contract.updateOracleArgs) // mock uploader returns nil
-		require.Equal(t, ([]byte)("step"), mockTxMgr.sent[0].TxData)
+		require.Equal(t, ([]byte)("stepV2"), mockTxMgr.sent[0].TxData)
 		require.Equal(t, 1, uploader.updates)
 		require.Equal(t, 0, oracle.existCalls)
 	})
@@ -210,7 +229,9 @@ func TestPerformAction(t *testing.T) {
 			PreState:    []byte{1, 2, 3},
 			ProofData:   []byte{4, 5, 6},
 			OracleData: &types.PreimageOracleData{
-				IsLocal: false,
+				IsLocal:          false,
+				VMStateDA:        types.DAData{},
+				OutputRootDAItem: types.DAItem{},
 			},
 		}
 		err := responder.PerformAction(context.Background(), action)
@@ -218,7 +239,7 @@ func TestPerformAction(t *testing.T) {
 
 		require.Len(t, mockTxMgr.sent, 1)
 		require.Nil(t, contract.updateOracleArgs) // mock uploader returns nil
-		require.Equal(t, ([]byte)("step"), mockTxMgr.sent[0].TxData)
+		require.Equal(t, ([]byte)("stepV2"), mockTxMgr.sent[0].TxData)
 		require.Equal(t, 1, uploader.updates)
 		require.Equal(t, 1, oracle.existCalls)
 	})
@@ -370,8 +391,10 @@ type mockContract struct {
 	calls                int
 	callFails            bool
 	attackArgs           []interface{}
+	attackV2Args         []interface{}
 	defendArgs           []interface{}
 	stepArgs             []interface{}
+	stepV2Args           []interface{}
 	challengeArgs        []interface{}
 	updateOracleClaimIdx uint64
 	updateOracleArgs     *types.PreimageOracleData
@@ -411,6 +434,11 @@ func (m *mockContract) AttackTx(_ context.Context, parent types.Claim, claim com
 	return txmgr.TxCandidate{TxData: ([]byte)("attack")}, nil
 }
 
+func (m *mockContract) AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error) {
+	m.attackV2Args = []interface{}{parent, attackBranch, daType, claims}
+	return txmgr.TxCandidate{TxData: ([]byte)("attackV2")}, nil
+}
+
 func (m *mockContract) DefendTx(_ context.Context, parent types.Claim, claim common.Hash) (txmgr.TxCandidate, error) {
 	m.defendArgs = []interface{}{parent, claim}
 	return txmgr.TxCandidate{TxData: ([]byte)("defend")}, nil
@@ -419,6 +447,11 @@ func (m *mockContract) DefendTx(_ context.Context, parent types.Claim, claim com
 func (m *mockContract) StepTx(claimIdx uint64, isAttack bool, stateData []byte, proofData []byte) (txmgr.TxCandidate, error) {
 	m.stepArgs = []interface{}{claimIdx, isAttack, stateData, proofData}
 	return txmgr.TxCandidate{TxData: ([]byte)("step")}, nil
+}
+
+func (m *mockContract) StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error) {
+	m.stepV2Args = []interface{}{claimIdx, attackBranch, stateData, proof}
+	return txmgr.TxCandidate{TxData: ([]byte)("stepV2")}, nil
 }
 
 func (m *mockContract) UpdateOracleTx(_ context.Context, claimIdx uint64, data *types.PreimageOracleData) (txmgr.TxCandidate, error) {
