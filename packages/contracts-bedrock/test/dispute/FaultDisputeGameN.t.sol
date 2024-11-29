@@ -857,7 +857,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     //     (,,,, disputed,,) = gameProxy.claimData(3);
     //     gameProxy.attackV2{ value: _getRequiredBondV2(3, 0) }(disputed, 3, _dummyClaim(), 0);
 
-    //     gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
+    //     gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0);
     //     gameProxy.stepV2(4, 0, absolutePrestateData, hex"");
 
     //     vm.expectRevert(DuplicateStep.selector);
@@ -897,7 +897,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         // This variable is not used
         LibDA.DAItem memory localDataItem =
             LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
 
         // This variable is not used
         LibDA.DAItem memory preStateItem =
@@ -956,7 +956,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1, preStateItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 1, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 1, _stateData: claimData1, _proof: stepProof });
     }
 
@@ -1003,7 +1003,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, preStateItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 2, _stateData: claimData2, _proof: stepProof });
     }
 
@@ -1051,7 +1051,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         vm.expectRevert(ValidStep.selector);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData3, _proof: stepProof });
     }
@@ -1095,10 +1095,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: abi.encodePacked(claim2, claim3)
         });
         (, bytes32 startingOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, gameProxy.startingRootHash().raw());
         (, bytes32 disputedOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim1.raw());
     }
 
@@ -1144,10 +1144,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: abi.encodePacked(claim1, claim3)
         });
         (, bytes32 startingOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, claim1.raw());
         (, bytes32 disputedOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim2.raw());
     }
 
@@ -1193,10 +1193,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: bytes.concat(keccak256(abi.encode(claim1.raw(), claim2.raw())))
         });
         (, bytes32 startingOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, claim2.raw());
         (, bytes32 disputedOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim3.raw());
     }
 
@@ -1242,10 +1242,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             proof: abi.encodePacked(claim2, claim3)
         });
         (, bytes32 startingOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 0, startingDataItem);
         assertEq(startingOutputRoot, claim3.raw());
         (, bytes32 disputedOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 0, disputedDataItem);
         assertEq(disputedOutputRoot, claim1.raw());
     }
 
@@ -1287,10 +1287,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         });
         LibDA.DAItem memory disputedDataItem = startingDataItem;
         (, bytes32 startingOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
         assertEq(startingOutputRoot, claim3.raw());
         (, bytes32 disputedOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
         assertEq(disputedOutputRoot, claim3.raw());
     }
 
@@ -1333,10 +1333,10 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         LibDA.DAItem memory disputedDataItem =
             LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: ROOT_CLAIM.raw(), proof: hex"" });
         (, bytes32 startingOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.STARTING_OUTPUT_ROOT, 4, 3, startingDataItem);
         assertEq(startingOutputRoot, claim3.raw());
         (, bytes32 disputedOutputRoot) =
-            gameProxy.addLocalData(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
+            gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_OUTPUT_ROOT, 4, 3, disputedDataItem);
         assertEq(disputedOutputRoot, ROOT_CLAIM.raw());
     }
 
@@ -1611,7 +1611,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         // This variable is not used
         LibDA.DAItem memory localDataItem =
             LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
 
         // This variable is not used
         LibDA.DAItem memory preStateItem =
@@ -1696,7 +1696,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         // This variable is not used
         LibDA.DAItem memory localDataItem =
             LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 0, localDataItem);
 
         // This variable is not used
         LibDA.DAItem memory preStateItem =
@@ -1931,7 +1931,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     /// @dev Tests that adding local data with an out of bounds identifier reverts.
-    function testFuzz_addLocalData_oob_reverts(uint256 _ident) public {
+    function testFuzz_addLocalData2_oob_reverts(uint256 _ident) public {
         Claim disputed;
         // Get a claim below the split depth so that we can add local data for an execution trace subgame.
         for (uint256 i; i < 2; i++) {
@@ -1950,12 +1950,12 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
         LibDA.DAItem memory localDataItem =
             LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: "00000000000000000000000000000000", proof: hex"" });
         vm.expectRevert(InvalidLocalIdent.selector);
-        gameProxy.addLocalData(_ident, 3, 0, localDataItem);
+        gameProxy.addLocalData2(_ident, 3, 0, localDataItem);
     }
 
     /// @dev Tests that local data is loaded into the preimage oracle correctly in the subgame
     ///      that is disputing the transition from `GENESIS -> GENESIS + 1`
-    function test_addLocalDataGenesisTransition_static_succeeds() public {
+    function test_addLocalData2GenesisTransition_static_succeeds() public {
         IPreimageOracle oracle = IPreimageOracle(address(gameProxy.vm().oracle()));
         Claim disputed;
         Claim[] memory claims = generateClaims(3);
@@ -2001,9 +2001,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             bytes32 key = _getKey(i, keccak256(abi.encode(disputedClaim.raw(), disputedPos)));
 
             if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
-                gameProxy.addLocalData(i, 3, 0, disputedDataItem);
+                gameProxy.addLocalData2(i, 3, 0, disputedDataItem);
             } else {
-                gameProxy.addLocalData(i, 3, 0, startingDataItem);
+                gameProxy.addLocalData2(i, 3, 0, startingDataItem);
             }
             (bytes32 dat, uint256 datLen) = oracle.readPreimage(key, 0);
             assertEq(dat >> 0xC0, bytes32(expectedLen));
@@ -2015,9 +2015,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             assertEq(datLen, expectedLen + (i > 3 ? 8 : 0));
 
             if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
-                gameProxy.addLocalData(i, 3, 8, disputedDataItem);
+                gameProxy.addLocalData2(i, 3, 8, disputedDataItem);
             } else {
-                gameProxy.addLocalData(i, 3, 8, startingDataItem);
+                gameProxy.addLocalData2(i, 3, 8, startingDataItem);
             }
             (dat, datLen) = oracle.readPreimage(key, 8);
             assertEq(dat, data[i - 1]);
@@ -2026,7 +2026,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
     }
 
     /// @dev Tests that local data is loaded into the preimage oracle correctly.
-    function test_addLocalDataMiddle_static_succeeds() public {
+    function test_addLocalData2Middle_static_succeeds() public {
         IPreimageOracle oracle = IPreimageOracle(address(gameProxy.vm().oracle()));
         Claim[] memory claims = generateClaims(3);
         Claim root = Claim.wrap(
@@ -2073,9 +2073,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             bytes32 key = _getKey(i, keccak256(abi.encode(root.raw(), startingPos, root.raw(), disputedPos)));
 
             if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
-                gameProxy.addLocalData(i, 3, 0, disputedDataItem);
+                gameProxy.addLocalData2(i, 3, 0, disputedDataItem);
             } else {
-                gameProxy.addLocalData(i, 3, 0, startingDataItem);
+                gameProxy.addLocalData2(i, 3, 0, startingDataItem);
             }
             (bytes32 dat, uint256 datLen) = oracle.readPreimage(key, 0);
             assertEq(dat >> 0xC0, bytes32(expectedLen));
@@ -2087,9 +2087,9 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
             assertEq(datLen, expectedLen + (i > 3 ? 8 : 0));
 
             if (LocalPreimageKey.DISPUTED_OUTPUT_ROOT == i) {
-                gameProxy.addLocalData(i, 3, 8, disputedDataItem);
+                gameProxy.addLocalData2(i, 3, 8, disputedDataItem);
             } else {
-                gameProxy.addLocalData(i, 3, 8, startingDataItem);
+                gameProxy.addLocalData2(i, 3, 8, startingDataItem);
             }
             (dat, datLen) = oracle.readPreimage(key, 8);
             assertEq(dat, data[i - 1]);
@@ -2262,7 +2262,7 @@ contract FaultDisputeGameN_Test is FaultDisputeGame_Init {
 
         LibDA.DAItem memory dummyDataItem =
             LibDA.DAItem({ daType: LibDA.DA_TYPE_CALLDATA, dataHash: _dummyClaim().raw(), proof: hex"" });
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, dummyDataItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 2, dummyDataItem);
 
         LibDA.DAItem memory preStateItem = LibDA.DAItem({
             daType: LibDA.DA_TYPE_CALLDATA,
@@ -2357,7 +2357,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
 
@@ -2411,7 +2411,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
 
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         vm.expectRevert(ValidStep.selector);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
@@ -2464,7 +2464,7 @@ contract FaultDisputeGameN_LessSplitDepth_Test is FaultDisputeGame_Init {
 
         FaultDisputeGame.StepProof memory stepProof =
             FaultDisputeGame.StepProof({ preStateItem: preStateItem, postStateItem: postStateItem, vmProof: hex"" });
-        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
+        gameProxy.addLocalData2(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 4, 3, preStateItem);
         gameProxy.stepV2({ _claimIndex: 4, _attackBranch: 3, _stateData: claimData6, _proof: stepProof });
     }
 

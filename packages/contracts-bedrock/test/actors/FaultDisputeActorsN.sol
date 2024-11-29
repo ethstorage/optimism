@@ -525,7 +525,7 @@ contract HonestDisputeActor is DisputeActor {
                     dataHash: "00000000000000000000000000000000",
                     proof: hex""
                 });
-                GAME.addLocalData({
+                GAME.addLocalData2({
                     _ident: LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER,
                     _execLeafIdx: challengeIndex,
                     _partOffset: 0,

@@ -477,7 +477,7 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         revert NotSupported();
     }
 
-    function addLocalData(
+    function addLocalData2(
         uint256 _ident,
         uint256 _execLeafIdx,
         uint256 _partOffset,
@@ -1209,7 +1209,12 @@ contract FaultDisputeGame is IFaultDisputeGame, Clone, ISemver {
         public
         payable
     {
-        Claim claim = Claim.wrap(LibDA.getClaimsHash(_daType, MAX_ATTACK_BRANCH, _claims));
+        uint256 nelements = MAX_ATTACK_BRANCH;
+        ClaimData storage parent = claimData[_parentIndex];
+        if (parent.position.depth() == SPLIT_DEPTH) {
+            nelements = 1;
+        }
+        Claim claim = Claim.wrap(LibDA.getClaimsHash(_daType, nelements, _claims));
         moveV2(_disputed, _parentIndex, claim, _attackBranch);
     }
 

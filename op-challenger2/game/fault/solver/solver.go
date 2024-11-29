@@ -143,6 +143,9 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 	if err != nil {
 		return nil, err
 	}
+	oracleData.OutputRootDAItem.DaType = s.daType
+	oracleData.VMStateDA.PreDA.DaType = s.daType
+	oracleData.VMStateDA.PostDA.DaType = s.daType
 	return &StepData{
 		LeafClaim:    claim,
 		AttackBranch: attackBranch,
@@ -170,14 +173,14 @@ func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types
 	for i := uint64(0); i < maxAttackBranch; i++ {
 		tmpPosition := position.MoveRightN(i)
 		if tmpPosition.Depth() == (game.SplitDepth()+types.Depth(game.NBits())) && i != 0 {
-			value = common.Hash{}
+			break
 		} else {
 			value, err = s.trace.Get(ctx, game, claim, tmpPosition)
 			if err != nil {
 				return nil, fmt.Errorf("attack claim: %w", err)
 			}
+			values = append(values, value)
 		}
-		values = append(values, value)
 	}
 	hash := contracts.SubValuesHash(values)
 	return &types.Claim{

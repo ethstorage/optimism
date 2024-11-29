@@ -44,7 +44,7 @@ var (
 	methodAttack                  = "attack"
 	methodDefend                  = "defend"
 	methodStep                    = "step"
-	methodAddLocalData            = "addLocalData"
+	methodAddLocalData            = "addLocalData2"
 	methodVM                      = "vm"
 	methodStartingBlockNumber     = "startingBlockNumber"
 	methodStartingRootHash        = "startingRootHash"
@@ -75,6 +75,8 @@ type FaultDisputeGameContractLatest struct {
 	metrics     metrics.ContractMetricer
 	multiCaller *batching.MultiCaller
 	contract    *batching.BoundContract
+	nbits       uint64
+	splitDepth  types.Depth
 }
 
 type Proposal struct {
@@ -130,11 +132,23 @@ func NewFaultDisputeGameContract(ctx context.Context, metrics metrics.ContractMe
 			},
 		}, nil
 	} else {
-		return &FaultDisputeGameContractLatest{
+
+		contract := &FaultDisputeGameContractLatest{
 			metrics:     metrics,
 			multiCaller: caller,
 			contract:    batching.NewBoundContract(contractAbi, addr),
-		}, nil
+		}
+		nbits, err := contract.GetNBits(ctx)
+		if err != nil {
+			return nil, err
+		}
+		splitDepth, err := contract.GetSplitDepth(ctx)
+		if err != nil {
+			return nil, err
+		}
+		contract.nbits = nbits
+		contract.splitDepth = splitDepth
+		return contract, nil
 	}
 }
 
@@ -349,6 +363,9 @@ func (f *FaultDisputeGameContractLatest) UpdateOracleTx(ctx context.Context, cla
 }
 
 func (f *FaultDisputeGameContractLatest) addLocalDataTx(claimIdx uint64, data *types.PreimageOracleData) (txmgr.TxCandidate, error) {
+	if data.OutputRootDAItem.DaType == nil {
+		return txmgr.TxCandidate{}, fmt.Errorf("DaType isn't set")
+	}
 	call := f.contract.Call(
 		methodAddLocalData,
 		data.GetIdent(),
@@ -479,6 +496,11 @@ func (f *FaultDisputeGameContractLatest) GetAllClaimsWithSubValues(ctx context.C
 		return nil, err
 	}
 	for idx, claim := range claims {
+		if claim.IsRoot() { // root claim contains no subValues in DA, we create subvalues manually
+			claim.SubValues = &[]common.Hash{claim.Value}
+			claims[idx] = claim
+			continue
+		}
 		subValues, attackBranch, err := f.getSubValuesAndAttackBranch(ctx, &claim)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load subValues: %w", err)
@@ -510,7 +532,6 @@ func (f *FaultDisputeGameContractLatest) getSubValuesAndAttackBranch(ctx context
 		return nil, 0, fmt.Errorf("failed to get move event log: %w", moveIter.Error())
 	}
 	txHash := moveIter.Event.Raw.TxHash
-
 	getTxByHashCall := batching.NewTxGetByHash(f.contract.Abi(), txHash, methodAttackV2)
 	result, err := f.multiCaller.SingleCall(ctx, rpcblock.Latest, getTxByHashCall)
 	if err != nil {
@@ -535,9 +556,13 @@ func (f *FaultDisputeGameContractLatest) getSubValuesAndAttackBranch(ctx context
 		if err != nil {
 			return nil, 0, err
 		}
-		valuesBytesLen := uint(32 * maxAttackBranch)
+		nelements := maxAttackBranch
+		if aggClaim.Position.Depth() == types.Depth(f.nbits)+f.splitDepth {
+			nelements = 1
+		}
+		valuesBytesLen := uint(32 * nelements)
 		bytes := abi.ConvertType(inputMap[fieldSubValues], make([]byte, valuesBytesLen)).([]byte)
-		for i := uint64(0); i < maxAttackBranch; i++ {
+		for i := uint64(0); i < nelements; i++ {
 			hash := common.BytesToHash(bytes[i*32 : (i+1)*32])
 			subValues = append(subValues, hash)
 		}
@@ -715,17 +740,13 @@ func (f *FaultDisputeGameContractLatest) GetMaxAttackBranch(ctx context.Context)
 }
 
 func (f *FaultDisputeGameContractLatest) AttackV2Tx(ctx context.Context, parent types.Claim, attackBranch uint64, daType uint64, claims []byte) (txmgr.TxCandidate, error) {
-	nBits, err := f.GetNBits(ctx)
-	if err != nil {
-		return txmgr.TxCandidate{}, fmt.Errorf("failed to retrieve nbits: %w", err)
-	}
 	call := f.contract.Call(methodAttackV2,
 		parent.Value,
 		big.NewInt(int64(parent.ContractIndex)),
 		new(big.Int).SetUint64(attackBranch),
 		new(big.Int).SetUint64(daType),
 		claims)
-	return f.txWithBond(ctx, parent.Position.MoveN(nBits, attackBranch), call)
+	return f.txWithBond(ctx, parent.Position.MoveN(f.nbits, attackBranch), call)
 }
 
 func (f *FaultDisputeGameContractLatest) StepV2Tx(claimIdx uint64, attackBranch uint64, stateData []byte, proof types.StepProof) (txmgr.TxCandidate, error) {
