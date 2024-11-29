@@ -6,7 +6,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 )
@@ -27,25 +26,19 @@ func NewTxGetByHash(abi *abi.ABI, txhash common.Hash, method string) *TxGetByHas
 
 func (b *TxGetByHashCall) ToBatchElemCreator() (BatchElementCreator, error) {
 	return func(block rpcblock.Block) (any, rpc.BatchElem) {
-		out := new(hexutil.Bytes)
+		out := new(types.Transaction)
 		return out, rpc.BatchElem{
 			Method: "eth_getTransactionByHash",
-			Args:   []interface{}{b.TxHash, block.ArgValue()},
+			Args:   []interface{}{b.TxHash},
 			Result: &out,
 		}
 	}, nil
 }
 
 func (c *TxGetByHashCall) HandleResult(result interface{}) (*CallResult, error) {
-	res, ok := result.(*hexutil.Bytes)
+	txn, ok := result.(*types.Transaction)
 	if !ok {
-		return nil, fmt.Errorf("result is not hexutil.Bytes")
-	}
-
-	txn := new(types.Transaction)
-	err := txn.UnmarshalBinary(*res)
-	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("result is not types.Transaction")
 	}
 	return &CallResult{out: []interface{}{txn}}, nil
 }

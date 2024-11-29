@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/sources/batching/rpcblock"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -80,11 +81,11 @@ func NewGetBalanceCall(addr common.Address, block rpcblock.Block, balance *big.I
 	}
 }
 
-func NewGetTxCall(txHash common.Hash, block rpcblock.Block, out *[]byte) ExpectedRpcCall {
+func NewGetTxCall(txHash common.Hash, block rpcblock.Block, out *types.Transaction) ExpectedRpcCall {
 	return &GenericExpectedCall{
 		method: "eth_getTransactionByHash",
-		args:   []interface{}{txHash, block.ArgValue()},
-		result: hexutil.Encode(*out),
+		args:   []interface{}{txHash},
+		result: out,
 	}
 }
 

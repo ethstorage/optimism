@@ -14,28 +14,32 @@ import (
 
 type expectedFilterLogsCall struct {
 	topics  [][]common.Hash
-	to      common.Address
+	to      []common.Address
 	block   rpcblock.Block
 	outputs []types.Log
 	err     error
 }
 
 func (c *expectedFilterLogsCall) Matches(rpcMethod string, args ...interface{}) error {
-	if rpcMethod != "eth_getFilterLogs" {
-		return fmt.Errorf("expected rpcMethod eth_getFilterLogs but was %v", rpcMethod)
+	if rpcMethod != "eth_getLogs" {
+		return fmt.Errorf("expected rpcMethod eth_getLogs but was %v", rpcMethod)
 	}
 
-	topics, ok := args[0].([][]common.Hash)
+	query, ok := args[0].(map[string]interface{})
 	if !ok {
-		return fmt.Errorf("arg 0 is not [][]common.Hash")
+		return fmt.Errorf("arg 0 is not map[string]interface{}")
+	}
+	topics := query["topics"].([][]common.Hash)
+	if !ok {
+		return fmt.Errorf("topics is not [][]common.Hash")
 	}
 
 	if !reflect.DeepEqual(topics, c.topics) {
 		return fmt.Errorf("expected topics %v but was %v", c.topics, topics)
 	}
 
-	to := args[1].(common.Address)
-	if to != c.to {
+	to := query["address"].([]common.Address)
+	if !reflect.DeepEqual(to, c.to) {
 		return fmt.Errorf("expected contract address %v but was %v", c.to, to)
 	}
 	return c.err
@@ -52,7 +56,7 @@ func (c *expectedFilterLogsCall) String() string {
 	return fmt.Sprintf("{to: %v, block: %v, outputs: %v}", c.to, c.block, c.outputs)
 }
 
-func (l *RpcStub) SetFilterLogResponse(topics [][]common.Hash, to common.Address, block rpcblock.Block, output []types.Log) {
+func (l *RpcStub) SetFilterLogResponse(topics [][]common.Hash, to []common.Address, block rpcblock.Block, output []types.Log) {
 	if output == nil {
 		output = []types.Log{}
 	}

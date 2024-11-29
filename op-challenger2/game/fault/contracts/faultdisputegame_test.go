@@ -794,6 +794,9 @@ func setupFaultDisputeGameTest(t *testing.T, version contractVersion) (*batching
 	caller := batching.NewMultiCaller(stubRpc, batching.DefaultBatchSize)
 
 	stubRpc.SetResponse(fdgAddr, methodVersion, rpcblock.Latest, nil, []interface{}{version.version})
+	nbitOrSplitDepth := big.NewInt(2)
+	stubRpc.SetResponse(fdgAddr, methodNBits, rpcblock.Latest, nil, []interface{}{nbitOrSplitDepth})
+	stubRpc.SetResponse(fdgAddr, methodSplitDepth, rpcblock.Latest, nil, []interface{}{nbitOrSplitDepth})
 	game, err := NewFaultDisputeGameContract(context.Background(), contractMetrics.NoopContractMetrics, fdgAddr, caller)
 	require.NoError(t, err)
 	return stubRpc, game
@@ -874,6 +877,7 @@ func TestGetAllClaimsWithSubValues(t *testing.T) {
 			attackBranch := big.NewInt(0)
 			parent := faultTypes.Claim{ClaimData: faultTypes.ClaimData{Value: common.Hash{0xbb}, Position: parentPos}, ContractIndex: 111}
 			stubRpc.SetResponse(fdgAddr, methodNBits, block, nil, []interface{}{new(big.Int).SetUint64(nBits)})
+			stubRpc.SetResponse(fdgAddr, methodSplitDepth, block, nil, []interface{}{new(big.Int).SetUint64(nBits)})
 			stubRpc.SetResponse(fdgAddr, methodRequiredBond, block, []interface{}{parent.Position.MoveN(nBits, attackBranch.Uint64()).ToGIndex()}, []interface{}{bond})
 			stubRpc.SetResponse(fdgAddr, methodAttackV2, block, []interface{}{parent.Value, big.NewInt(111), attackBranch, daType, claimsBytes[:]}, nil)
 			txCandidate, err := game.AttackV2Tx(context.Background(), parent, attackBranch.Uint64(), daType.Uint64(), claimsBytes[:])
@@ -886,10 +890,8 @@ func TestGetAllClaimsWithSubValues(t *testing.T) {
 				Value:    big.NewInt(111),
 				Data:     txCandidate.TxData,
 			})
-			packed, err := tx.MarshalBinary()
-			require.NoError(t, err)
 			txHash := tx.Hash()
-			stubRpc.SetGetTxByHashResponse(txHash, packed)
+			stubRpc.SetGetTxByHashResponse(txHash, tx)
 
 			// mock eventLog
 			eventName := eventMove
@@ -915,7 +917,7 @@ func TestGetAllClaimsWithSubValues(t *testing.T) {
 				},
 			}
 
-			stubRpc.SetFilterLogResponse(topics, fdgAddr, block, out)
+			stubRpc.SetFilterLogResponse(topics, []common.Address{fdgAddr}, block, out)
 			stubRpc.SetResponse(fdgAddr, methodClaimCount, block, nil, []interface{}{big.NewInt(1)})
 			stubRpc.SetResponse(fdgAddr, methodMaxAttackBranch, block, nil, []interface{}{big.NewInt(1<<nBits - 1)})
 			claim0 := faultTypes.Claim{

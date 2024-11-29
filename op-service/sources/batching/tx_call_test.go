@@ -31,11 +31,9 @@ func TestUnpackTxCalldata(t *testing.T) {
 		Data:     inputData,
 	})
 	require.NoError(t, err)
-	packed, err := tx.MarshalBinary()
-	require.NoError(t, err)
 
 	stub := test.NewRpcStub(t)
-	stub.AddExpectedCall(test.NewGetTxCall(txHash, rpcblock.Latest, &packed))
+	stub.AddExpectedCall(test.NewGetTxCall(txHash, rpcblock.Latest, tx))
 
 	caller := NewMultiCaller(stub, DefaultBatchSize)
 	txCall := NewTxGetByHash(testAbi, txHash, "approve")

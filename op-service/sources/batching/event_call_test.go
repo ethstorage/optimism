@@ -57,7 +57,7 @@ func TestEventLogFilter(t *testing.T) {
 		out[i] = r
 	}
 
-	stub.SetFilterLogResponse(topics, addr, block, _out)
+	stub.SetFilterLogResponse(topics, []common.Address{addr}, block, _out)
 	caller := NewMultiCaller(stub, DefaultBatchSize)
 
 	filter, err := batchingTest.NewERC20Filterer(addr, caller)
