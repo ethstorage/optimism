@@ -178,9 +178,6 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 			} else {
 				values = append(values, c.CorrectClaimAtPosition(pos))
 			}
-			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
-				values = append(values, common.Hash{})
-			}
 		} else if pos.Depth() == c.splitDepth+types.Depth(c.nbits) {
 			values = append(values, c.CorrectClaimAtPosition(pos))
 			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {

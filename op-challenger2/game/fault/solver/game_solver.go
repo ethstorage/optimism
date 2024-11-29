@@ -104,7 +104,7 @@ func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim t
 			return nil, nil
 		}
 		if claim.IsRoot() && branch != 0 {
-			return nil, nil
+			return nil, fmt.Errorf("cannot attack root claim with branch %v", branch)
 		}
 		move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims, uint64(branch))
 		if err != nil {
