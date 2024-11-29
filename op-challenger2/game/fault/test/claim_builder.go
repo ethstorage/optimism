@@ -241,7 +241,7 @@ func (c *ClaimBuilder) TraceRootDepth() types.Depth {
 	return c.splitDepth + types.Depth(c.nbits)
 }
 
-func (c *ClaimBuilder) GetClaimsAtPosition(pos types.Position, invalidBranchList []uint64) []common.Hash {
+func (c *ClaimBuilder) GetCorrectClaimsAndInvalidClaimAtIndex(pos types.Position, invalidBranchList []uint64) []common.Hash {
 	values := []common.Hash{}
 	if pos.IsRootPosition() {
 		if contains(invalidBranchList, uint64(0)) {

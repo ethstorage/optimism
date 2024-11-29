@@ -155,7 +155,7 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 // agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
 func (s *claimSolver) agreeWithClaimV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (bool, error) {
 	if branch >= uint64(len(*claim.SubValues)) {
-		return true, fmt.Errorf("branch must be lesser than maxAttachBranch")
+		return true, fmt.Errorf("branch must be less than maxAttachBranch")
 	}
 	ourValue, err := s.trace.Get(ctx, game, claim, claim.Position.MoveRightN(branch))
 	return bytes.Equal(ourValue[:], (*claim.SubValues)[branch][:]), err
