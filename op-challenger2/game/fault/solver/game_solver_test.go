@@ -250,9 +250,9 @@ func TestCalculateNextActions(t *testing.T) {
 				honest := builder.Seq()
 				honest.Attack2(nil, 0).ExpectAttackV2(3)
 				honest.Attack2(values, 0).ExpectAttackV2(0)
-				values = claimBuilder.GetClaimsAtPosition(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{1})
 				honest.Attack2(values, 0).ExpectAttackV2(1)
-				values = claimBuilder.GetClaimsAtPosition(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{2})
 				honest.Attack2(values, 0).ExpectAttackV2(2)
 			},
 		},
@@ -262,9 +262,9 @@ func TestCalculateNextActions(t *testing.T) {
 				values := []common.Hash{{0x81}, {0x82}, {0x83}}
 				dishonest := builder.Seq().ExpectAttackV2(0)
 				dishonest.Attack2(values, 0).ExpectAttackV2(0)
-				values = claimBuilder.GetClaimsAtPosition(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{1})
 				dishonest.Attack2(values, 0).ExpectAttackV2(1)
-				values = claimBuilder.GetClaimsAtPosition(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(builder.Game.RootClaim().Position.MoveN(nbits, 0), []uint64{2})
 				dishonest.Attack2(values, 0).ExpectAttackV2(2)
 			},
 		},
@@ -291,32 +291,32 @@ func TestCalculateNextActions(t *testing.T) {
 				dishonest.Attack2(values, 2).ExpectAttackV2(0)
 				dishonest.Attack2(values, 3).ExpectAttackV2(0)
 
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{0})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{0})
 				dishonest.Attack2(values, 0).ExpectAttackV2(0)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{1})
 				dishonest.Attack2(values, 0).ExpectAttackV2(1)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{2})
 				dishonest.Attack2(values, 0).ExpectAttackV2(2)
 
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 1), []uint64{0})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 1), []uint64{0})
 				dishonest.Attack2(values, 1).ExpectAttackV2(0)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 1), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 1), []uint64{1})
 				dishonest.Attack2(values, 1).ExpectAttackV2(1)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 1), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 1), []uint64{2})
 				dishonest.Attack2(values, 1).ExpectAttackV2(2)
 
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 2), []uint64{0})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 2), []uint64{0})
 				dishonest.Attack2(values, 2).ExpectAttackV2(0)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 2), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 2), []uint64{1})
 				dishonest.Attack2(values, 2).ExpectAttackV2(1)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 2), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 2), []uint64{2})
 				dishonest.Attack2(values, 2).ExpectAttackV2(2)
 
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 3), []uint64{0})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 3), []uint64{0})
 				dishonest.Attack2(values, 3).ExpectAttackV2(0)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 3), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 3), []uint64{1})
 				dishonest.Attack2(values, 3).ExpectAttackV2(1)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 3), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 3), []uint64{2})
 				dishonest.Attack2(values, 3).ExpectAttackV2(2)
 			},
 		},
@@ -328,11 +328,11 @@ func TestCalculateNextActions(t *testing.T) {
 				honest := builder.Seq()
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
 				honest.Attack2(values, 0).Attack2(nil, 0)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{1})
 				honest.Attack2(values, 0).ExpectAttackV2(1).Attack2(nil, 0).ExpectAttackV2(3)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{2})
 				honest.Attack2(values, 0).ExpectAttackV2(2).Attack2(nil, 0).ExpectAttackV2(3)
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{3})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{3})
 				honest.Attack2(values, 0).ExpectAttackV2(3).Attack2(nil, 0).ExpectAttackV2(3)
 			},
 		},
@@ -356,7 +356,7 @@ func TestCalculateNextActions(t *testing.T) {
 					Attack2(values, 0). // dishonest
 					Attack2(nil, 0)     // honest
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{1})
 				lastHonestClaim.Attack2(values, 0).ExpectStepV2(1)
 			},
 		},
@@ -369,7 +369,7 @@ func TestCalculateNextActions(t *testing.T) {
 					Attack2(values, 0). // dishonest
 					Attack2(nil, 0)     // honest
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{2})
 				lastHonestClaim.Attack2(values, 0).ExpectStepV2(2)
 			},
 		},
@@ -382,7 +382,7 @@ func TestCalculateNextActions(t *testing.T) {
 					Attack2(values, 0). // dishonest
 					Attack2(nil, 0)     // honest
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{})
 				lastHonestClaim.Attack2(values, 0).ExpectStepV2(3)
 			},
 		},
@@ -406,7 +406,7 @@ func TestCalculateNextActions(t *testing.T) {
 					Attack2(values, 1). // dishonest
 					Attack2(nil, 0)     // honest
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{1})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{1})
 				lastHonestClaim.Attack2(values, 0).ExpectStepV2(1)
 			},
 		},
@@ -419,7 +419,7 @@ func TestCalculateNextActions(t *testing.T) {
 					Attack2(values, 1). // dishonest
 					Attack2(nil, 0)     // honest
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{2})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{2})
 				lastHonestClaim.Attack2(values, 0).ExpectStepV2(2)
 			},
 		},
@@ -432,7 +432,7 @@ func TestCalculateNextActions(t *testing.T) {
 					Attack2(values, 1). // dishonest
 					Attack2(nil, 0)     // honest
 				lastPosition := builder.Game.Claims()[len(builder.Game.Claims())-1].Position
-				values = claimBuilder.GetClaimsAtPosition(lastPosition.MoveN(nbits, 0), []uint64{})
+				values = claimBuilder.GetCorrectClaimsAndInvalidClaimAtIndex(lastPosition.MoveN(nbits, 0), []uint64{})
 				lastHonestClaim.Attack2(values, 0).ExpectStepV2(3)
 			},
 		},

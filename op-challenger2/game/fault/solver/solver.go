@@ -92,6 +92,7 @@ func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game type
 		if branch < game.MaxAttackBranch()-1 {
 			return nil, nil
 		}
+		// if we agree with all subValues, we should attack the maxAttackBranch
 		return s.attackV2(ctx, game, claim, branch+1)
 	} else {
 		return s.attackV2(ctx, game, claim, branch)
@@ -132,7 +133,7 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 		position = claim.Position.MoveRightN(branch)
 	} else {
 		if branch == game.MaxAttackBranch()-1 {
-			// If we are at the max attack branch, we need to step on the next branch
+			// If we agree all subValues ,the maxAttackBranch should be stepped
 			position = claim.Position.MoveRightN(branch + 1)
 			attackBranch = branch + 1
 		} else {
@@ -158,7 +159,7 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 // agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
 func (s *claimSolver) agreeWithClaimV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (bool, error) {
 	if branch >= uint64(len(*claim.SubValues)) {
-		return true, fmt.Errorf("branch must be lesser than maxAttachBranch")
+		return true, fmt.Errorf("branch must be less than maxAttachBranch")
 	}
 	ourValue, err := s.trace.Get(ctx, game, claim, claim.Position.MoveRightN(branch))
 	return bytes.Equal(ourValue[:], (*claim.SubValues)[branch][:]), err

@@ -169,7 +169,7 @@ func TestPerformAction(t *testing.T) {
 		require.Equal(t, ([]byte)("attackV2"), mockTxMgr.sent[0].TxData)
 	})
 
-	t.Run("step", func(t *testing.T) {
+	t.Run("stepV2", func(t *testing.T) {
 		responder, mockTxMgr, contract, _, _ := newTestFaultResponder(t)
 		action := types.Action{
 			Type:         types.ActionTypeStep,
