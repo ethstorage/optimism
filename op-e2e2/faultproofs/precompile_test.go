@@ -9,10 +9,10 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/cannon/mipsevm"
-	"github.com/ethereum-optimism/optimism/op-challenger/config"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/cannon"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/utils"
-	"github.com/ethereum-optimism/optimism/op-challenger/metrics"
+	"github.com/ethereum-optimism/optimism/op-challenger2/config"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/cannon"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/utils"
+	"github.com/ethereum-optimism/optimism/op-challenger2/metrics"
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e2"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/wait"
@@ -143,7 +143,7 @@ func runCannon(t *testing.T, ctx context.Context, sys *op_e2e.System, inputs uti
 	cannonOpts := challenger.WithCannon(t, sys.RollupCfg(), sys.L2Genesis())
 	dir := t.TempDir()
 	proofsDir := filepath.Join(dir, "cannon-proofs")
-	cfg := config.NewConfig(common.Address{}, l1Endpoint, l1Beacon, rollupEndpoint, l2Endpoint, dir)
+	cfg := config.NewConfig(common.Address{}, l1Endpoint, l1Beacon, rollupEndpoint, l2Endpoint, dir, config.DACalldata)
 	cannonOpts(&cfg)
 
 	logger := testlog.Logger(t, log.LevelInfo).New("role", "cannon")

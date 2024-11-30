@@ -123,6 +123,7 @@ func (g *OutputGameHelper) DisputeBlock(ctx context.Context, disputeBlockNum uin
 	dishonestValue := g.GetClaimValue(ctx, 0)
 	correctRootClaim := g.correctOutputRoot(ctx, types.NewPositionFromGIndex(big.NewInt(1)))
 	rootIsValid := dishonestValue == correctRootClaim
+	nbits := g.Nbits
 	if rootIsValid {
 		// Ensure that the dishonest actor is actually posting invalid roots.
 		// Otherwise, the honest challenger will defend our counter and ruin everything.
@@ -151,15 +152,20 @@ func (g *OutputGameHelper) DisputeBlock(ctx context.Context, disputeBlockNum uin
 		parentClaimBlockNum, err := g.CorrectOutputProvider.ClaimedBlockNumber(pos)
 		g.Require.NoError(err, "failed to calculate parent claim block number")
 		if parentClaimBlockNum >= disputeBlockNum {
-			pos = pos.Attack()
+			pos = pos.MoveN(nbits, 0)
 			subValues := []common.Hash{}
 			for i := 0; i < 1<<g.Nbits-1; i++ {
 				subValues = append(subValues, getClaimValue(claim, pos.MoveRightN(uint64(i))))
 			}
 			claim = claim.Attack2(ctx, 0, subValues)
 		} else {
-			pos = pos.Defend()
-			claim = claim.Defend(ctx, getClaimValue(claim, pos))
+			maxAttackBranch := uint64(1<<nbits - 1)
+			pos = pos.MoveN(nbits, maxAttackBranch)
+			subValues := []common.Hash{}
+			for i := uint64(0); i < maxAttackBranch; i++ {
+				subValues = append(subValues, getClaimValue(claim, pos.MoveRightN(uint64(i))))
+			}
+			claim = claim.Attack2(ctx, maxAttackBranch, subValues)
 		}
 	}
 	return claim

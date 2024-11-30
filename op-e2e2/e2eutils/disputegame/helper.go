@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts/metrics"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/outputs"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts/metrics"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/outputs"
 	"github.com/ethereum-optimism/optimism/op-e2e2/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/disputegame/preimage"
@@ -90,9 +90,10 @@ type FactoryHelper struct {
 	Opts        *bind.TransactOpts
 	FactoryAddr common.Address
 	Factory     *bindings.DisputeGameFactory
+	DaType      int64
 }
 
-func NewFactoryHelper(t *testing.T, ctx context.Context, system DisputeSystem) *FactoryHelper {
+func NewFactoryHelper(t *testing.T, ctx context.Context, system DisputeSystem, daType int64) *FactoryHelper {
 	require := require.New(t)
 	client := system.NodeClient("l1")
 	chainID, err := client.ChainID(ctx)
@@ -113,6 +114,7 @@ func NewFactoryHelper(t *testing.T, ctx context.Context, system DisputeSystem) *
 		Opts:        opts,
 		Factory:     factory,
 		FactoryAddr: factoryAddr,
+		DaType:      daType,
 	}
 }
 
@@ -167,7 +169,7 @@ func (h *FactoryHelper) StartOutputCannonGame(ctx context.Context, l2Node string
 	h.Require.Len(rcpt.Logs, 2, "should have emitted a single DisputeGameCreated event")
 	createdEvent, err := h.Factory.ParseDisputeGameCreated(*rcpt.Logs[1])
 	h.Require.NoError(err)
-	gameBindings, err := bindings.NewFaultDisputeGame(createdEvent.DisputeProxy, h.Client)
+	gameBindings, err := bindings.NewFaultDisputeGameN(createdEvent.DisputeProxy, h.Client)
 	h.Require.NoError(err)
 	game, err := contracts.NewFaultDisputeGameContract(ctx, metrics.NoopContractMetrics, createdEvent.DisputeProxy, batching.NewMultiCaller(h.Client.Client(), batching.DefaultBatchSize))
 	h.Require.NoError(err)
@@ -182,7 +184,7 @@ func (h *FactoryHelper) StartOutputCannonGame(ctx context.Context, l2Node string
 	provider := outputs.NewTraceProvider(logger, prestateProvider, rollupClient, l2Client, l1Head, splitDepth, prestateBlock, poststateBlock)
 
 	return &OutputCannonGameHelper{
-		OutputGameHelper: *NewOutputGameHelper(h.T, h.Require, h.Client, h.Opts, game, gameBindings, h.FactoryAddr, createdEvent.DisputeProxy, provider, h.System),
+		OutputGameHelper: *NewOutputGameHelper(h.T, h.Require, h.Client, h.Opts, game, gameBindings, h.FactoryAddr, createdEvent.DisputeProxy, provider, h.System, h.DaType),
 	}
 }
 
@@ -223,7 +225,7 @@ func (h *FactoryHelper) StartOutputAlphabetGame(ctx context.Context, l2Node stri
 	h.Require.Len(rcpt.Logs, 2, "should have emitted a single DisputeGameCreated event")
 	createdEvent, err := h.Factory.ParseDisputeGameCreated(*rcpt.Logs[1])
 	h.Require.NoError(err)
-	gameBindings, err := bindings.NewFaultDisputeGame(createdEvent.DisputeProxy, h.Client)
+	gameBindings, err := bindings.NewFaultDisputeGameN(createdEvent.DisputeProxy, h.Client)
 	h.Require.NoError(err)
 	game, err := contracts.NewFaultDisputeGameContract(ctx, metrics.NoopContractMetrics, createdEvent.DisputeProxy, batching.NewMultiCaller(h.Client.Client(), batching.DefaultBatchSize))
 	h.Require.NoError(err)
@@ -238,7 +240,7 @@ func (h *FactoryHelper) StartOutputAlphabetGame(ctx context.Context, l2Node stri
 	provider := outputs.NewTraceProvider(logger, prestateProvider, rollupClient, l2Client, l1Head, splitDepth, prestateBlock, poststateBlock)
 
 	return &OutputAlphabetGameHelper{
-		OutputGameHelper: *NewOutputGameHelper(h.T, h.Require, h.Client, h.Opts, game, gameBindings, h.FactoryAddr, createdEvent.DisputeProxy, provider, h.System),
+		OutputGameHelper: *NewOutputGameHelper(h.T, h.Require, h.Client, h.Opts, game, gameBindings, h.FactoryAddr, createdEvent.DisputeProxy, provider, h.System, h.DaType),
 	}
 }
 

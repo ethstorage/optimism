@@ -35,7 +35,7 @@ func TestLocalPreimages(t *testing.T) {
 			sys, _ := StartFaultDisputeSystem(t)
 			t.Cleanup(sys.Close)
 
-			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 			game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 3, common.Hash{0x01, 0xaa})
 			require.NotNil(t, game)
 			claim := game.DisputeLastBlock(ctx)

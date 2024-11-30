@@ -18,7 +18,7 @@ func TestChallengeLargePreimages_ChallengeFirst(t *testing.T) {
 	sys, _ := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	disputeGameFactory.StartChallenger(ctx, "Challenger",
 		challenger.WithAlphabet(),
 		challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
@@ -36,7 +36,7 @@ func TestChallengeLargePreimages_ChallengeMiddle(t *testing.T) {
 	ctx := context.Background()
 	sys, _ := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	disputeGameFactory.StartChallenger(ctx, "Challenger",
 		challenger.WithAlphabet(),
 		challenger.WithPrivKey(sys.Cfg.Secrets.Mallory))
@@ -54,7 +54,7 @@ func TestChallengeLargePreimages_ChallengeLast(t *testing.T) {
 	ctx := context.Background()
 	sys, _ := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	disputeGameFactory.StartChallenger(ctx, "Challenger",
 		challenger.WithAlphabet(),
 		challenger.WithPrivKey(sys.Cfg.Secrets.Mallory))

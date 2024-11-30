@@ -6,7 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/types"
+	"github.com/ethereum-optimism/optimism/op-challenger2/config"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/types"
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e2"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/disputegame"
@@ -16,23 +17,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	daType = config.DACalldata
+)
+
 func TestOutputAlphabetGame_ChallengerWins(t *testing.T) {
 	op_e2e.InitParallel(t)
 	ctx := context.Background()
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputAlphabetGame(ctx, "sequencer", 3, common.Hash{0xff})
 	correctTrace := game.CreateHonestActor(ctx, "sequencer")
 	game.LogGameData(ctx)
 
 	opts := challenger.WithPrivKey(sys.Cfg.Secrets.Alice)
-	game.StartChallenger(ctx, "sequencer", "Challenger", opts)
+	game.StartChallenger(ctx, "sequencer", "Challenger", opts, challenger.WithDaType(daType))
 	game.LogGameData(ctx)
 
 	// Challenger should post an output root to counter claims down to the leaf level of the top game
 	claim := game.RootClaim(ctx)
+	incorrectValues := setIncorrectValues(common.Hash{0xaa}, 1<<game.Nbits-1)
 	for claim.IsOutputRoot(ctx) && !claim.IsOutputRootLeaf(ctx) {
 		if claim.AgreesWithOutputRoot() {
 			// If the latest claim agrees with the output root, expect the honest challenger to counter it
@@ -41,7 +47,7 @@ func TestOutputAlphabetGame_ChallengerWins(t *testing.T) {
 			claim.RequireCorrectOutputRoot(ctx)
 		} else {
 			// Otherwise we should counter
-			claim = claim.Attack(ctx, common.Hash{0xaa})
+			claim = claim.Attack2(ctx, 0, incorrectValues)
 			game.LogGameData(ctx)
 		}
 	}
@@ -49,9 +55,8 @@ func TestOutputAlphabetGame_ChallengerWins(t *testing.T) {
 	// Wait for the challenger to post the first claim in the cannon trace
 	claim = claim.WaitForCounterClaim(ctx)
 	game.LogGameData(ctx)
-
 	// Attack the root of the alphabet trace subgame
-	claim = correctTrace.AttackClaim(ctx, claim)
+	claim = correctTrace.AttackClaim(ctx, claim, 0)
 	for !claim.IsMaxDepth(ctx) {
 		if claim.AgreesWithOutputRoot() {
 			// If the latest claim supports the output root, wait for the honest challenger to respond
@@ -59,7 +64,7 @@ func TestOutputAlphabetGame_ChallengerWins(t *testing.T) {
 			game.LogGameData(ctx)
 		} else {
 			// Otherwise we need to counter the honest claim
-			claim = correctTrace.AttackClaim(ctx, claim)
+			claim = correctTrace.AttackClaim(ctx, claim, 0)
 			game.LogGameData(ctx)
 		}
 	}
@@ -79,7 +84,7 @@ func TestOutputAlphabetGame_ReclaimBond(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputAlphabetGame(ctx, "sequencer", 3, common.Hash{0xff})
 	game.LogGameData(ctx)
 
@@ -98,11 +103,14 @@ func TestOutputAlphabetGame_ReclaimBond(t *testing.T) {
 	// Perform a few moves
 	claim = claim.WaitForCounterClaim(ctx)
 	game.LogGameData(ctx)
-	claim = claim.Attack(ctx, common.Hash{})
+	incorrectValues := setIncorrectValues(common.Hash{0xaa}, 1<<game.Nbits-1)
+	claim = claim.Attack2(ctx, 0, incorrectValues)
 	claim = claim.WaitForCounterClaim(ctx)
 	game.LogGameData(ctx)
-	claim = claim.Attack(ctx, common.Hash{})
+	claim = claim.Attack2(ctx, 0, incorrectValues)
 	game.LogGameData(ctx)
+	// when nbits=2, splitDepth is 4, maxDepth is 8, the following line should be commentted,
+	// because the maxDepth is reached and we don't need to waitForCounterClaim.
 	_ = claim.WaitForCounterClaim(ctx)
 
 	// Expect posted claims so the game balance is non-zero
@@ -140,13 +148,13 @@ func TestOutputAlphabetGame_ValidOutputRoot(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputAlphabetGameWithCorrectRoot(ctx, "sequencer", 2)
 	correctTrace := game.CreateHonestActor(ctx, "sequencer")
 	game.LogGameData(ctx)
 	claim := game.DisputeLastBlock(ctx)
 	// Invalid root claim of the alphabet game
-	claim = claim.Attack(ctx, common.Hash{0x01})
+	claim = claim.Attack2(ctx, 0, setIncorrectValues(common.Hash{0x01}, 1<<game.Nbits-1))
 
 	opts := challenger.WithPrivKey(sys.Cfg.Secrets.Alice)
 	game.StartChallenger(ctx, "sequencer", "Challenger", opts)
@@ -155,7 +163,7 @@ func TestOutputAlphabetGame_ValidOutputRoot(t *testing.T) {
 	game.LogGameData(ctx)
 	for !claim.IsMaxDepth(ctx) {
 		// Dishonest actor always attacks with the correct trace
-		claim = correctTrace.AttackClaim(ctx, claim)
+		claim = correctTrace.AttackClaim(ctx, claim, 0)
 		claim = claim.WaitForCounterClaim(ctx)
 		game.LogGameData(ctx)
 	}
@@ -173,7 +181,7 @@ func TestChallengerCompleteExhaustiveDisputeGame(t *testing.T) {
 		sys, l1Client := StartFaultDisputeSystem(t)
 		t.Cleanup(sys.Close)
 
-		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 		var game *disputegame.OutputAlphabetGameHelper
 		if isRootCorrect {
 			game = disputeGameFactory.StartOutputAlphabetGameWithCorrectRoot(ctx, "sequencer", 1)
@@ -194,7 +202,7 @@ func TestChallengerCompleteExhaustiveDisputeGame(t *testing.T) {
 
 		if isRootCorrect {
 			// Attack the correct output root with an invalid alphabet trace
-			claim = claim.Attack(ctx, common.Hash{0x01})
+			claim = claim.Attack2(ctx, 0, setIncorrectValues(common.Hash{0x01}, 1<<game.Nbits-1))
 		} else {
 			// Wait for the challenger to counter the invalid output root
 			claim = claim.WaitForCounterClaim(ctx)
@@ -241,13 +249,14 @@ func TestOutputAlphabetGame_FreeloaderEarnsNothing(t *testing.T) {
 	freeloaderOpts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Mallory, sys.Cfg.L1ChainIDBig())
 	require.Nil(t, err)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputAlphabetGameWithCorrectRoot(ctx, "sequencer", 2)
 	correctTrace := game.CreateHonestActor(ctx, "sequencer")
 	game.LogGameData(ctx)
 	claim := game.DisputeLastBlock(ctx)
 	// Invalid root claim of the alphabet game
-	claim = claim.Attack(ctx, common.Hash{0x01})
+	maxAttackBranch := 1<<game.Nbits - 1
+	claim = claim.Attack2(ctx, 0, setIncorrectValues(common.Hash{0x01}, maxAttackBranch))
 
 	// Chronology of claims:
 	// dishonest root claim:
@@ -259,24 +268,25 @@ func TestOutputAlphabetGame_FreeloaderEarnsNothing(t *testing.T) {
 	// The freeloader must be positioned leftmost (gindex positioning) or at the same position as honest claims.
 
 	// honest counter
-	claim = correctTrace.AttackClaim(ctx, claim)
+	claim = correctTrace.AttackClaim(ctx, claim, 0)
 
 	var freeloaders []*disputegame.ClaimHelper
 
 	// dishonest
-	dishonest := correctTrace.AttackClaim(ctx, claim)
+	dishonest := correctTrace.AttackClaim(ctx, claim, 0)
 
-	freeloaders = append(freeloaders, correctTrace.AttackClaim(ctx, dishonest, disputegame.WithTransactOpts(freeloaderOpts)))
-	freeloaders = append(freeloaders, dishonest.Attack(ctx, common.Hash{0x02}, disputegame.WithTransactOpts(freeloaderOpts)))
-	freeloaders = append(freeloaders, dishonest.Defend(ctx, common.Hash{0x03}, disputegame.WithTransactOpts(freeloaderOpts)))
+	maxAttakBranch := uint64(1<<game.Nbits - 1)
+	freeloaders = append(freeloaders, correctTrace.AttackClaim(ctx, dishonest, 0, disputegame.WithTransactOpts(freeloaderOpts)))
+	freeloaders = append(freeloaders, dishonest.Attack2(ctx, 0, setIncorrectValues(common.Hash{0x02}, maxAttackBranch), disputegame.WithTransactOpts(freeloaderOpts)))
+	freeloaders = append(freeloaders, dishonest.Attack2(ctx, maxAttakBranch, setIncorrectValues(common.Hash{0x03}, maxAttackBranch), disputegame.WithTransactOpts(freeloaderOpts)))
 
 	// Ensure freeloaders respond before the honest challenger
 	game.StartChallenger(ctx, "sequencer", "Challenger", challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
 	dishonest.WaitForCounterClaim(ctx, freeloaders...)
 
 	// Freeloaders after the honest challenger
-	freeloaders = append(freeloaders, dishonest.Attack(ctx, common.Hash{0x04}, disputegame.WithTransactOpts(freeloaderOpts)))
-	freeloaders = append(freeloaders, dishonest.Defend(ctx, common.Hash{0x05}, disputegame.WithTransactOpts(freeloaderOpts)))
+	freeloaders = append(freeloaders, dishonest.Attack2(ctx, 0, setIncorrectValues(common.Hash{0x04}, maxAttackBranch), disputegame.WithTransactOpts(freeloaderOpts)))
+	freeloaders = append(freeloaders, dishonest.Attack2(ctx, maxAttakBranch, setIncorrectValues(common.Hash{0x05}, maxAttackBranch), disputegame.WithTransactOpts(freeloaderOpts)))
 
 	for _, freeloader := range freeloaders {
 		if freeloader.IsMaxDepth(ctx) {
@@ -302,7 +312,7 @@ func TestHighestActedL1BlockMetric(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	honestChallenger := disputeGameFactory.StartChallenger(ctx, "Honest", challenger.WithAlphabet(), challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
 
 	game1 := disputeGameFactory.StartOutputAlphabetGame(ctx, "sequencer", 1, common.Hash{0xaa})
@@ -318,4 +328,11 @@ func TestHighestActedL1BlockMetric(t *testing.T) {
 
 	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
 	honestChallenger.WaitL1HeadActedOn(ctx, l1Client)
+}
+
+func setIncorrectValues(v common.Hash, nelements int) (subValues []common.Hash) {
+	for i := 0; i < nelements; i++ {
+		subValues = append(subValues, v)
+	}
+	return subValues
 }

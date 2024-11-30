@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -39,16 +39,21 @@ func (d *DishonestHelper) ExhaustDishonestClaims(ctx context.Context, rootClaim 
 
 		d.LogGameData(ctx)
 		d.OutputGameHelper.T.Logf("Dishonest moves against claimIndex %d", claimIndex)
-		agreeWithLevel := d.defender == (claimData.Depth()%2 == 0)
+		agreeWithLevel := d.defender == (claimData.Depth()%(types.Depth(2*d.Nbits)) == 0)
+		maxAttackBranch := 1<<d.Nbits - 1
 		if !agreeWithLevel {
-			d.OutputHonestHelper.Attack(ctx, claimIndex, WithIgnoreDuplicates())
-			if claimIndex != 0 && claimData.Depth() != splitDepth+1 {
-				d.OutputHonestHelper.Defend(ctx, claimIndex, WithIgnoreDuplicates())
+			d.OutputHonestHelper.Attack2(ctx, claimIndex, 0, WithIgnoreDuplicates())
+			if claimIndex != 0 && claimData.Depth() != splitDepth+types.Depth(d.Nbits) {
+				d.OutputHonestHelper.Attack2(ctx, claimIndex, uint64(maxAttackBranch), WithIgnoreDuplicates())
 			}
 		}
-		d.OutputGameHelper.Attack(ctx, claimIndex, common.Hash{byte(claimIndex)}, WithIgnoreDuplicates())
-		if claimIndex != 0 && claimData.Depth() != splitDepth+1 {
-			d.OutputGameHelper.Defend(ctx, claimIndex, common.Hash{byte(claimIndex)}, WithIgnoreDuplicates())
+		incorresctSubValues := []common.Hash{}
+		for i := 0; i < maxAttackBranch; i++ {
+			incorresctSubValues = append(incorresctSubValues, common.Hash{byte(claimIndex)})
+		}
+		d.OutputGameHelper.Attack2(ctx, claimIndex, 0, incorresctSubValues, WithIgnoreDuplicates())
+		if claimIndex != 0 && claimData.Depth() != splitDepth+types.Depth(d.Nbits) {
+			d.OutputGameHelper.Attack2(ctx, claimIndex, uint64(maxAttackBranch), incorresctSubValues, WithIgnoreDuplicates())
 		}
 	}
 
