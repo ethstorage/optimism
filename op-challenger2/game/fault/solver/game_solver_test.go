@@ -454,6 +454,13 @@ func TestCalculateNextActions(t *testing.T) {
 				}
 				t.Logf("Expect %v: Type: %v, Position: %v, ParentIdx: %v, Branch: %v, Value: %v, SubValues: %v, PreState: %v, ProofData: %v",
 					i, action.Type, action.ParentClaim.Position, action.ParentClaim.ContractIndex, action.AttackBranch, action.Value, action.SubValues, hex.EncodeToString(action.PreState), hex.EncodeToString(action.ProofData))
+				// Datype don't need to be compared, because it's set in solver not in getStepData2.
+				if action.OracleData != nil {
+					action.OracleData.VMStateDA.PreDA.DaType = types.CallDataType
+					action.OracleData.VMStateDA.PostDA.DaType = types.CallDataType
+					action.OracleData.OutputRootDAItem.DaType = types.CallDataType
+
+				}
 				require.Containsf(t, actions, action, "Expected claim %v missing", i)
 			}
 			require.Len(t, actions, len(builder.ExpectedActions), "Incorrect number of actions")

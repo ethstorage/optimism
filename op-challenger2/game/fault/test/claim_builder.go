@@ -172,20 +172,8 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 		claim.Value = contracts.SubValuesHash(*claim.SubValues)
 	} else {
 		values := []common.Hash{}
-		if pos.IsRootPosition() {
-			if cfg.invalidValue {
-				values = append(values, c.incorrectClaim(pos))
-			} else {
-				values = append(values, c.CorrectClaimAtPosition(pos))
-			}
-			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
-				values = append(values, common.Hash{})
-			}
-		} else if pos.Depth() == c.splitDepth+types.Depth(c.nbits) {
+		if pos.IsRootPosition() || pos.Depth() == c.splitDepth+types.Depth(c.nbits) {
 			values = append(values, c.CorrectClaimAtPosition(pos))
-			for i := uint64(0); i < c.MaxAttackBranch()-1; i++ {
-				values = append(values, common.Hash{})
-			}
 		} else {
 			for i := uint64(0); i < c.MaxAttackBranch(); i++ {
 				pos := pos.MoveRightN(i)
@@ -193,7 +181,7 @@ func (c *ClaimBuilder) claim(pos types.Position, opts ...ClaimOpt) types.Claim {
 			}
 		}
 		claim.SubValues = &values
-		claim.Value = contracts.SubValuesHash(*claim.SubValues)
+		claim.Value = contracts.SubValuesHash(values)
 	}
 	claim.ParentContractIndex = cfg.parentIdx
 	return claim

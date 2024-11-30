@@ -164,20 +164,20 @@ func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.
 	}
 
 	preimageData.VMStateDA = stateData
+	addlocalDataDaItem := types.DAItem{}
 
 	if preimageData.OracleKey != nil {
 		keyType := preimage.KeyType(preimageData.OracleKey[0])
 		if keyType == preimage.LocalKeyType {
 			ident := preimageData.GetIdent()
-			addlocalDataDaItem := types.DAItem{}
 			if ident.Cmp(big.NewInt(types.LocalPreimageKeyStartingOutputRoot)) == 0 {
 				addlocalDataDaItem = outputRootDA.PreDA
 			} else if ident.Cmp(big.NewInt(types.LocalPreimageKeyDisputedOutputRoot)) == 0 {
 				addlocalDataDaItem = outputRootDA.PostDA
 			}
-			preimageData.OutputRootDAItem = addlocalDataDaItem
 		}
 	}
+	preimageData.OutputRootDAItem = addlocalDataDaItem
 
 	return prestate, proofData, preimageData, nil
 }

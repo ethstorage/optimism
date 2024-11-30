@@ -185,7 +185,7 @@ func (s *GameBuilderSeq) ExpectAttackV2(branch uint64) *GameBuilderSeq {
 	for i := uint64(0); i < maxAttackBranch; i++ {
 		tmpPosition := position.MoveRightN(i)
 		if tmpPosition.Depth() == (s.builder.SplitDepth()+types.Depth(nBits)) && i != 0 {
-			value = common.Hash{}
+			break
 		} else {
 			value = s.builder.CorrectClaimAtPosition(tmpPosition)
 		}

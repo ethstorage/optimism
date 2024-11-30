@@ -51,8 +51,8 @@ func TestAttemptStepNary2(t *testing.T) {
 			expectProofData:    claimBuilder.CorrectProofData(common.Big0),
 			expectedOracleData: claimBuilder.CorrectOracleData(common.Big0),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: absolutePrestate},
-				PostDA: types.DAItem{DataHash: common.Hash{0xbb}},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: absolutePrestate},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: common.Hash{0xbb}},
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
@@ -72,8 +72,8 @@ func TestAttemptStepNary2(t *testing.T) {
 			expectProofData:    claimBuilder.CorrectProofData(big.NewInt(1)),
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(1)),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big0))},
-				PostDA: types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big1))},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big0))},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big1))},
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
@@ -93,8 +93,8 @@ func TestAttemptStepNary2(t *testing.T) {
 			expectProofData:    claimBuilder.CorrectProofData(big.NewInt(4)),
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(4)),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(5), big.NewInt(0)))},
-				PostDA: types.DAItem{DataHash: common.Hash{0xaa}},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(5), big.NewInt(0)))},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: common.Hash{0xaa}},
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
@@ -114,8 +114,8 @@ func TestAttemptStepNary2(t *testing.T) {
 			expectProofData:    claimBuilder.CorrectProofData(big.NewInt(5)),
 			expectedOracleData: claimBuilder.CorrectOracleData(big.NewInt(5)),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), big.NewInt(4)))},
-				PostDA: types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(6), big.NewInt(2)))},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), big.NewInt(4)))},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(6), big.NewInt(2)))},
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
@@ -135,8 +135,8 @@ func TestAttemptStepNary2(t *testing.T) {
 			expectProofData:    claimBuilder.CorrectProofData(lastLeafTraceIndex),
 			expectedOracleData: claimBuilder.CorrectOracleData(lastLeafTraceIndex),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(6), common.Big2))},
-				PostDA: types.DAItem{DataHash: common.Hash{0xaa}},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(6), common.Big2))},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: common.Hash{0xaa}},
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
@@ -156,8 +156,8 @@ func TestAttemptStepNary2(t *testing.T) {
 			expectProofData:    claimBuilder.CorrectProofData(lastLeafTraceIndexPlusOne),
 			expectedOracleData: claimBuilder.CorrectOracleData(lastLeafTraceIndexPlusOne),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), big.NewInt(6)))},
-				PostDA: types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(4), big.NewInt(0)))},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), big.NewInt(6)))},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(4), big.NewInt(0)))},
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
@@ -310,11 +310,11 @@ func TestAttemptStepNary2WithLocalData(t *testing.T) {
 			name:              "DefendFirstTraceIndex",
 			expectedOracleKey: faulttest.LocalDataOracleKeyBytes(oracleKey),
 			expectedVMStateData: &types.DAData{
-				PreDA:  types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big0))},
-				PostDA: types.DAItem{DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big1))},
+				PreDA:  types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big0))},
+				PostDA: types.DAItem{DaType: types.CallDataType, DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(7), common.Big1))},
 			},
 			expectedLocalData: &types.DAItem{
-				DaType:   callDataType,
+				DaType:   types.CallDataType,
 				DataHash: claimBuilder.CorrectClaimAtPosition(types.NewPosition(types.Depth(3), common.Big0)),
 			},
 			setupGame: func(builder *faulttest.GameBuilder) {
@@ -402,13 +402,14 @@ func TestAttemptStepNary4(t *testing.T) {
 			expectProofData:     claimBuilder.CorrectProofData(common.Big0),
 			expectedOracleData:  claimBuilder.CorrectOracleData(common.Big0),
 			expectedVMStateData: &types.DAData{
-				PreDA: types.DAItem{DataHash: absolutePrestate},
+				PreDA: types.DAItem{DaType: types.CallDataType, DataHash: absolutePrestate},
 				PostDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: common.Hash{0x81},
 					Proof:    append(common.Hash{0x82}.Bytes(), common.Hash{0x83}.Bytes()...),
 				},
 			},
-			expectedLocalData: &types.DAItem{},
+			expectedLocalData: &types.DAItem{DaType: types.CallDataType},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
 					Attack2(nil, 0). // splitDepth
@@ -427,6 +428,7 @@ func TestAttemptStepNary4(t *testing.T) {
 			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(4)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: claimAt(types.NewPosition(types.Depth(6), common.Big0)),
 					Proof: append(
 						claimAt(types.NewPosition(types.Depth(6), common.Big1)).Bytes(),
@@ -434,11 +436,12 @@ func TestAttemptStepNary4(t *testing.T) {
 					),
 				},
 				PostDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: common.Hash{0x81},
 					Proof:    append(common.Hash{0x82}.Bytes(), common.Hash{0x83}.Bytes()...),
 				},
 			},
-			expectedLocalData: &types.DAItem{},
+			expectedLocalData: &types.DAItem{DaType: types.CallDataType},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
 					Attack2(nil, 0). // splitDepth
@@ -457,10 +460,12 @@ func TestAttemptStepNary4(t *testing.T) {
 			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(6)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: claimAt(types.NewPosition(types.Depth(8), big.NewInt(5))),
 					Proof:    append(claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))).Bytes(), common.Hash{0x83}.Bytes()...),
 				},
 				PostDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: common.Hash{0x83},
 					Proof: crypto.Keccak256(
 						claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))).Bytes(),
@@ -468,7 +473,7 @@ func TestAttemptStepNary4(t *testing.T) {
 					),
 				},
 			},
-			expectedLocalData: &types.DAItem{},
+			expectedLocalData: &types.DAItem{DaType: types.CallDataType},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
 					Attack2(nil, 0). // splitDepth
@@ -491,6 +496,7 @@ func TestAttemptStepNary4(t *testing.T) {
 			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(7)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: claimAt(types.NewPosition(types.Depth(8), big.NewInt(6))),
 					Proof: crypto.Keccak256(
 						claimAt(types.NewPosition(types.Depth(8), big.NewInt(4))).Bytes(),
@@ -498,6 +504,7 @@ func TestAttemptStepNary4(t *testing.T) {
 					),
 				},
 				PostDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: claimAt(types.NewPosition(types.Depth(6), common.Big1)),
 					Proof: append(
 						claimAt(types.NewPosition(types.Depth(6), common.Big0)).Bytes(),
@@ -505,7 +512,7 @@ func TestAttemptStepNary4(t *testing.T) {
 					),
 				},
 			},
-			expectedLocalData: &types.DAItem{},
+			expectedLocalData: &types.DAItem{DaType: types.CallDataType},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
 					Attack2(nil, 0). // splitDepth
@@ -528,6 +535,7 @@ func TestAttemptStepNary4(t *testing.T) {
 			expectedOracleData:  claimBuilder.CorrectOracleData(big.NewInt(15)),
 			expectedVMStateData: &types.DAData{
 				PreDA: types.DAItem{
+					DaType:   types.CallDataType,
 					DataHash: claimAt(types.NewPosition(types.Depth(8), big.NewInt(14))),
 					Proof: crypto.Keccak256(
 						claimAt(types.NewPosition(types.Depth(8), big.NewInt(12))).Bytes(),
@@ -535,10 +543,11 @@ func TestAttemptStepNary4(t *testing.T) {
 					),
 				},
 				PostDA: types.DAItem{
-					DataHash: contracts.SubValuesHash(append([]common.Hash{}, claimAt(types.NewPosition(types.Depth(4), common.Big0)), common.Hash{}, common.Hash{})),
+					DaType:   types.CallDataType,
+					DataHash: contracts.SubValuesHash([]common.Hash{claimAt(types.NewPosition(types.Depth(4), common.Big0))}),
 				},
 			},
-			expectedLocalData: &types.DAItem{},
+			expectedLocalData: &types.DAItem{DaType: types.CallDataType},
 			setupGame: func(builder *faulttest.GameBuilder) {
 				builder.Seq().
 					Attack2(nil, 0). // splitDepth
@@ -576,6 +585,8 @@ func TestAttemptStepNary4(t *testing.T) {
 			require.ErrorIs(t, err, tableTest.expectedErr)
 			_, _, preimage, err := accessor.GetStepData2(ctx, game, lastClaim, lastClaim.MoveRightN(tableTest.expectAttackBranch))
 			require.NoError(t, err)
+			preimage.VMStateDA.PreDA.DaType = types.CallDataType
+			preimage.VMStateDA.PostDA.DaType = types.CallDataType
 			if !tableTest.expectNoStep && tableTest.expectedErr == nil {
 				require.NotNil(t, step)
 				require.Equal(t, lastClaim, step.LeafClaim)

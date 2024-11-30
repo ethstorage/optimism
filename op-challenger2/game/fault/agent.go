@@ -133,7 +133,7 @@ func (a *Agent) performAction(ctx context.Context, wg *sync.WaitGroup, action ty
 		if action.OracleData != nil {
 			actionLog = actionLog.New("oracleKey", common.Bytes2Hex(action.OracleData.OracleKey))
 		}
-	} else if action.Type == types.ActionTypeMove {
+	} else if action.Type == types.ActionTypeAttackV2 {
 		actionLog = actionLog.New("attackBranch", action.AttackBranch, "parent", action.ParentClaim.ContractIndex, "value", action.Value)
 	}
 

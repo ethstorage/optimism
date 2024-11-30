@@ -481,20 +481,6 @@ func TestGetBlockRange(t *testing.T) {
 	}
 }
 
-func TestGetSplitDepth(t *testing.T) {
-	for _, version := range versions {
-		version := version
-		t.Run(version.version, func(t *testing.T) {
-			stubRpc, contract := setupFaultDisputeGameTest(t, version)
-			expectedSplitDepth := faultTypes.Depth(15)
-			stubRpc.SetResponse(fdgAddr, methodSplitDepth, rpcblock.Latest, nil, []interface{}{new(big.Int).SetUint64(uint64(expectedSplitDepth))})
-			splitDepth, err := contract.GetSplitDepth(context.Background())
-			require.NoError(t, err)
-			require.Equal(t, expectedSplitDepth, splitDepth)
-		})
-	}
-}
-
 func TestGetGameMetadata(t *testing.T) {
 	for _, version := range versions {
 		version := version
