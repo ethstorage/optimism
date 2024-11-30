@@ -17,7 +17,7 @@ func TestMultipleGameTypes(t *testing.T) {
 	sys, _ := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	gameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	gameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 
 	game1 := gameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0x01, 0xaa})
 	game2 := gameFactory.StartOutputAlphabetGame(ctx, "sequencer", 1, common.Hash{0xbb})

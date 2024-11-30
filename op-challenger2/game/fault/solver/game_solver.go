@@ -20,7 +20,7 @@ func NewGameSolver(gameDepth types.Depth, trace types.TraceAccessor, daType type
 }
 
 func (s *GameSolver) AgreeWithRootClaim(ctx context.Context, game types.Game) (bool, error) {
-	return s.claimSolver.agreeWithClaim(ctx, game, game.Claims()[0])
+	return s.claimSolver.agreeWithClaimV2(ctx, game, game.Claims()[0], 0)
 }
 
 func (s *GameSolver) CalculateNextActions(ctx context.Context, game types.Game) ([]types.Action, error) {
@@ -77,39 +77,54 @@ func (s *GameSolver) calculateStep(ctx context.Context, game types.Game, claim t
 	if claim.CounteredBy != (common.Address{}) {
 		return nil, nil
 	}
-	step, err := s.claimSolver.AttemptStep(ctx, game, claim, agreedClaims)
-	if err != nil {
-		return nil, err
+	for branch := range *claim.SubValues {
+		step, err := s.claimSolver.AttemptStep(ctx, game, claim, agreedClaims, uint64(branch))
+		if err != nil {
+			return nil, err
+		}
+		if step == nil {
+			continue
+		}
+		return &types.Action{
+			Type:         types.ActionTypeStep,
+			ParentClaim:  step.LeafClaim,
+			AttackBranch: step.AttackBranch,
+			PreState:     step.PreState,
+			ProofData:    step.ProofData,
+			OracleData:   step.OracleData,
+		}, nil
 	}
-	if step == nil {
-		return nil, nil
-	}
-	return &types.Action{
-		Type:        types.ActionTypeStep,
-		ParentClaim: step.LeafClaim,
-		IsAttack:    step.IsAttack,
-		PreState:    step.PreState,
-		ProofData:   step.ProofData,
-		OracleData:  step.OracleData,
-	}, nil
+	return nil, nil
 }
 
 func (s *GameSolver) calculateMove(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*types.Action, error) {
-	move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims)
-	if err != nil {
-		return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)
+	for branch := range *claim.SubValues {
+		// attack branch 0 can be attacked at root or splitDepth+nbits
+		if claim.Position.Depth() == game.SplitDepth()+types.Depth(game.NBits()) && branch != 0 {
+			return nil, nil
+		}
+		if claim.IsRoot() && branch != 0 {
+			return nil, nil
+		}
+		move, err := s.claimSolver.NextMove(ctx, claim, game, honestClaims, uint64(branch))
+		if err != nil {
+			return nil, fmt.Errorf("failed to calculate next move for claim index %v: %w", claim.ContractIndex, err)
+		}
+		if move == nil {
+			continue
+		}
+		honestClaims.AddHonestClaim(claim, *move)
+		if game.IsDuplicate(*move) {
+			break
+		}
+		return &types.Action{
+			Type:         types.ActionTypeAttackV2,
+			ParentClaim:  game.Claims()[move.ParentContractIndex],
+			Value:        move.Value,
+			SubValues:    move.SubValues,
+			AttackBranch: move.AttackBranch,
+			DAType:       s.claimSolver.daType,
+		}, nil
 	}
-	if move == nil {
-		return nil, nil
-	}
-	honestClaims.AddHonestClaim(claim, *move)
-	if game.IsDuplicate(*move) {
-		return nil, nil
-	}
-	return &types.Action{
-		Type:        types.ActionTypeMove,
-		IsAttack:    !game.DefendsParent(*move),
-		ParentClaim: game.Claims()[move.ParentContractIndex],
-		Value:       move.Value,
-	}, nil
+	return nil, nil
 }

@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 var (
@@ -63,7 +65,7 @@ func (s *claimSolver) shouldCounter(game types.Game, claim types.Claim, honestCl
 }
 
 // NextMove returns the next move to make given the current state of the game.
-func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game types.Game, honestClaims *honestClaimTracker) (*types.Claim, error) {
+func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game types.Game, honestClaims *honestClaimTracker, branch uint64) (*types.Claim, error) {
 	if claim.Depth() == s.gameDepth {
 		return nil, types.ErrGameDepthReached
 	}
@@ -74,27 +76,41 @@ func (s *claimSolver) NextMove(ctx context.Context, claim types.Claim, game type
 		return nil, nil
 	}
 
-	if agree, err := s.agreeWithClaim(ctx, game, claim); err != nil {
+	agree, err := s.agreeWithClaimV2(ctx, game, claim, branch)
+	if err != nil {
 		return nil, err
-	} else if agree {
-		return s.defend(ctx, game, claim)
+	}
+	if agree {
+		if claim.Depth() == game.TraceRootDepth() && branch == 0 {
+			// Only useful in alphabet game, because the alphabet game has a constant status byte, and is not safe from someone being dishonest in
+			// output bisection and then posting a correct execution trace bisection root claim.
+			// when root claim of output bisection is dishonest,
+			// root claim of execution trace bisection is made by the dishonest actor but is honest
+			// we should counter it.
+			return s.attackV2(ctx, game, claim, branch)
+		}
+		if branch < game.MaxAttackBranch()-1 {
+			return nil, nil
+		}
+		// if we agree with all subValues, we should attack the maxAttackBranch
+		return s.attackV2(ctx, game, claim, branch+1)
 	} else {
-		return s.attack(ctx, game, claim)
+		return s.attackV2(ctx, game, claim, branch)
 	}
 }
 
 type StepData struct {
-	LeafClaim  types.Claim
-	IsAttack   bool
-	PreState   []byte
-	ProofData  []byte
-	OracleData *types.PreimageOracleData
+	LeafClaim    types.Claim
+	AttackBranch uint64
+	PreState     []byte
+	ProofData    []byte
+	OracleData   *types.PreimageOracleData
 }
 
 // AttemptStep determines what step, if any, should occur for a given leaf claim.
 // An error will be returned if the claim is not at the max depth.
 // Returns nil, nil if no step should be performed.
-func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker) (*StepData, error) {
+func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim types.Claim, honestClaims *honestClaimTracker, branch uint64) (*StepData, error) {
 	if claim.Depth() != s.gameDepth {
 		return nil, ErrStepNonLeafNode
 	}
@@ -105,66 +121,73 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 		return nil, nil
 	}
 
-	claimCorrect, err := s.agreeWithClaim(ctx, game, claim)
+	claimCorrect, err := s.agreeWithClaimV2(ctx, game, claim, branch)
 	if err != nil {
 		return nil, err
 	}
 
 	var position types.Position
+	attackBranch := branch
 	if !claimCorrect {
 		// Attack the claim by executing step index, so we need to get the pre-state of that index
-		position = claim.Position
+		position = claim.Position.MoveRightN(branch)
 	} else {
-		// Defend and use this claim as the starting point to execute the step after.
-		// Thus, we need the pre-state of the next step.
-		position = claim.Position.MoveRight()
+		if branch == game.MaxAttackBranch()-1 {
+			// If we agree all subValues ,the maxAttackBranch should be stepped
+			position = claim.Position.MoveRightN(branch + 1)
+			attackBranch = branch + 1
+		} else {
+			return nil, nil
+		}
 	}
-
-	preState, proofData, oracleData, err := s.trace.GetStepData(ctx, game, claim, position)
+	preState, proofData, oracleData, err := s.trace.GetStepData2(ctx, game, claim, position)
 	if err != nil {
 		return nil, err
 	}
-
+	oracleData.OutputRootDAItem.DaType = s.daType
+	oracleData.VMStateDA.PreDA.DaType = s.daType
+	oracleData.VMStateDA.PostDA.DaType = s.daType
 	return &StepData{
-		LeafClaim:  claim,
-		IsAttack:   !claimCorrect,
-		PreState:   preState,
-		ProofData:  proofData,
-		OracleData: oracleData,
-	}, nil
-}
-
-// attack returns a response that attacks the claim.
-func (s *claimSolver) attack(ctx context.Context, game types.Game, claim types.Claim) (*types.Claim, error) {
-	position := claim.Attack()
-	value, err := s.trace.Get(ctx, game, claim, position)
-	if err != nil {
-		return nil, fmt.Errorf("attack claim: %w", err)
-	}
-	return &types.Claim{
-		ClaimData:           types.ClaimData{Value: value, Position: position},
-		ParentContractIndex: claim.ContractIndex,
-	}, nil
-}
-
-// defend returns a response that defends the claim.
-func (s *claimSolver) defend(ctx context.Context, game types.Game, claim types.Claim) (*types.Claim, error) {
-	if claim.IsRoot() {
-		return nil, nil
-	}
-	position := claim.Defend()
-	value, err := s.trace.Get(ctx, game, claim, position)
-	if err != nil {
-		return nil, fmt.Errorf("defend claim: %w", err)
-	}
-	return &types.Claim{
-		ClaimData:           types.ClaimData{Value: value, Position: position},
-		ParentContractIndex: claim.ContractIndex,
+		LeafClaim:    claim,
+		AttackBranch: attackBranch,
+		PreState:     preState,
+		ProofData:    proofData,
+		OracleData:   oracleData,
 	}, nil
 }
 
 // agreeWithClaim returns true if the claim is correct according to the internal [TraceProvider].
-func (s *claimSolver) agreeWithClaim(ctx context.Context, game types.Game, claim types.Claim) (bool, error) {
-	ourValue, err := s.trace.Get(ctx, game, claim, claim.Position)
-	return bytes.Equal(ourValue[:], claim.Value[:]), err
+func (s *claimSolver) agreeWithClaimV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (bool, error) {
+	if branch >= uint64(len(*claim.SubValues)) {
+		return true, fmt.Errorf("branch must be less than maxAttachBranch")
+	}
+	ourValue, err := s.trace.Get(ctx, game, claim, claim.Position.MoveRightN(branch))
+	return bytes.Equal(ourValue[:], (*claim.SubValues)[branch][:]), err
+}
+
+func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types.Claim, branch uint64) (*types.Claim, error) {
+	var err error
+	var value common.Hash
+	var values []common.Hash
+	maxAttackBranch := game.MaxAttackBranch()
+	position := claim.MoveN(game.NBits(), branch)
+	for i := uint64(0); i < maxAttackBranch; i++ {
+		tmpPosition := position.MoveRightN(i)
+		if tmpPosition.Depth() == (game.SplitDepth()+types.Depth(game.NBits())) && i != 0 {
+			break
+		} else {
+			value, err = s.trace.Get(ctx, game, claim, tmpPosition)
+			if err != nil {
+				return nil, fmt.Errorf("attack claim: %w", err)
+			}
+			values = append(values, value)
+		}
+	}
+	hash := contracts.SubValuesHash(values)
+	return &types.Claim{
+		ClaimData:           types.ClaimData{Value: hash, Position: position},
+		ParentContractIndex: claim.ContractIndex,
+		SubValues:           &values,
+		AttackBranch:        branch,
+	}, nil
 }

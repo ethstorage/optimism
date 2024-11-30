@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/alphabet"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	oppreimage "github.com/ethereum-optimism/optimism/op-preimage"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type OracleKeyType int
@@ -19,9 +20,25 @@ const (
 	OracleDefaultKey OracleKeyType = iota
 )
 
+func LocalDataOracleKeyBytes(oracleKey OracleKeyType) []byte {
+	var key []byte
+	switch oracleKey {
+	case OraclePreKey:
+		// localPreimageKey(1) + STARTING_OUTPUT_ROOT(2)
+		key = []byte{byte(oppreimage.LocalKeyType), types.LocalPreimageKeyStartingOutputRoot}
+	case OraclPostKey:
+		// localPreimageKey(1) + DISPUTED_OUTPUT_ROOT(3)
+		key = []byte{byte(oppreimage.LocalKeyType), types.LocalPreimageKeyDisputedOutputRoot}
+	case OracleDefaultKey:
+		panic("only OraclePreKey and OracleDefaultKey are supported!")
+	}
+	return key
+}
+
 func NewAlphabetWithProofProvider(t *testing.T, startingL2BlockNumber *big.Int, maxDepth types.Depth, oracleError error, rootDepth types.Depth, oracleKey OracleKeyType) *AlphabetWithProofProvider {
+	provider := alphabet.NewTraceProvider(startingL2BlockNumber, maxDepth)
 	return &AlphabetWithProofProvider{
-		alphabet.NewTraceProvider(startingL2BlockNumber, maxDepth),
+		provider,
 		maxDepth,
 		oracleError,
 		nil,
@@ -31,6 +48,11 @@ func NewAlphabetWithProofProvider(t *testing.T, startingL2BlockNumber *big.Int, 
 
 func NewAlphabetClaimBuilder2(t *testing.T, startingL2BlockNumber *big.Int, maxDepth types.Depth, nbits uint64, splitDepth types.Depth) *ClaimBuilder {
 	alphabetProvider := NewAlphabetWithProofProvider(t, startingL2BlockNumber, maxDepth, nil, splitDepth+types.Depth(nbits), OracleDefaultKey)
+	return NewClaimBuilder2(t, maxDepth, nbits, splitDepth, alphabetProvider)
+}
+
+func NewAlphabetClaimBuilderWithLocalDataOracle(t *testing.T, startingL2BlockNumber *big.Int, maxDepth types.Depth, nbits uint64, splitDepth types.Depth, oracleKey OracleKeyType) *ClaimBuilder {
+	alphabetProvider := NewAlphabetWithProofProvider(t, startingL2BlockNumber, maxDepth, nil, splitDepth+types.Depth(nbits), oracleKey)
 	return NewClaimBuilder2(t, maxDepth, nbits, splitDepth, alphabetProvider)
 }
 
@@ -51,11 +73,8 @@ func (a *AlphabetWithProofProvider) GetStepData(ctx context.Context, i types.Pos
 	var key []byte
 	switch a.oracleKey {
 	case OraclePreKey:
-		// localPreimageKey(1) + STARTING_OUTPUT_ROOT(2)
-		key = []byte{byte(oppreimage.LocalKeyType), types.LocalPreimageKeyStartingOutputRoot}
 	case OraclPostKey:
-		// localPreimageKey(1) + DISPUTED_OUTPUT_ROOT(3)
-		key = []byte{byte(oppreimage.LocalKeyType), types.LocalPreimageKeyDisputedOutputRoot}
+		key = LocalDataOracleKeyBytes(a.oracleKey)
 	case OracleDefaultKey:
 		key = []byte{byte(traceIndex)}
 	}
@@ -63,14 +82,18 @@ func (a *AlphabetWithProofProvider) GetStepData(ctx context.Context, i types.Pos
 	return preimage, []byte{byte(traceIndex - 1)}, data, nil
 }
 
-func (ap *AlphabetWithProofProvider) GetStepData2(ctx context.Context, pos types.Position) ([]byte, []byte, *types.PreimageOracleData, error) {
+func (a *AlphabetWithProofProvider) GetStepData2(ctx context.Context, pos types.Position) ([]byte, []byte, *types.PreimageOracleData, error) {
 	return nil, nil, nil, fmt.Errorf("alphabetWithProofProvider GetStepData2 is not supported, use GetStepData instead")
 }
 
-func (c *AlphabetWithProofProvider) GetL2BlockNumberChallenge(_ context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
-	if c.L2BlockChallenge != nil {
-		return c.L2BlockChallenge, nil
+func (a *AlphabetWithProofProvider) GetL2BlockNumberChallenge(_ context.Context) (*types.InvalidL2BlockNumberChallenge, error) {
+	if a.L2BlockChallenge != nil {
+		return a.L2BlockChallenge, nil
 	} else {
 		return nil, types.ErrL2BlockNumberValid
 	}
+}
+
+func (a *AlphabetWithProofProvider) AbsolutePreStateCommitment(ctx context.Context) (hash common.Hash, err error) {
+	return a.AlphabetTraceProvider.AbsolutePreStateCommitment(ctx)
 }

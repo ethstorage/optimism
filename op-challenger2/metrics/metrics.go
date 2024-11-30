@@ -36,6 +36,7 @@ type Metricer interface {
 
 	RecordGameStep()
 	RecordGameMove()
+	RecordGameAttackV2()
 	RecordGameL2Challenge()
 	RecordCannonExecutionTime(t float64)
 	RecordAsteriscExecutionTime(t float64)
@@ -85,6 +86,7 @@ type Metrics struct {
 	highestActedL1Block prometheus.Gauge
 
 	moves        prometheus.Counter
+	attackV2     prometheus.Counter
 	steps        prometheus.Counter
 	l2Challenges prometheus.Counter
 
@@ -141,6 +143,11 @@ func NewMetrics() *Metrics {
 			Namespace: Namespace,
 			Name:      "moves",
 			Help:      "Number of game moves made by the challenge agent",
+		}),
+		attackV2: factory.NewCounter(prometheus.CounterOpts{
+			Namespace: Namespace,
+			Name:      "attackV2",
+			Help:      "Number of game attack v2 moves made by the challenge agent",
 		}),
 		steps: factory.NewCounter(prometheus.CounterOpts{
 			Namespace: Namespace,
@@ -252,6 +259,10 @@ func (m *Metrics) Document() []opmetrics.DocumentedMetric {
 
 func (m *Metrics) RecordGameMove() {
 	m.moves.Add(1)
+}
+
+func (m *Metrics) RecordGameAttackV2() {
+	m.attackV2.Add(1)
 }
 
 func (m *Metrics) RecordGameStep() {

@@ -63,18 +63,14 @@ func findAncestorProofAtDepth2(ctx context.Context, provider types.TraceProvider
 			return types.DAItem{}, fmt.Errorf("failed to get absolutePrestate: %w", err)
 		}
 		return types.DAItem{
-			DaType:   types.CallDataType,
 			DataHash: absolutePresate,
-			Proof:    []byte{},
 		}, nil
 	}
 
 	// If traceIdx is the right most branch, the root Claim is returned.
 	if new(big.Int).Add(relativeTraceIdx, big.NewInt(1)).Cmp(new(big.Int).Lsh(big.NewInt(1), uint(maxTraceDepth-types.Depth(game.NBits())))) == 0 {
 		return types.DAItem{
-			DaType:   types.CallDataType,
 			DataHash: splitLeaf.Value,
-			Proof:    []byte{},
 		}, nil
 	}
 
@@ -102,7 +98,6 @@ func findAncestorProofAtDepth2(ctx context.Context, provider types.TraceProvider
 	merkleProof := utils.GenerateProofForSubValues(subValues, uint32(branch))
 
 	return types.DAItem{
-		DaType:   types.CallDataType,
 		DataHash: ancestorClaim,
 		Proof:    merkleProof,
 	}, nil
@@ -157,7 +152,7 @@ func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.
 	preTraceIdx := new(big.Int).Sub(postTraceIdx, big.NewInt(1))
 	preStateDaItem, err := findAncestorProofAtDepth2(ctx, provider, game, ref, preTraceIdx)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to get postStateDaItem at trace index %v: %w", preTraceIdx, err)
+		return nil, nil, nil, fmt.Errorf("failed to get preStateDaItem at trace index %v: %w", preTraceIdx, err)
 	}
 	postStateDaItem, err := findAncestorProofAtDepth2(ctx, provider, game, ref, postTraceIdx)
 	if err != nil {
@@ -169,18 +164,21 @@ func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.
 	}
 
 	preimageData.VMStateDA = stateData
+	addlocalDataDaItem := types.DAItem{}
 
-	keyType := preimage.KeyType(preimageData.OracleKey[0])
-	if keyType == preimage.LocalKeyType {
-		ident := preimageData.GetIdent()
-		addlocalDataDaItem := types.DAItem{}
-		if ident.Cmp(big.NewInt(types.LocalPreimageKeyStartingOutputRoot)) == 0 {
-			addlocalDataDaItem = outputRootDA.PreDA
-		} else if ident.Cmp(big.NewInt(types.LocalPreimageKeyDisputedOutputRoot)) == 0 {
-			addlocalDataDaItem = outputRootDA.PostDA
+	if preimageData.OracleKey != nil {
+		keyType := preimage.KeyType(preimageData.OracleKey[0])
+		if keyType == preimage.LocalKeyType {
+			ident := preimageData.GetIdent()
+			if ident.Cmp(big.NewInt(types.LocalPreimageKeyStartingOutputRoot)) == 0 {
+				addlocalDataDaItem = outputRootDA.PreDA
+			} else if ident.Cmp(big.NewInt(types.LocalPreimageKeyDisputedOutputRoot)) == 0 {
+				addlocalDataDaItem = outputRootDA.PostDA
+			}
 		}
-		preimageData.OutputRootDAItem = addlocalDataDaItem
 	}
+	preimageData.OutputRootDAItem = addlocalDataDaItem
+
 	return prestate, proofData, preimageData, nil
 }
 

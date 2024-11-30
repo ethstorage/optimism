@@ -8,12 +8,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/contracts"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/preimages"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/outputs"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
-	keccakTypes "github.com/ethereum-optimism/optimism/op-challenger/game/keccak/types"
-	gameTypes "github.com/ethereum-optimism/optimism/op-challenger/game/types"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/preimages"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/outputs"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
+	keccakTypes "github.com/ethereum-optimism/optimism/op-challenger2/game/keccak/types"
+	gameTypes "github.com/ethereum-optimism/optimism/op-challenger2/game/types"
 	"github.com/ethereum-optimism/optimism/op-e2e2/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/wait"
 	preimage "github.com/ethereum-optimism/optimism/op-preimage"
@@ -34,15 +34,19 @@ type OutputGameHelper struct {
 	Client                *ethclient.Client
 	Opts                  *bind.TransactOpts
 	Game                  contracts.FaultDisputeGameContract
-	GameBindings          *bindings.FaultDisputeGame
+	GameBindings          *bindings.FaultDisputeGameN
 	FactoryAddr           common.Address
 	Addr                  common.Address
 	CorrectOutputProvider *outputs.OutputTraceProvider
 	System                DisputeSystem
+	DaType                *big.Int
+	Nbits                 uint64
 }
 
 func NewOutputGameHelper(t *testing.T, require *require.Assertions, client *ethclient.Client, opts *bind.TransactOpts,
-	game contracts.FaultDisputeGameContract, gameBindings *bindings.FaultDisputeGame, factoryAddr common.Address, addr common.Address, correctOutputProvider *outputs.OutputTraceProvider, system DisputeSystem) *OutputGameHelper {
+	game contracts.FaultDisputeGameContract, gameBindings *bindings.FaultDisputeGameN, factoryAddr common.Address, addr common.Address, correctOutputProvider *outputs.OutputTraceProvider, system DisputeSystem, datype int64) *OutputGameHelper {
+	nbits, err := game.GetNBits(context.Background())
+	require.NoError(err, "fail to load nbits from contract")
 	return &OutputGameHelper{
 		T:                     t,
 		Require:               require,
@@ -54,6 +58,8 @@ func NewOutputGameHelper(t *testing.T, require *require.Assertions, client *ethc
 		Addr:                  addr,
 		CorrectOutputProvider: correctOutputProvider,
 		System:                system,
+		DaType:                big.NewInt(datype),
+		Nbits:                 nbits,
 	}
 }
 
@@ -117,6 +123,7 @@ func (g *OutputGameHelper) DisputeBlock(ctx context.Context, disputeBlockNum uin
 	dishonestValue := g.GetClaimValue(ctx, 0)
 	correctRootClaim := g.correctOutputRoot(ctx, types.NewPositionFromGIndex(big.NewInt(1)))
 	rootIsValid := dishonestValue == correctRootClaim
+	nbits := g.Nbits
 	if rootIsValid {
 		// Ensure that the dishonest actor is actually posting invalid roots.
 		// Otherwise, the honest challenger will defend our counter and ruin everything.
@@ -145,11 +152,20 @@ func (g *OutputGameHelper) DisputeBlock(ctx context.Context, disputeBlockNum uin
 		parentClaimBlockNum, err := g.CorrectOutputProvider.ClaimedBlockNumber(pos)
 		g.Require.NoError(err, "failed to calculate parent claim block number")
 		if parentClaimBlockNum >= disputeBlockNum {
-			pos = pos.Attack()
-			claim = claim.Attack(ctx, getClaimValue(claim, pos))
+			pos = pos.MoveN(nbits, 0)
+			subValues := []common.Hash{}
+			for i := 0; i < 1<<g.Nbits-1; i++ {
+				subValues = append(subValues, getClaimValue(claim, pos.MoveRightN(uint64(i))))
+			}
+			claim = claim.Attack2(ctx, 0, subValues)
 		} else {
-			pos = pos.Defend()
-			claim = claim.Defend(ctx, getClaimValue(claim, pos))
+			maxAttackBranch := uint64(1<<nbits - 1)
+			pos = pos.MoveN(nbits, maxAttackBranch)
+			subValues := []common.Hash{}
+			for i := uint64(0); i < maxAttackBranch; i++ {
+				subValues = append(subValues, getClaimValue(claim, pos.MoveRightN(uint64(i))))
+			}
+			claim = claim.Attack2(ctx, maxAttackBranch, subValues)
 		}
 	}
 	return claim
@@ -538,19 +554,28 @@ func (g *OutputGameHelper) moveCfg(Opts ...MoveOpt) *moveCfg {
 	return cfg
 }
 
-func (g *OutputGameHelper) Attack(ctx context.Context, claimIdx int64, claim common.Hash, Opts ...MoveOpt) {
-	g.T.Logf("Attacking claim %v with value %v", claimIdx, claim)
+func (g *OutputGameHelper) Attack2(ctx context.Context, claimIdx int64, attackBranch uint64, subValues []common.Hash, Opts ...MoveOpt) {
+	g.T.Logf("Attacking claim %v with subValues %v", claimIdx, subValues)
 	cfg := g.moveCfg(Opts...)
 
 	claimData, err := g.Game.GetClaim(ctx, uint64(claimIdx))
 	g.Require.NoError(err, "Failed to get claim data")
-	attackPos := claimData.Position.Attack()
-	transactOpts := g.makeBondedTransactOpts(ctx, claimData.Position.Attack().ToGIndex(), cfg.Opts)
+	attackPos := claimData.Position.MoveN(g.Nbits, attackBranch)
+	transactOpts := g.makeBondedTransactOpts(ctx, attackPos.ToGIndex(), cfg.Opts)
 
+	claims := []byte{}
+	if attackPos.Depth() == types.Depth(g.Nbits)+g.SplitDepth(ctx) {
+		// only one subValue at splitDepth+nbits Depth
+		subValues = subValues[:1]
+	}
+	for _, subValue := range subValues {
+		claims = append(claims, subValue.Bytes()...)
+	}
 	err = g.sendMove(ctx, func() (*gethtypes.Transaction, error) {
-		return g.GameBindings.Attack(transactOpts, claimData.Value, big.NewInt(claimIdx), claim)
+		return g.GameBindings.AttackV2(transactOpts, claimData.Value, big.NewInt(claimIdx), big.NewInt(int64(attackBranch)), g.DaType, claims)
 	})
 	if err != nil {
+		claim := contracts.SubValuesHash(subValues)
 		if cfg.ignoreDupes && g.hasClaim(ctx, claimIdx, attackPos, claim) {
 			return
 		}
@@ -558,24 +583,13 @@ func (g *OutputGameHelper) Attack(ctx context.Context, claimIdx int64, claim com
 	}
 }
 
+// currently, this function still remains to avoid compilation errors
+func (g *OutputGameHelper) Attack(ctx context.Context, claimIdx int64, claim common.Hash, Opts ...MoveOpt) {
+	panic("unimplemented")
+}
+
 func (g *OutputGameHelper) Defend(ctx context.Context, claimIdx int64, claim common.Hash, Opts ...MoveOpt) {
-	g.T.Logf("Defending claim %v with value %v", claimIdx, claim)
-	cfg := g.moveCfg(Opts...)
-
-	claimData, err := g.Game.GetClaim(ctx, uint64(claimIdx))
-	g.Require.NoError(err, "Failed to get claim data")
-	defendPos := claimData.Position.Defend()
-	transactOpts := g.makeBondedTransactOpts(ctx, defendPos.ToGIndex(), cfg.Opts)
-
-	err = g.sendMove(ctx, func() (*gethtypes.Transaction, error) {
-		return g.GameBindings.Defend(transactOpts, claimData.Value, big.NewInt(claimIdx), claim)
-	})
-	if err != nil {
-		if cfg.ignoreDupes && g.hasClaim(ctx, claimIdx, defendPos, claim) {
-			return
-		}
-		g.Require.NoErrorf(err, "Defend transaction failed. Game state: \n%v", g.GameData(ctx))
-	}
+	panic("unimplemented")
 }
 
 func (g *OutputGameHelper) hasClaim(ctx context.Context, parentIdx int64, pos types.Position, value common.Hash) bool {
@@ -725,8 +739,8 @@ func (g *OutputGameHelper) GameData(ctx context.Context) string {
 				extra = fmt.Sprintf("Block num: %v", blockNum)
 			}
 		}
-		info = info + fmt.Sprintf("%v - Position: %v, Depth: %v, IndexAtDepth: %v Trace Index: %v, ClaimHash: %v, Countered By: %v, ParentIndex: %v Claimant: %v Bond: %v %v\n",
-			i, claim.Position.ToGIndex().Int64(), pos.Depth(), pos.IndexAtDepth(), pos.TraceIndex(maxDepth), claim.Value.Hex(), claim.CounteredBy, claim.ParentContractIndex, claim.Claimant, claim.Bond, extra)
+		info = info + fmt.Sprintf("%v - Position: %v, Depth: %v, IndexAtDepth: %v Trace Index: %v, ClaimHash: %v, SubValues: %v, Countered By: %v, ParentIndex: %v Claimant: %v Bond: %v %v\n",
+			i, claim.Position.ToGIndex().Int64(), pos.Depth(), pos.IndexAtDepth(), pos.TraceIndex(maxDepth), claim.Value.Hex(), claim.SubValues, claim.CounteredBy, claim.ParentContractIndex, claim.Claimant, claim.Bond, extra)
 	}
 	l2BlockNum := g.L2BlockNum(ctx)
 	status, err := g.Game.GetStatus(ctx)

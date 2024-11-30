@@ -51,20 +51,28 @@ var correctDefendLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
 		// Must attack the root
 		seq.Attack2(nil, 0)
 	} else {
-		seq.Attack2(nil, 1)
+		seq.Attack2(nil, seq.MaxAttackBranch())
 	}
 })
 
 var incorrectAttackLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
-	seq.Attack2(nil, 0, test.WithValue(common.Hash{0xaa}))
+	incorrectSubValues := []common.Hash{}
+	for i := uint64(0); i < seq.MaxAttackBranch(); i++ {
+		incorrectSubValues = append(incorrectSubValues, common.Hash{0xaa})
+	}
+	seq.Attack2(incorrectSubValues, 0)
 })
 
 var incorrectDefendLastClaim = respondLastClaim(func(seq *test.GameBuilderSeq) {
+	incorrectSubValues := []common.Hash{}
+	for i := uint64(0); i < seq.MaxAttackBranch(); i++ {
+		incorrectSubValues = append(incorrectSubValues, common.Hash{0xdd})
+	}
 	if seq.IsRoot() {
 		// Must attack the root
-		seq.Attack2(nil, 0, test.WithValue(common.Hash{0xdd}))
+		seq.Attack2(incorrectSubValues, 0)
 	} else {
-		seq.Attack2(nil, 1, test.WithValue(common.Hash{0xdd}))
+		seq.Attack2(incorrectSubValues, seq.MaxAttackBranch())
 	}
 })
 
@@ -77,29 +85,51 @@ var defendEverythingCorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
 		// Must attack root
 		seq.Attack2(nil, 0)
 	} else {
-		seq.Attack2(nil, 1)
+		seq.Attack2(nil, seq.MaxAttackBranch())
 	}
 })
 
 var attackEverythingIncorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
-	seq.Attack2(nil, 0, test.WithValue(common.Hash{0xaa}))
+	incorrectSubValues := []common.Hash{}
+	for i := uint64(0); i < seq.MaxAttackBranch(); i++ {
+		incorrectSubValues = append(incorrectSubValues, common.Hash{0xaa})
+	}
+	seq.Attack2(incorrectSubValues, 0)
 })
 
 var defendEverythingIncorrect = respondAllClaims(func(seq *test.GameBuilderSeq) {
+	incorrectSubValues := []common.Hash{}
+	for i := uint64(0); i < seq.MaxAttackBranch(); i++ {
+		incorrectSubValues = append(incorrectSubValues, common.Hash{0xbb})
+	}
 	if seq.IsRoot() {
 		// Must attack root
-		seq.Attack2(nil, 0, test.WithValue(common.Hash{0xbb}))
+		seq.Attack2(incorrectSubValues, 0)
 	} else {
-		seq.Attack2(nil, 1, test.WithValue(common.Hash{0xbb}))
+		seq.Attack2(incorrectSubValues, seq.MaxAttackBranch())
 	}
 })
 
 var exhaustive = respondAllClaims(func(seq *test.GameBuilderSeq) {
 	seq.Attack2(nil, 0)
-	seq.Attack2(nil, 0, test.WithValue(common.Hash{0xaa}))
-	if !seq.IsRoot() {
-		seq.Attack2(nil, 1)
-		seq.Attack2(nil, 1, test.WithValue(common.Hash{0xdd}))
+	incorrectSubValues := []common.Hash{}
+	for i := uint64(0); i < seq.MaxAttackBranch(); i++ {
+		incorrectSubValues = append(incorrectSubValues, common.Hash{0xaa})
+		if seq.IsSplitDepth() {
+			// at splitDepth, there is only one subValue
+			break
+		}
+	}
+	seq.Attack2(incorrectSubValues, 0)
+	if !seq.IsRoot() && !seq.IsTraceRoot() {
+		seq.Attack2(nil, seq.MaxAttackBranch())
+		for i := uint64(0); i < seq.MaxAttackBranch(); i++ {
+			incorrectSubValues[i] = common.Hash{0xdd}
+			if seq.IsSplitDepth() {
+				break
+			}
+		}
+		seq.Attack2(incorrectSubValues, seq.MaxAttackBranch())
 	}
 })
 

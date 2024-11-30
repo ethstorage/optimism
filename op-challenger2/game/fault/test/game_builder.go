@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
 	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -55,8 +56,20 @@ func (g *GameBuilderSeq) IsRoot() bool {
 	return g.lastClaim.IsRoot()
 }
 
+func (g *GameBuilderSeq) IsTraceRoot() bool {
+	return g.lastClaim.Depth() == g.gameBuilder.Game.SplitDepth()+types.Depth(g.gameBuilder.Game.NBits())
+}
+
+func (g *GameBuilderSeq) IsSplitDepth() bool {
+	return g.lastClaim.Depth() == g.gameBuilder.Game.SplitDepth()
+}
+
 func (g *GameBuilderSeq) LastClaim() types.Claim {
 	return g.lastClaim
+}
+
+func (g *GameBuilderSeq) MaxAttackBranch() uint64 {
+	return g.gameBuilder.builder.MaxAttackBranch()
 }
 
 // addClaimToGame replaces the game being built with a new instance that has claim as the latest claim.
@@ -158,6 +171,48 @@ func (s *GameBuilderSeq) ExpectStepDefend() *GameBuilderSeq {
 		PreState:    s.builder.CorrectPreState(traceIdx),
 		ProofData:   s.builder.CorrectProofData(traceIdx),
 		OracleData:  s.builder.CorrectOracleData(traceIdx),
+	})
+	return s
+}
+
+func (s *GameBuilderSeq) ExpectAttackV2(branch uint64) *GameBuilderSeq {
+	var value common.Hash
+	var values []common.Hash
+	nBits := s.builder.NBits()
+	maxAttackBranch := s.builder.MaxAttackBranch()
+	position := s.lastClaim.Position.MoveN(nBits, branch)
+
+	for i := uint64(0); i < maxAttackBranch; i++ {
+		tmpPosition := position.MoveRightN(i)
+		if tmpPosition.Depth() == (s.builder.SplitDepth()+types.Depth(nBits)) && i != 0 {
+			break
+		} else {
+			value = s.builder.CorrectClaimAtPosition(tmpPosition)
+		}
+		values = append(values, value)
+	}
+	hash := contracts.SubValuesHash(values)
+	action := types.Action{
+		Type:         types.ActionTypeAttackV2,
+		ParentClaim:  s.lastClaim,
+		Value:        hash,
+		SubValues:    &values,
+		AttackBranch: branch,
+		DAType:       types.CallDataType,
+	}
+	s.gameBuilder.ExpectedActions = append(s.gameBuilder.ExpectedActions, action)
+	return s
+}
+
+func (s *GameBuilderSeq) ExpectStepV2(branch uint64) *GameBuilderSeq {
+	traceIdx := new(big.Int).Add(s.lastClaim.TraceIndex(s.builder.maxDepth), big.NewInt(int64(branch)))
+	s.gameBuilder.ExpectedActions = append(s.gameBuilder.ExpectedActions, types.Action{
+		Type:         types.ActionTypeStep,
+		ParentClaim:  s.lastClaim,
+		AttackBranch: branch,
+		PreState:     s.builder.CorrectPreState(traceIdx),
+		ProofData:    s.builder.CorrectProofData(traceIdx),
+		OracleData:   s.builder.CorrectOracleData(traceIdx),
 	})
 	return s
 }

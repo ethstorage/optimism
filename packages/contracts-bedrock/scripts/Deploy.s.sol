@@ -35,6 +35,7 @@ import { DataAvailabilityChallenge } from "src/L1/DataAvailabilityChallenge.sol"
 import { Constants } from "src/libraries/Constants.sol";
 import { DisputeGameFactory } from "src/dispute/DisputeGameFactory.sol";
 import { FaultDisputeGame } from "src/dispute/FaultDisputeGame.sol";
+import "src/dispute/FaultDisputeGameN.sol" as FdgN;
 import { PermissionedDisputeGame } from "src/dispute/PermissionedDisputeGame.sol";
 import { DelayedWETH } from "src/dispute/weth/DelayedWETH.sol";
 import { AnchorStateRegistry } from "src/dispute/AnchorStateRegistry.sol";
@@ -1420,7 +1421,7 @@ contract Deploy is Deployer {
                     new AlphabetVM(outputAbsolutePrestate, PreimageOracle(mustGetAddress("PreimageOracle")), 4)
                 ),
                 // The max depth for the alphabet trace is always 3. Add 1 because split depth is fully inclusive.
-                maxGameDepth: cfg.faultGameSplitDepth() + 3 + 1
+                maxGameDepth: 12
             })
         });
     }
@@ -1443,21 +1444,39 @@ contract Deploy is Deployer {
 
         uint32 rawGameType = GameType.unwrap(_params.gameType);
         if (rawGameType != GameTypes.PERMISSIONED_CANNON.raw()) {
-            _factory.setImplementation(
-                _params.gameType,
-                new FaultDisputeGame({
-                    _gameType: _params.gameType,
-                    _absolutePrestate: _params.absolutePrestate,
-                    _maxGameDepth: _params.maxGameDepth,
-                    _splitDepth: cfg.faultGameSplitDepth(),
-                    _clockExtension: Duration.wrap(uint64(cfg.faultGameClockExtension())),
-                    _maxClockDuration: Duration.wrap(uint64(cfg.faultGameMaxClockDuration())),
-                    _vm: _params.faultVm,
-                    _weth: _params.weth,
-                    _anchorStateRegistry: _params.anchorStateRegistry,
-                    _l2ChainId: cfg.l2ChainID()
-                })
-            );
+            if (_params.gameType.raw() == GameTypes.ALPHABET.raw()) {
+                _factory.setImplementation(
+                    _params.gameType,
+                    new FdgN.FaultDisputeGame({
+                        _gameType: _params.gameType,
+                        _absolutePrestate: _params.absolutePrestate,
+                        _maxGameDepth: _params.maxGameDepth,
+                        _splitDepth: 4,
+                        _clockExtension: Duration.wrap(uint64(cfg.faultGameClockExtension())),
+                        _maxClockDuration: Duration.wrap(uint64(cfg.faultGameMaxClockDuration())),
+                        _vm: _params.faultVm,
+                        _weth: _params.weth,
+                        _anchorStateRegistry: _params.anchorStateRegistry,
+                        _l2ChainId: cfg.l2ChainID()
+                    })
+                );
+            } else {
+                _factory.setImplementation(
+                    _params.gameType,
+                    new FaultDisputeGame({
+                        _gameType: _params.gameType,
+                        _absolutePrestate: _params.absolutePrestate,
+                        _maxGameDepth: _params.maxGameDepth,
+                        _splitDepth: cfg.faultGameSplitDepth(),
+                        _clockExtension: Duration.wrap(uint64(cfg.faultGameClockExtension())),
+                        _maxClockDuration: Duration.wrap(uint64(cfg.faultGameMaxClockDuration())),
+                        _vm: _params.faultVm,
+                        _weth: _params.weth,
+                        _anchorStateRegistry: _params.anchorStateRegistry,
+                        _l2ChainId: cfg.l2ChainID()
+                    })
+                );
+            }
         } else {
             _factory.setImplementation(
                 _params.gameType,

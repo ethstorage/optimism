@@ -6,13 +6,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
 
 type expectedGetTxByHashCall struct {
 	txHash  common.Hash
-	outputs []byte
+	outputs *types.Transaction
 	err     error
 }
 
@@ -34,7 +34,7 @@ func (c *expectedGetTxByHashCall) Matches(rpcMethod string, args ...interface{})
 }
 
 func (c *expectedGetTxByHashCall) Execute(t *testing.T, out interface{}) error {
-	j, err := json.Marshal(hexutil.Bytes(c.outputs))
+	j, err := json.Marshal(c.outputs)
 	require.NoError(t, err)
 	require.NoError(t, json.Unmarshal(j, out))
 	return c.err

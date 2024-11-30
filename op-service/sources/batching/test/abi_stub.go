@@ -149,7 +149,7 @@ func (l *AbiBasedRpc) SetResponse(to common.Address, method string, block rpcblo
 	})
 }
 
-func (l *AbiBasedRpc) SetFilterLogResponse(topics [][]common.Hash, to common.Address, block rpcblock.Block, output []types.Log) {
+func (l *AbiBasedRpc) SetFilterLogResponse(topics [][]common.Hash, to []common.Address, block rpcblock.Block, output []types.Log) {
 	if output == nil {
 		output = []types.Log{}
 	}
@@ -162,9 +162,9 @@ func (l *AbiBasedRpc) SetFilterLogResponse(topics [][]common.Hash, to common.Add
 	})
 }
 
-func (l *AbiBasedRpc) SetGetTxByHashResponse(txHash common.Hash, output []byte) {
+func (l *AbiBasedRpc) SetGetTxByHashResponse(txHash common.Hash, output *types.Transaction) {
 	if output == nil {
-		output = []byte{}
+		output = &types.Transaction{}
 	}
 	l.AddExpectedCall(&expectedGetTxByHashCall{txHash: txHash, outputs: output})
 }

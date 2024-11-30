@@ -15,7 +15,6 @@ import (
 
 func verifyGameRules(t *testing.T, game types.Game, rootClaimCorrect bool) {
 	actualResult, claimTree, resolvedGame := gameResult(game)
-
 	verifyExpectedGameResult(t, rootClaimCorrect, actualResult)
 
 	verifyNoChallengerClaimsWereSuccessfullyCountered(t, resolvedGame)
