@@ -144,9 +144,13 @@ func (s *claimSolver) AttemptStep(ctx context.Context, game types.Game, claim ty
 	if err != nil {
 		return nil, err
 	}
-	oracleData.OutputRootDAItem.DaType = s.daType
-	oracleData.VMStateDA.PreDA.DaType = s.daType
-	oracleData.VMStateDA.PostDA.DaType = s.daType
+
+	if oracleData != nil {
+		oracleData.OutputRootDAItem.DaType = s.daType
+		oracleData.VMStateDA.PreDA.DaType = s.daType
+		oracleData.VMStateDA.PostDA.DaType = s.daType
+	}
+
 	return &StepData{
 		LeafClaim:    claim,
 		AttackBranch: attackBranch,
@@ -170,6 +174,7 @@ func (s *claimSolver) attackV2(ctx context.Context, game types.Game, claim types
 	var value common.Hash
 	var values []common.Hash
 	maxAttackBranch := game.MaxAttackBranch()
+	fmt.Println("attackV2===============", branch, maxAttackBranch)
 	position := claim.MoveN(game.NBits(), branch)
 	for i := uint64(0); i < maxAttackBranch; i++ {
 		tmpPosition := position.MoveRightN(i)

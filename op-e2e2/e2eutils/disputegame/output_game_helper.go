@@ -726,7 +726,7 @@ func (g *OutputGameHelper) oracle(ctx context.Context) *contracts.PreimageOracle
 func (g *OutputGameHelper) GameData(ctx context.Context) string {
 	maxDepth := g.MaxDepth(ctx)
 	splitDepth := g.SplitDepth(ctx)
-	claims, err := g.Game.GetAllClaims(ctx, rpcblock.Latest)
+	claims, err := g.Game.GetAllClaimsWithSubValues(ctx)
 	g.Require.NoError(err, "Fetching claims")
 	info := fmt.Sprintf("Claim count: %v\n", len(claims))
 	for i, claim := range claims {

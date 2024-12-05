@@ -163,6 +163,9 @@ func (t *Accessor) GetStepData2(ctx context.Context, game types.Game, ref types.
 		PostDA: postStateDaItem,
 	}
 
+	if preimageData == nil {
+		preimageData = &types.PreimageOracleData{}
+	}
 	preimageData.VMStateDA = stateData
 	addlocalDataDaItem := types.DAItem{}
 

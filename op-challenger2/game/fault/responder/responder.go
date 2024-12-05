@@ -91,7 +91,7 @@ func (r *FaultResponder) ResolveClaims(claimIdxs ...uint64) error {
 }
 
 func (r *FaultResponder) PerformAction(ctx context.Context, action types.Action) error {
-	if action.OracleData != nil {
+	if action.OracleData != nil && action.OracleData.OracleKey != nil {
 		var preimageExists bool
 		var err error
 		if !action.OracleData.IsLocal {

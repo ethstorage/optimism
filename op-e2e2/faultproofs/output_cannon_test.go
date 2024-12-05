@@ -35,6 +35,8 @@ func TestOutputCannonGame(t *testing.T) {
 
 	// Challenger should post an output root to counter claims down to the leaf level of the top game
 	claim := game.RootClaim(ctx)
+	maxAttackBranch := 1<<game.Nbits - 1
+	incorrectValues := setIncorrectValues(common.Hash{0xaa}, maxAttackBranch)
 	for claim.IsOutputRoot(ctx) && !claim.IsOutputRootLeaf(ctx) {
 		if claim.AgreesWithOutputRoot() {
 			// If the latest claim agrees with the output root, expect the honest challenger to counter it
@@ -43,17 +45,20 @@ func TestOutputCannonGame(t *testing.T) {
 			claim.RequireCorrectOutputRoot(ctx)
 		} else {
 			// Otherwise we should counter
-			claim = claim.Attack(ctx, common.Hash{0xaa})
+			claim = claim.Attack2(ctx, 0, incorrectValues)
 			game.LogGameData(ctx)
 		}
 	}
 
 	// Wait for the challenger to post the first claim in the cannon trace
-	claim = claim.WaitForCounterClaim(ctx)
-	game.LogGameData(ctx)
+	if claim.Depth()%(types.Depth(2*game.Nbits)) == 0 {
+		claim = claim.WaitForCounterClaim(ctx)
+		game.LogGameData(ctx)
+	}
 
 	// Attack the root of the cannon trace subgame
-	claim = claim.Attack(ctx, common.Hash{0x00, 0xcc})
+	claim = claim.Attack2(ctx, 0, []common.Hash{{0x02, 0xcc}})
+	incorrectVMValues := setIncorrectValues(common.Hash{0x00, 0xdd}, maxAttackBranch)
 	for !claim.IsMaxDepth(ctx) {
 		if claim.AgreesWithOutputRoot() {
 			// If the latest claim supports the output root, wait for the honest challenger to respond
@@ -61,13 +66,16 @@ func TestOutputCannonGame(t *testing.T) {
 			game.LogGameData(ctx)
 		} else {
 			// Otherwise we need to counter the honest claim
-			claim = claim.Defend(ctx, common.Hash{0x00, 0xdd})
+			claim = claim.Attack2(ctx, uint64(maxAttackBranch), incorrectVMValues)
 			game.LogGameData(ctx)
 		}
 	}
-	// Challenger should be able to call step and counter the leaf claim.
-	claim.WaitForCountered(ctx)
-	game.LogGameData(ctx)
+	// Challenger should be able to call step and counter the leaf claim by dishonest sequencer.
+	// SplitDepth should be changed in Deploy.s.sol to test the stepV2 function.
+	if claim.Depth()%(types.Depth(2*game.Nbits)) == 0 {
+		claim.WaitForCountered(ctx)
+		game.LogGameData(ctx)
+	}
 
 	sys.TimeTravelClock.AdvanceTime(game.MaxClockDuration(ctx))
 	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
