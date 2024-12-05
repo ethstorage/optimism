@@ -123,7 +123,7 @@ func (a *Agent) performAction(ctx context.Context, wg *sync.WaitGroup, action ty
 		containsOracleData := action.OracleData != nil
 		isLocal := containsOracleData && action.OracleData.IsLocal
 		actionLog = actionLog.New(
-			"is_attack", action.IsAttack,
+			"attackBranch", action.AttackBranch,
 			"parent", action.ParentClaim.ContractIndex,
 			"prestate", common.Bytes2Hex(action.PreState),
 			"proof", common.Bytes2Hex(action.ProofData),
@@ -133,13 +133,15 @@ func (a *Agent) performAction(ctx context.Context, wg *sync.WaitGroup, action ty
 		if action.OracleData != nil {
 			actionLog = actionLog.New("oracleKey", common.Bytes2Hex(action.OracleData.OracleKey))
 		}
-	} else if action.Type == types.ActionTypeMove {
-		actionLog = actionLog.New("is_attack", action.IsAttack, "parent", action.ParentClaim.ContractIndex, "value", action.Value)
+	} else if action.Type == types.ActionTypeAttackV2 {
+		actionLog = actionLog.New("attackBranch", action.AttackBranch, "parent", action.ParentClaim.ContractIndex, "value", action.Value)
 	}
 
 	switch action.Type {
 	case types.ActionTypeMove:
 		a.metrics.RecordGameMove()
+	case types.ActionTypeAttackV2:
+		a.metrics.RecordGameAttackV2()
 	case types.ActionTypeStep:
 		a.metrics.RecordGameStep()
 	case types.ActionTypeChallengeL2BlockNumber:

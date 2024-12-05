@@ -6,7 +6,8 @@ import (
 	"slices"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/contracts"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/wait"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -33,7 +34,7 @@ func newClaimHelper(game *OutputGameHelper, idx int64, claim types.Claim) *Claim
 }
 
 func (c *ClaimHelper) AgreesWithOutputRoot() bool {
-	return c.Position.Depth()%2 == 0
+	return c.Position.Depth()%(types.Depth(2*c.game.Nbits)) == 0
 }
 
 func (c *ClaimHelper) IsRootClaim() bool {
@@ -52,7 +53,7 @@ func (c *ClaimHelper) IsOutputRootLeaf(ctx context.Context) bool {
 
 func (c *ClaimHelper) IsBottomGameRoot(ctx context.Context) bool {
 	splitDepth := c.game.SplitDepth(ctx)
-	return c.Position.Depth() == splitDepth+1
+	return c.Position.Depth() == splitDepth+types.Depth(c.game.Nbits)
 }
 
 func (c *ClaimHelper) IsMaxDepth(ctx context.Context) bool {
@@ -93,8 +94,13 @@ func (c *ClaimHelper) WaitForCountered(ctx context.Context) {
 
 func (c *ClaimHelper) RequireCorrectOutputRoot(ctx context.Context) {
 	c.require.True(c.IsOutputRoot(ctx), "Should not expect a valid output root in the bottom game")
-	expected, err := c.game.CorrectOutputProvider.Get(ctx, c.Position)
-	c.require.NoError(err, "Failed to get correct output root")
+	subValues := []common.Hash{}
+	for i := uint64(0); i < (1<<c.game.Nbits - 1); i++ {
+		value, err := c.game.CorrectOutputProvider.Get(ctx, c.Position.MoveRightN(i))
+		c.require.NoError(err, fmt.Errorf("Failed to get correct output root at pos %v", c.Position))
+		subValues = append(subValues, value)
+	}
+	expected := contracts.SubValuesHash(subValues)
 	c.require.Equalf(expected, c.claim, "Should have correct output root in claim %v and position %v", c.Index, c.Position)
 }
 
@@ -103,9 +109,13 @@ func (c *ClaimHelper) Attack(ctx context.Context, value common.Hash, opts ...Mov
 	return c.WaitForCounterClaim(ctx)
 }
 
-func (c *ClaimHelper) Defend(ctx context.Context, value common.Hash, opts ...MoveOpt) *ClaimHelper {
-	c.game.Defend(ctx, c.Index, value, opts...)
+func (c *ClaimHelper) Attack2(ctx context.Context, attackBranch uint64, subValues []common.Hash, opts ...MoveOpt) *ClaimHelper {
+	c.game.Attack2(ctx, c.Index, attackBranch, subValues, opts...)
 	return c.WaitForCounterClaim(ctx)
+}
+
+func (c *ClaimHelper) Defend(ctx context.Context, value common.Hash, opts ...MoveOpt) *ClaimHelper {
+	panic("Depreacated, use attack2 instead!")
 }
 
 func (c *ClaimHelper) RequireDifferentClaimValue(other *ClaimHelper) {

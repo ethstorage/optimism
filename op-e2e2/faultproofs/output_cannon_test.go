@@ -6,9 +6,9 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/utils"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
-	gameTypes "github.com/ethereum-optimism/optimism/op-challenger/game/types"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/utils"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
+	gameTypes "github.com/ethereum-optimism/optimism/op-challenger2/game/types"
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e2"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/disputegame"
@@ -25,7 +25,7 @@ func TestOutputCannonGame(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 4, common.Hash{0x01})
 	game.LogGameData(ctx)
 
@@ -35,6 +35,8 @@ func TestOutputCannonGame(t *testing.T) {
 
 	// Challenger should post an output root to counter claims down to the leaf level of the top game
 	claim := game.RootClaim(ctx)
+	maxAttackBranch := 1<<game.Nbits - 1
+	incorrectValues := setIncorrectValues(common.Hash{0xaa}, maxAttackBranch)
 	for claim.IsOutputRoot(ctx) && !claim.IsOutputRootLeaf(ctx) {
 		if claim.AgreesWithOutputRoot() {
 			// If the latest claim agrees with the output root, expect the honest challenger to counter it
@@ -43,17 +45,20 @@ func TestOutputCannonGame(t *testing.T) {
 			claim.RequireCorrectOutputRoot(ctx)
 		} else {
 			// Otherwise we should counter
-			claim = claim.Attack(ctx, common.Hash{0xaa})
+			claim = claim.Attack2(ctx, 0, incorrectValues)
 			game.LogGameData(ctx)
 		}
 	}
 
 	// Wait for the challenger to post the first claim in the cannon trace
-	claim = claim.WaitForCounterClaim(ctx)
-	game.LogGameData(ctx)
+	if claim.Depth()%(types.Depth(2*game.Nbits)) == 0 {
+		claim = claim.WaitForCounterClaim(ctx)
+		game.LogGameData(ctx)
+	}
 
 	// Attack the root of the cannon trace subgame
-	claim = claim.Attack(ctx, common.Hash{0x00, 0xcc})
+	claim = claim.Attack2(ctx, 0, []common.Hash{{0x02, 0xcc}})
+	incorrectVMValues := setIncorrectValues(common.Hash{0x00, 0xdd}, maxAttackBranch)
 	for !claim.IsMaxDepth(ctx) {
 		if claim.AgreesWithOutputRoot() {
 			// If the latest claim supports the output root, wait for the honest challenger to respond
@@ -61,13 +66,16 @@ func TestOutputCannonGame(t *testing.T) {
 			game.LogGameData(ctx)
 		} else {
 			// Otherwise we need to counter the honest claim
-			claim = claim.Defend(ctx, common.Hash{0x00, 0xdd})
+			claim = claim.Attack2(ctx, uint64(maxAttackBranch), incorrectVMValues)
 			game.LogGameData(ctx)
 		}
 	}
-	// Challenger should be able to call step and counter the leaf claim.
-	claim.WaitForCountered(ctx)
-	game.LogGameData(ctx)
+	// Challenger should be able to call step and counter the leaf claim by dishonest sequencer.
+	// SplitDepth should be changed in Deploy.s.sol to test the stepV2 function.
+	if claim.Depth()%(types.Depth(2*game.Nbits)) == 0 {
+		claim.WaitForCountered(ctx)
+		game.LogGameData(ctx)
+	}
 
 	sys.TimeTravelClock.AdvanceTime(game.MaxClockDuration(ctx))
 	require.NoError(t, wait.ForNextBlock(ctx, l1Client))
@@ -81,7 +89,7 @@ func TestOutputCannon_ChallengeAllZeroClaim(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 3, common.Hash{})
 	game.LogGameData(ctx)
 
@@ -119,7 +127,7 @@ func TestOutputCannon_PublishCannonRootClaim(t *testing.T) {
 			ctx := context.Background()
 			sys, _ := StartFaultDisputeSystem(t)
 
-			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 			game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", test.disputeL2BlockNumber, common.Hash{0x01})
 			game.DisputeLastBlock(ctx)
 			game.LogGameData(ctx)
@@ -151,7 +159,7 @@ func TestOutputCannonDisputeGame(t *testing.T) {
 			sys, l1Client := StartFaultDisputeSystem(t)
 			t.Cleanup(sys.Close)
 
-			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 			game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0x01, 0xaa})
 			require.NotNil(t, game)
 			game.LogGameData(ctx)
@@ -188,7 +196,7 @@ func TestOutputCannonDefendStep(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0x01, 0xaa})
 	require.NotNil(t, game)
 	outputRootClaim := game.DisputeLastBlock(ctx)
@@ -205,7 +213,7 @@ func TestOutputCannonDefendStep(t *testing.T) {
 			return claim.Attack(ctx, common.Hash{0xaa})
 		} else {
 			// Post our own counter but using the correct hash in low levels to force a defense step
-			return correctTrace.AttackClaim(ctx, claim)
+			return correctTrace.AttackClaim(ctx, claim, 0)
 		}
 	})
 
@@ -234,7 +242,7 @@ func TestOutputCannonStepWithLargePreimage(t *testing.T) {
 	require.NoError(t, err, "Batcher should resume submitting valid batches")
 
 	l2BlockNumber := safeHead.NumberU64()
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	// Dispute any block - it will have to read the L1 batches to see if the block is reached
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", l2BlockNumber, common.Hash{0x01, 0xaa})
 	require.NotNil(t, game)
@@ -267,7 +275,7 @@ func TestOutputCannonStepWithPreimage(t *testing.T) {
 		sys, _ := StartFaultDisputeSystem(t, WithBlobBatches())
 		t.Cleanup(sys.Close)
 
-		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 		game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0x01, 0xaa})
 		require.NotNil(t, game)
 		outputRootClaim := game.DisputeLastBlock(ctx)
@@ -320,7 +328,7 @@ func TestOutputCannonStepWithKZGPointEvaluation(t *testing.T) {
 		precompileBlock := receipt.BlockNumber
 		t.Logf("KZG Point Evaluation block number: %d", precompileBlock)
 
-		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+		disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 		game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", precompileBlock.Uint64(), common.Hash{0x01, 0xaa})
 		require.NotNil(t, game)
 		outputRootClaim := game.DisputeLastBlock(ctx)
@@ -377,7 +385,7 @@ func TestOutputCannonProposedOutputRootValid(t *testing.T) {
 				if claim.IsOutputRootLeaf(ctx) {
 					return claim.Attack(ctx, common.Hash{0x01})
 				}
-				return correctTrace.AttackClaim(ctx, claim)
+				return correctTrace.AttackClaim(ctx, claim, 0)
 			},
 			performStep: honestStepsFail,
 		},
@@ -386,7 +394,7 @@ func TestOutputCannonProposedOutputRootValid(t *testing.T) {
 			performMove: func(ctx context.Context, game *disputegame.OutputCannonGameHelper, correctTrace *disputegame.OutputHonestHelper, claim *disputegame.ClaimHelper) *disputegame.ClaimHelper {
 				// Can only attack the root claim or the first cannon claim
 				if claim.IsRootClaim() {
-					return correctTrace.AttackClaim(ctx, claim)
+					return correctTrace.AttackClaim(ctx, claim, 0)
 				}
 				// The root of the cannon game must have an invalid VM status code
 				// Attacking ensure we're running the cannon trace between two different blocks
@@ -410,7 +418,7 @@ func TestOutputCannonProposedOutputRootValid(t *testing.T) {
 			sys, l1Client := StartFaultDisputeSystem(t)
 			t.Cleanup(sys.Close)
 
-			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 			game := disputeGameFactory.StartOutputCannonGameWithCorrectRoot(ctx, "sequencer", 1)
 			correctTrace := game.CreateHonestActor(ctx, "sequencer", challenger.WithPrivKey(sys.Cfg.Secrets.Mallory))
 
@@ -444,13 +452,13 @@ func TestOutputCannonPoisonedPostState(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	// Root claim is dishonest
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0xaa})
 	correctTrace := game.CreateHonestActor(ctx, "sequencer", challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
 
 	// Honest first attack at "honest" level
-	claim := correctTrace.AttackClaim(ctx, game.RootClaim(ctx))
+	claim := correctTrace.AttackClaim(ctx, game.RootClaim(ctx), 0)
 
 	// Honest defense at "dishonest" level
 	claim = correctTrace.DefendClaim(ctx, claim)
@@ -459,7 +467,7 @@ func TestOutputCannonPoisonedPostState(t *testing.T) {
 	claimToIgnore1 := claim.Attack(ctx, common.Hash{0x03, 0xaa})
 
 	// Honest attack at "dishonest" level - honest move would be to ignore
-	claimToIgnore2 := correctTrace.AttackClaim(ctx, claimToIgnore1)
+	claimToIgnore2 := correctTrace.AttackClaim(ctx, claimToIgnore1, 0)
 	game.LogGameData(ctx)
 
 	// Start the honest challenger
@@ -508,7 +516,7 @@ func TestDisputeOutputRootBeyondProposedBlock_ValidOutputRoot(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	// Root claim is dishonest
 	game := disputeGameFactory.StartOutputCannonGameWithCorrectRoot(ctx, "sequencer", 1)
 	correctTrace := game.CreateHonestActor(ctx, "sequencer", challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
@@ -517,7 +525,7 @@ func TestDisputeOutputRootBeyondProposedBlock_ValidOutputRoot(t *testing.T) {
 
 	claim := game.RootClaim(ctx)
 	// Attack the output root
-	claim = correctTrace.AttackClaim(ctx, claim)
+	claim = correctTrace.AttackClaim(ctx, claim, 0)
 	// Wait for the challenger to respond
 	claim = claim.WaitForCounterClaim(ctx)
 	// Then defend until the split depth to force the game into the extension part of the output root bisection
@@ -558,7 +566,7 @@ func TestDisputeOutputRootBeyondProposedBlock_InvalidOutputRoot(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	// Root claim is dishonest
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0xaa})
 	correctTrace := game.CreateHonestActor(ctx, "sequencer", challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
@@ -581,7 +589,7 @@ func TestDisputeOutputRootBeyondProposedBlock_InvalidOutputRoot(t *testing.T) {
 	for !claim.IsMaxDepth(ctx) {
 		game.LogGameData(ctx)
 		if claim.IsBottomGameRoot(ctx) {
-			claim = correctTrace.AttackClaim(ctx, claim)
+			claim = correctTrace.AttackClaim(ctx, claim, 0)
 		} else {
 			claim = correctTrace.DefendClaim(ctx, claim)
 		}
@@ -609,7 +617,7 @@ func TestDisputeOutputRoot_ChangeClaimedOutputRoot(t *testing.T) {
 	sys, l1Client := StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 	// Root claim is dishonest
 	game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", 1, common.Hash{0xaa})
 	correctTrace := game.CreateHonestActor(ctx, "sequencer", challenger.WithPrivKey(sys.Cfg.Secrets.Alice))
@@ -628,7 +636,7 @@ func TestDisputeOutputRoot_ChangeClaimedOutputRoot(t *testing.T) {
 		if claim.Depth() == game.SplitDepth(ctx)-1 {
 			// Post the correct output root as the leaf.
 			// This is for block 1 which is what the original output root was for too
-			claim = correctTrace.AttackClaim(ctx, claim)
+			claim = correctTrace.AttackClaim(ctx, claim, 0)
 			// Challenger should post the first cannon trace
 			claim = claim.WaitForCounterClaim(ctx)
 			break
@@ -641,7 +649,7 @@ func TestDisputeOutputRoot_ChangeClaimedOutputRoot(t *testing.T) {
 	for !claim.IsMaxDepth(ctx) {
 		game.LogGameData(ctx)
 		if claim.IsBottomGameRoot(ctx) {
-			claim = correctTrace.AttackClaim(ctx, claim)
+			claim = correctTrace.AttackClaim(ctx, claim, 0)
 		} else {
 			claim = correctTrace.DefendClaim(ctx, claim)
 		}
@@ -673,7 +681,7 @@ func TestInvalidateUnsafeProposal(t *testing.T) {
 		{
 			name: "Attack",
 			strategy: func(correctTrace *disputegame.OutputHonestHelper, parent *disputegame.ClaimHelper) *disputegame.ClaimHelper {
-				return correctTrace.AttackClaim(ctx, parent)
+				return correctTrace.AttackClaim(ctx, parent, 0)
 			},
 		},
 		{
@@ -698,7 +706,7 @@ func TestInvalidateUnsafeProposal(t *testing.T) {
 			t.Cleanup(sys.Close)
 
 			blockNum := uint64(1)
-			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 			// Root claim is _dishonest_ because the required data is not available on L1
 			game := disputeGameFactory.StartOutputCannonGameWithCorrectRoot(ctx, "sequencer", blockNum, disputegame.WithUnsafeProposal())
 
@@ -709,7 +717,7 @@ func TestInvalidateUnsafeProposal(t *testing.T) {
 
 			game.DefendClaim(ctx, game.RootClaim(ctx), func(parent *disputegame.ClaimHelper) *disputegame.ClaimHelper {
 				if parent.IsBottomGameRoot(ctx) {
-					return correctTrace.AttackClaim(ctx, parent)
+					return correctTrace.AttackClaim(ctx, parent, 0)
 				}
 				return test.strategy(correctTrace, parent)
 			})
@@ -735,7 +743,7 @@ func TestInvalidateProposalForFutureBlock(t *testing.T) {
 		{
 			name: "Attack",
 			strategy: func(correctTrace *disputegame.OutputHonestHelper, parent *disputegame.ClaimHelper) *disputegame.ClaimHelper {
-				return correctTrace.AttackClaim(ctx, parent)
+				return correctTrace.AttackClaim(ctx, parent, 0)
 			},
 		},
 		{
@@ -760,7 +768,7 @@ func TestInvalidateProposalForFutureBlock(t *testing.T) {
 			t.Cleanup(sys.Close)
 
 			farFutureBlockNum := uint64(10_000_000)
-			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+			disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, daType)
 			// Root claim is _dishonest_ because the required data is not available on L1
 			game := disputeGameFactory.StartOutputCannonGame(ctx, "sequencer", farFutureBlockNum, common.Hash{0xaa}, disputegame.WithFutureProposal())
 
@@ -771,7 +779,7 @@ func TestInvalidateProposalForFutureBlock(t *testing.T) {
 
 			game.DefendClaim(ctx, game.RootClaim(ctx), func(parent *disputegame.ClaimHelper) *disputegame.ClaimHelper {
 				if parent.IsBottomGameRoot(ctx) {
-					return correctTrace.AttackClaim(ctx, parent)
+					return correctTrace.AttackClaim(ctx, parent, 0)
 				}
 				return test.strategy(correctTrace, parent)
 			})
@@ -794,7 +802,7 @@ func TestInvalidateCorrectProposalFutureBlock(t *testing.T) {
 	t.Cleanup(sys.Close)
 
 	// Create a dispute game factory helper.
-	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys)
+	disputeGameFactory := disputegame.NewFactoryHelper(t, ctx, sys, 0)
 
 	// No batches submitted so safe head is genesis
 	output, err := sys.RollupClient("sequencer").OutputAtBlock(ctx, 0)

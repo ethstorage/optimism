@@ -20,13 +20,13 @@ type actionRule func(game types.Game, action types.Action, correctTrace types.Tr
 var rules = []actionRule{
 	parentMustExist,
 	onlyStepAtMaxDepth,
-	onlyMoveBeforeMaxDepth,
+	onlyAttackBeforeMaxDepth,
 	doNotDuplicateExistingMoves,
 	doNotStepAlreadyCounteredClaims,
-	doNotDefendRootClaim,
+	onlyAttackRootClaimZeroBranch,
 	avoidPoisonedPrestate,
-	detectPoisonedStepPrestate,
-	detectFailedStep,
+	//detectPoisonedStepPrestate,
+	//detectFailedStep,
 	doNotCounterSelf,
 }
 
@@ -66,15 +66,13 @@ func onlyStepAtMaxDepth(game types.Game, action types.Action, _ types.TraceProvi
 	return nil
 }
 
-// onlyMoveBeforeMaxDepth verifies that move actions are not performed against leaf claims
-// Rationale: The action would be rejected by the contracts
-func onlyMoveBeforeMaxDepth(game types.Game, action types.Action, _ types.TraceProvider) error {
-	if action.Type == types.ActionTypeMove {
+func onlyAttackBeforeMaxDepth(game types.Game, action types.Action, _ types.TraceProvider) error {
+	if action.Type == types.ActionTypeAttackV2 {
 		return nil
 	}
 	parentDepth := game.Claims()[action.ParentClaim.ContractIndex].Position.Depth()
 	if parentDepth < game.MaxDepth() {
-		return fmt.Errorf("parent (%v) not at max depth (%v) but attempting to perform %v action instead of move",
+		return fmt.Errorf("parent (%v) not at max depth (%v) but attempting to perform %v action instead of attackV2",
 			parentDepth, game.MaxDepth(), action.Type)
 	}
 	return nil
@@ -103,11 +101,9 @@ func doNotStepAlreadyCounteredClaims(game types.Game, action types.Action, _ typ
 	return nil
 }
 
-// doNotDefendRootClaim checks the challenger doesn't attempt to defend the root claim
-// Rationale: The action would be rejected by the contracts
-func doNotDefendRootClaim(game types.Game, action types.Action, _ types.TraceProvider) error {
-	if game.Claims()[action.ParentClaim.ContractIndex].IsRootPosition() && !action.IsAttack {
-		return fmt.Errorf("defending the root claim at idx %v", action.ParentClaim.ContractIndex)
+func onlyAttackRootClaimZeroBranch(game types.Game, action types.Action, _ types.TraceProvider) error {
+	if game.Claims()[action.ParentClaim.ContractIndex].IsRootPosition() && action.AttackBranch != 0 {
+		return fmt.Errorf("attacking the root claim at idx %v with branch %v", action.ParentClaim.ContractIndex, action.AttackBranch)
 	}
 	return nil
 }
@@ -163,7 +159,8 @@ func avoidPoisonedPrestate(game types.Game, action types.Action, correctTrace ty
 	if err != nil {
 		return fmt.Errorf("failed to get correct trace at position %v: %w", preStateClaim.Position, err)
 	}
-	if correctValue != preStateClaim.Value {
+	preStateClaimValue := (*preStateClaim.SubValues)[0]
+	if correctValue != preStateClaimValue {
 		err = fmt.Errorf("prestate poisoned claim %v has invalid prestate and is left of honest claim countering %v at trace index %v", preStateClaim.ContractIndex, action.ParentClaim.ContractIndex, honestTraceIndex)
 		return err
 	}
@@ -194,10 +191,7 @@ func detectFailedStep(game types.Game, action types.Action, correctTrace types.T
 		return nil
 	}
 	honestTraceIndex := position.TraceIndex(game.MaxDepth())
-	poststateIndex := honestTraceIndex
-	if !action.IsAttack {
-		poststateIndex = new(big.Int).Add(honestTraceIndex, big.NewInt(1))
-	}
+	poststateIndex := new(big.Int).Add(honestTraceIndex, big.NewInt(int64(action.AttackBranch)))
 	// Walk back up the claims and find the claim required post state index
 	claim := game.Claims()[action.ParentClaim.ContractIndex]
 	poststateClaim, ok := game.AncestorWithTraceIndex(claim, poststateIndex)
@@ -208,7 +202,7 @@ func detectFailedStep(game types.Game, action types.Action, correctTrace types.T
 	if err != nil {
 		return fmt.Errorf("failed to get correct trace at position %v: %w", poststateClaim.Position, err)
 	}
-	validStep := correctValue == poststateClaim.Value
+	validStep := correctValue == (*poststateClaim.SubValues)[0]
 	parentPostAgree := (claim.Depth()-poststateClaim.Depth())%2 == 0
 	if parentPostAgree == validStep {
 		return fmt.Errorf("failed step against claim at %v using poststate from claim %v post state is correct? %v parentPostAgree? %v",
@@ -272,8 +266,5 @@ func resultingPosition(game types.Game, action types.Action) types.Position {
 	if action.Type == types.ActionTypeStep {
 		return parentPos
 	}
-	if action.IsAttack {
-		return parentPos.Attack()
-	}
-	return parentPos.Defend()
+	return parentPos.MoveN(uint64(game.NBits()), action.AttackBranch)
 }

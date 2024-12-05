@@ -161,6 +161,8 @@ type TraceAccessor interface {
 	// evaluated in the context of the specified claim (ref).
 	GetStepData(ctx context.Context, game Game, ref Claim, pos Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
 
+	// GetStepData2 returns GetStepData returns and oracle proofs required for MSFDG contract's addLocalData and stepV2
+	GetStepData2(ctx context.Context, game Game, ref Claim, pos Position) (prestate []byte, proofData []byte, preimageData *PreimageOracleData, err error)
 	// GetL2BlockNumberChallenge returns the data required to prove the correct L2 block number of the root claim.
 	// Returns ErrL2BlockNumberValid if the root claim is known to come from the same block as the claimed L2 block.
 	GetL2BlockNumberChallenge(ctx context.Context, game Game) (*InvalidL2BlockNumberChallenge, error)

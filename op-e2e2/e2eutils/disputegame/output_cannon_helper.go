@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/cannon"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/outputs"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/split"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/trace/utils"
-	"github.com/ethereum-optimism/optimism/op-challenger/game/fault/types"
-	"github.com/ethereum-optimism/optimism/op-challenger/metrics"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/cannon"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/outputs"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/split"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/trace/utils"
+	"github.com/ethereum-optimism/optimism/op-challenger2/game/fault/types"
+	"github.com/ethereum-optimism/optimism/op-challenger2/metrics"
 	"github.com/ethereum-optimism/optimism/op-e2e2/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/challenger"
 	"github.com/ethereum-optimism/optimism/op-e2e2/e2eutils/wait"
@@ -233,10 +233,10 @@ func (g *OutputCannonGameHelper) VerifyPreimage(ctx context.Context, outputRootC
 		g.Require.NotNil(oracleData, "Should have had required preimage oracle data")
 		g.Require.Equal(common.Hash(preimageKey.PreimageKey()).Bytes(), oracleData.OracleKey, "Must have correct preimage key")
 
-		tx, err := g.GameBindings.AddLocalData(g.Opts,
+		tx, err := g.GameBindings.AddLocalData2(g.Opts,
 			oracleData.GetIdent(),
 			big.NewInt(outputRootClaim.Index),
-			new(big.Int).SetUint64(uint64(oracleData.OracleOffset)))
+			new(big.Int).SetUint64(uint64(oracleData.OracleOffset)), bindings.LibDADAItem{})
 		g.Require.NoError(err)
 		_, err = wait.ForReceiptOK(ctx, g.Client, tx.Hash())
 		g.Require.NoError(err)

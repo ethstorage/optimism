@@ -26,6 +26,7 @@ func (*NoopMetricsImpl) RecordInfo(version string) {}
 func (*NoopMetricsImpl) RecordUp()                 {}
 
 func (*NoopMetricsImpl) RecordGameMove()        {}
+func (*NoopMetricsImpl) RecordGameAttackV2()    {}
 func (*NoopMetricsImpl) RecordGameStep()        {}
 func (*NoopMetricsImpl) RecordGameL2Challenge() {}
 
