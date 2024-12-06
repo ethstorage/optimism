@@ -72,6 +72,7 @@ type L1Client interface {
 	HeaderByNumber(ctx context.Context, number *big.Int) (*types.Header, error)
 	NonceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (uint64, error)
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
 }
 
 type L2Client interface {
@@ -269,6 +270,30 @@ func (l *BatchSubmitter) loadBlocksIntoState(syncStatus eth.SyncStatus, ctx cont
 		return errors.New("start number is >= end number")
 	}
 
+	catchUpMode := false
+	if syncStatus.UnsafeL2.L1Origin.Number >= syncStatus.SafeL2.L1Origin.Number+l.RollupConfig.SeqWindowSize {
+		// in this case, we need to catch up with the sequencing window
+		catchUpMode = true
+	}
+
+	var (
+		remainingTime time.Duration
+		now           time.Time
+	)
+	if catchUpMode {
+		now = time.Now()
+		currentTimestamp := uint64(now.Unix())
+		l1HeadBlock, err := l.L1Client.BlockByNumber(ctx, nil)
+		if err != nil {
+			l.Log.Warn("Error fetching head L1 block", "err", err)
+			return err
+		}
+		if currentTimestamp+l.Config.CatchUpSafetyMargin >= l1HeadBlock.Time()+l.Config.L1BlockTime {
+			return fmt.Errorf("remaining time not enough to catch up, now:%d, l1 head time:%d, safety margin:%d, l1 block time:%d", currentTimestamp, l1HeadBlock.Time(), l.Config.CatchUpSafetyMargin, l.Config.L1BlockTime)
+		}
+		remainingTime = time.Duration(l1HeadBlock.Time()+l.Config.L1BlockTime-currentTimestamp) * time.Second
+		l.Log.Info("Entered catch-up mode", "remainingTime", remainingTime, "gap", syncStatus.UnsafeL2.L1Origin.Number-syncStatus.SafeL2.L1Origin.Number, "safe l1 origin", syncStatus.SafeL2.L1Origin.Number, "unsafe l1 origin", syncStatus.UnsafeL2.L1Origin.Number)
+	}
 	var latestBlock *types.Block
 	// Add all blocks to "state"
 	for i := start.Number + 1; i < end.Number+1; i++ {
@@ -283,6 +308,10 @@ func (l *BatchSubmitter) loadBlocksIntoState(syncStatus eth.SyncStatus, ctx cont
 		}
 		l.lastStoredBlock = eth.ToBlockID(block)
 		latestBlock = block
+		if catchUpMode && time.Since(now) >= remainingTime && i != end.Number {
+			l.Log.Info("Stopped loading blocks to catch up with sequencing window", "loaded", i-start.Number)
+			break
+		}
 	}
 
 	l2ref, err := derive.L2BlockToBlockRef(l.RollupConfig, latestBlock)

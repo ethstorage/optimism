@@ -186,6 +186,18 @@ var (
 		Value:   130_000, // should be larger than the builder's max-l2-tx-size to prevent endlessly throttling some txs
 		EnvVars: prefixEnvVars("THROTTLE_ALWAYS_BLOCK_SIZE"),
 	}
+	L1BlockTimeFlag = &cli.Uint64Flag{
+		Name:    "l1-block-time",
+		Usage:   "The l1 block time in seconds",
+		Value:   12,
+		EnvVars: prefixEnvVars("L1_BLOCK_TIME"),
+	}
+	CatchUpSafetyMarginFlag = &cli.Uint64Flag{
+		Name:    "catch-up-safety-margin",
+		Usage:   "The safety margin in seconds for catching up with sequencing window",
+		Value:   10,
+		EnvVars: prefixEnvVars("CATCH_UP_SAFETY_MARGIN"),
+	}
 	// Legacy Flags
 	SequencerHDPathFlag = txmgr.SequencerHDPathFlag
 )
@@ -219,6 +231,8 @@ var optionalFlags = []cli.Flag{
 	ThrottleTxSizeFlag,
 	ThrottleBlockSizeFlag,
 	ThrottleAlwaysBlockSizeFlag,
+	L1BlockTimeFlag,
+	CatchUpSafetyMarginFlag,
 }
 
 func init() {
