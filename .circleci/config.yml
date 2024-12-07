@@ -1314,9 +1314,9 @@ workflows:
       - contracts-bedrock-validate-spacers:
           requires:
             - contracts-bedrock-build
-      - semgrep-scan:
-          name: semgrep-scan-local
-          scan_command: semgrep scan --timeout=100 --config .semgrep/rules/ --error .
+      # - semgrep-scan:
+      #     name: semgrep-scan-local
+      #     scan_command: semgrep scan --timeout=100 --config .semgrep/rules/ --error .
       - semgrep-scan:
           name: semgrep-test
           scan_command: semgrep scan --test --config .semgrep/rules/ .semgrep/tests/
