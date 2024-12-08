@@ -15,13 +15,13 @@ import { Constants } from "src/libraries/Constants.sol";
 contract SoulGasToken is ERC20Upgradeable, OwnableUpgradeable {
     /// @custom:storage-location erc7201:openzeppelin.storage.SoulGasToken
     struct SoulGasTokenStorage {
-        // _minters are whitelist EOAs, only used when !IS_BACKED_BY_NATIVE
-        mapping(address => bool) _minters;
-        // _burners are whitelist EOAs to burn/withdraw SoulGasToken
-        mapping(address => bool) _burners;
-        // _allowSgtValue are whitelist contracts to consume sgt as msg.value
+        // minters are whitelist EOAs, only used when !IS_BACKED_BY_NATIVE
+        mapping(address => bool) minters;
+        // burners are whitelist EOAs to burn/withdraw SoulGasToken
+        mapping(address => bool) burners;
+        // allowSgtValue are whitelist contracts to consume sgt as msg.value
         // when IS_BACKED_BY_NATIVE
-        mapping(address => bool) _allowSgtValue;
+        mapping(address => bool) allowSgtValue;
     }
 
     /// @notice Emitted when sgt as msg.value is enabled for a contract.
@@ -43,68 +43,68 @@ contract SoulGasToken is ERC20Upgradeable, OwnableUpgradeable {
         }
     }
 
-    constructor(bool isBackedByNative_) {
-        IS_BACKED_BY_NATIVE = isBackedByNative_;
+    constructor(bool _isBackedByNative) {
+        IS_BACKED_BY_NATIVE = _isBackedByNative;
         initialize("", "", msg.sender);
     }
 
     /// @notice Initializer.
-    function initialize(string memory name_, string memory symbol_, address owner_) public initializer {
+    function initialize(string memory _name, string memory _symbol, address _owner) public initializer {
         __Ownable_init();
-        transferOwnership(owner_);
+        transferOwnership(_owner);
 
         // initialize the inherited ERC20Upgradeable
-        __ERC20_init(name_, symbol_);
+        __ERC20_init(_name, _symbol);
     }
 
     /// @notice deposit can be called by anyone to deposit native token for SoulGasToken when
     /// IS_BACKED_BY_NATIVE.
     function deposit() external payable {
-        require(IS_BACKED_BY_NATIVE, "deposit should only be called when IS_BACKED_BY_NATIVE");
+        require(IS_BACKED_BY_NATIVE, "SGT: deposit should only be called when IS_BACKED_BY_NATIVE");
 
         _mint(_msgSender(), msg.value);
     }
 
     /// @notice batchDepositFor can be called by anyone to deposit native token for SoulGasToken in batch when
     /// IS_BACKED_BY_NATIVE.
-    function batchDepositFor(address[] calldata accounts, uint256[] calldata values) external payable {
-        require(accounts.length == values.length, "invalid arguments");
+    function batchDepositFor(address[] calldata _accounts, uint256[] calldata _values) external payable {
+        require(_accounts.length == _values.length, "SGT: invalid arguments");
 
-        require(IS_BACKED_BY_NATIVE, "batchDepositFor should only be called when IS_BACKED_BY_NATIVE");
+        require(IS_BACKED_BY_NATIVE, "SGT: batchDepositFor should only be called when IS_BACKED_BY_NATIVE");
 
         uint256 totalValue = 0;
-        for (uint256 i = 0; i < accounts.length; i++) {
-            _mint(accounts[i], values[i]);
-            totalValue += values[i];
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            _mint(_accounts[i], _values[i]);
+            totalValue += _values[i];
         }
-        require(msg.value == totalValue, "unexpected msg.value");
+        require(msg.value == totalValue, "SGT: unexpected msg.value");
     }
 
     /// @notice withdrawFrom is called by the burner to burn SoulGasToken and return the native token when
     /// IS_BACKED_BY_NATIVE.
-    function withdrawFrom(address account, uint256 value) external {
-        require(IS_BACKED_BY_NATIVE, "withdrawFrom should only be called when IS_BACKED_BY_NATIVE");
+    function withdrawFrom(address _account, uint256 _value) external {
+        require(IS_BACKED_BY_NATIVE, "SGT: withdrawFrom should only be called when IS_BACKED_BY_NATIVE");
 
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
-        require($._burners[_msgSender()], "not the burner");
+        require($.burners[_msgSender()], "SGT: not the burner");
 
-        _burn(account, value);
-        payable(_msgSender()).transfer(value);
+        _burn(_account, _value);
+        payable(_msgSender()).transfer(_value);
     }
 
     /// @notice batchWithdrawFrom is the batch version of withdrawFrom.
-    function batchWithdrawFrom(address[] calldata accounts, uint256[] calldata values) external {
-        require(accounts.length == values.length, "invalid arguments");
+    function batchWithdrawFrom(address[] calldata _accounts, uint256[] calldata _values) external {
+        require(_accounts.length == _values.length, "SGT: invalid arguments");
 
-        require(IS_BACKED_BY_NATIVE, "batchWithdrawFrom should only be called when IS_BACKED_BY_NATIVE");
+        require(IS_BACKED_BY_NATIVE, "SGT: batchWithdrawFrom should only be called when IS_BACKED_BY_NATIVE");
 
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
-        require($._burners[_msgSender()], "not the burner");
+        require($.burners[_msgSender()], "SGT: not the burner");
 
         uint256 totalValue = 0;
-        for (uint256 i = 0; i < accounts.length; i++) {
-            _burn(accounts[i], values[i]);
-            totalValue += values[i];
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            _burn(_accounts[i], _values[i]);
+            totalValue += _values[i];
         }
 
         payable(_msgSender()).transfer(totalValue);
@@ -113,132 +113,132 @@ contract SoulGasToken is ERC20Upgradeable, OwnableUpgradeable {
     /// @notice batchMint is called:
     ///                        1. by EOA minters to mint SoulGasToken in batch when !IS_BACKED_BY_NATIVE.
     ///                        2. by DEPOSITOR_ACCOUNT to refund SoulGasToken
-    function batchMint(address[] calldata accounts, uint256[] calldata values) external {
-        require(accounts.length == values.length, "invalid arguments");
+    function batchMint(address[] calldata _accounts, uint256[] calldata _values) external {
+        require(_accounts.length == _values.length, "SGT: invalid arguments");
 
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
-        require(_msgSender() == Constants.DEPOSITOR_ACCOUNT || $._minters[_msgSender()], "not a minter");
+        require(_msgSender() == Constants.DEPOSITOR_ACCOUNT || $.minters[_msgSender()], "SGT: not a minter");
 
-        for (uint256 i = 0; i < accounts.length; i++) {
-            _mint(accounts[i], values[i]);
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            _mint(_accounts[i], _values[i]);
         }
     }
 
     /// @notice addMinters is called by the owner to add minters when !IS_BACKED_BY_NATIVE.
-    function addMinters(address[] calldata minters_) external onlyOwner {
-        require(!IS_BACKED_BY_NATIVE, "addMinters should only be called when !IS_BACKED_BY_NATIVE");
+    function addMinters(address[] calldata _minters) external onlyOwner {
+        require(!IS_BACKED_BY_NATIVE, "SGT: addMinters should only be called when !IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
         uint256 i;
-        for (i = 0; i < minters_.length; i++) {
-            $._minters[minters_[i]] = true;
+        for (i = 0; i < _minters.length; i++) {
+            $.minters[_minters[i]] = true;
         }
     }
 
     /// @notice delMinters is called by the owner to delete minters when !IS_BACKED_BY_NATIVE.
-    function delMinters(address[] calldata minters_) external onlyOwner {
-        require(!IS_BACKED_BY_NATIVE, "delMinters should only be called when !IS_BACKED_BY_NATIVE");
+    function delMinters(address[] calldata _minters) external onlyOwner {
+        require(!IS_BACKED_BY_NATIVE, "SGT: delMinters should only be called when !IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
         uint256 i;
-        for (i = 0; i < minters_.length; i++) {
-            delete $._minters[minters_[i]];
+        for (i = 0; i < _minters.length; i++) {
+            delete $.minters[_minters[i]];
         }
     }
 
     /// @notice addBurners is called by the owner to add burners.
-    function addBurners(address[] calldata burners_) external onlyOwner {
+    function addBurners(address[] calldata _burners) external onlyOwner {
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
         uint256 i;
-        for (i = 0; i < burners_.length; i++) {
-            $._burners[burners_[i]] = true;
+        for (i = 0; i < _burners.length; i++) {
+            $.burners[_burners[i]] = true;
         }
     }
 
     /// @notice delBurners is called by the owner to delete burners.
-    function delBurners(address[] calldata burners_) external onlyOwner {
+    function delBurners(address[] calldata _burners) external onlyOwner {
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
         uint256 i;
-        for (i = 0; i < burners_.length; i++) {
-            delete $._burners[burners_[i]];
+        for (i = 0; i < _burners.length; i++) {
+            delete $.burners[_burners[i]];
         }
     }
 
     /// @notice allowSgtValue is called by the owner to enable whitelist contracts to consume sgt as msg.value
-    function allowSgtValue(address[] calldata contracts) external onlyOwner {
-        require(IS_BACKED_BY_NATIVE, "allowSgtValue should only be called when IS_BACKED_BY_NATIVE");
+    function allowSgtValue(address[] calldata _contracts) external onlyOwner {
+        require(IS_BACKED_BY_NATIVE, "SGT: allowSgtValue should only be called when IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
         uint256 i;
-        for (i = 0; i < contracts.length; i++) {
-            $._allowSgtValue[contracts[i]] = true;
-            emit AllowSgtValue(contracts[i]);
+        for (i = 0; i < _contracts.length; i++) {
+            $.allowSgtValue[_contracts[i]] = true;
+            emit AllowSgtValue(_contracts[i]);
         }
     }
 
     /// @notice allowSgtValue is called by the owner to disable whitelist contracts to consume sgt as msg.value
-    function disallowSgtValue(address[] calldata contracts) external onlyOwner {
-        require(IS_BACKED_BY_NATIVE, "disallowSgtValue should only be called when IS_BACKED_BY_NATIVE");
+    function disallowSgtValue(address[] calldata _contracts) external onlyOwner {
+        require(IS_BACKED_BY_NATIVE, "SGT: disallowSgtValue should only be called when IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
         uint256 i;
-        for (i = 0; i < contracts.length; i++) {
-            $._allowSgtValue[contracts[i]] = false;
-            emit DisallowSgtValue(contracts[i]);
+        for (i = 0; i < _contracts.length; i++) {
+            $.allowSgtValue[_contracts[i]] = false;
+            emit DisallowSgtValue(_contracts[i]);
         }
     }
 
     /// @notice chargeFromOrigin is called when IS_BACKED_BY_NATIVE to charge for native balance
     ///         from tx.origin if caller is whitelisted.
-    function chargeFromOrigin(uint256 amount) external returns (uint256 amountCharged) {
-        require(IS_BACKED_BY_NATIVE, "chargeFromOrigin should only be called when IS_BACKED_BY_NATIVE");
+    function chargeFromOrigin(uint256 _amount) external returns (uint256 amountCharged_) {
+        require(IS_BACKED_BY_NATIVE, "SGT: chargeFromOrigin should only be called when IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
-        require($._allowSgtValue[_msgSender()], "caller is not whitelisted");
+        require($.allowSgtValue[_msgSender()], "SGT: caller is not whitelisted");
         uint256 balance = balanceOf(tx.origin);
         if (balance == 0) {
-            amountCharged = 0;
-            return amountCharged;
+            amountCharged_ = 0;
+            return amountCharged_;
         }
-        if (balance >= amount) {
-            amountCharged = amount;
+        if (balance >= _amount) {
+            amountCharged_ = _amount;
         } else {
-            amountCharged = balance;
+            amountCharged_ = balance;
         }
-        _burn(tx.origin, amountCharged);
-        payable(_msgSender()).transfer(amountCharged);
+        _burn(tx.origin, amountCharged_);
+        payable(_msgSender()).transfer(amountCharged_);
     }
 
     /// @notice burnFrom is called when !IS_BACKED_BY_NATIVE:
     ///                             1. by the burner to burn SoulGasToken.
     ///                             2. by DEPOSITOR_ACCOUNT to burn SoulGasToken.
-    function burnFrom(address account, uint256 value) external {
-        require(!IS_BACKED_BY_NATIVE, "burnFrom should only be called when !IS_BACKED_BY_NATIVE");
+    function burnFrom(address _account, uint256 _value) external {
+        require(!IS_BACKED_BY_NATIVE, "SGT: burnFrom should only be called when !IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
-        require(_msgSender() == Constants.DEPOSITOR_ACCOUNT || $._burners[_msgSender()], "not the burner");
-        _burn(account, value);
+        require(_msgSender() == Constants.DEPOSITOR_ACCOUNT || $.burners[_msgSender()], "SGT: not the burner");
+        _burn(_account, _value);
     }
 
     /// @notice batchBurnFrom is the batch version of burnFrom.
-    function batchBurnFrom(address[] calldata accounts, uint256[] calldata values) external {
-        require(accounts.length == values.length, "invalid arguments");
-        require(!IS_BACKED_BY_NATIVE, "batchBurnFrom should only be called when !IS_BACKED_BY_NATIVE");
+    function batchBurnFrom(address[] calldata _accounts, uint256[] calldata _values) external {
+        require(_accounts.length == _values.length, "SGT: invalid arguments");
+        require(!IS_BACKED_BY_NATIVE, "SGT: batchBurnFrom should only be called when !IS_BACKED_BY_NATIVE");
         SoulGasTokenStorage storage $ = _getSoulGasTokenStorage();
-        require(_msgSender() == Constants.DEPOSITOR_ACCOUNT || $._burners[_msgSender()], "not the burner");
+        require(_msgSender() == Constants.DEPOSITOR_ACCOUNT || $.burners[_msgSender()], "SGT: not the burner");
 
-        for (uint256 i = 0; i < accounts.length; i++) {
-            _burn(accounts[i], values[i]);
+        for (uint256 i = 0; i < _accounts.length; i++) {
+            _burn(_accounts[i], _values[i]);
         }
     }
 
     /// @notice transferFrom is disabled for SoulGasToken.
     function transfer(address, uint256) public virtual override returns (bool) {
-        revert("transfer is disabled for SoulGasToken");
+        revert("SGT: transfer is disabled for SoulGasToken");
     }
 
     /// @notice transferFrom is disabled for SoulGasToken.
     function transferFrom(address, address, uint256) public virtual override returns (bool) {
-        revert("transferFrom is disabled for SoulGasToken");
+        revert("SGT: transferFrom is disabled for SoulGasToken");
     }
 
     /// @notice approve is disabled for SoulGasToken.
     function approve(address, uint256) public virtual override returns (bool) {
-        revert("approve is disabled for SoulGasToken");
+        revert("SGT: approve is disabled for SoulGasToken");
     }
 
     /// @notice Returns whether SoulGasToken is backed by native token.
