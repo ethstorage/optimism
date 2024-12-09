@@ -106,6 +106,8 @@ func TestAltDADataSource(t *testing.T) {
 	nc := 0
 	firstChallengeExpirationBlock := uint64(95)
 
+	// for reusing after pipeline is reset
+	successfulReceipts := make(map[common.Hash]types.Receipts)
 	for i := uint64(0); i <= pcfg.ChallengeWindow+pcfg.ResolveWindow; i++ {
 		parent := l1Refs[len(l1Refs)-1]
 		// create a new mock l1 ref
@@ -117,8 +119,6 @@ func TestAltDADataSource(t *testing.T) {
 		}
 		l1Refs = append(l1Refs, ref)
 		logger.Info("new l1 block", "ref", ref)
-		// called for each l1 block to sync challenges
-		l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 
 		// pick a random number of commitments to include in the l1 block
 		c := rng.Intn(4)
@@ -149,6 +149,12 @@ func TestAltDADataSource(t *testing.T) {
 			txs = append(txs, tx)
 
 		}
+
+		successfulReceipts[ref.Hash] = successfulReceiptsForTxs(txs)
+		// called by `getTxSucceed` to fetch tx status
+		l1F.ExpectFetchReceipts(ref.Hash, nil, successfulReceipts[ref.Hash], nil)
+		// called for each l1 block to sync challenges
+		l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 		logger.Info("included commitments", "count", c)
 		l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 		// called once per derivation
@@ -205,6 +211,8 @@ func TestAltDADataSource(t *testing.T) {
 			ref = l1Refs[i]
 			logger.Info("re deriving block", "ref", ref, "i", i)
 
+			// called by `getTxSucceed` to fetch tx status
+			l1F.ExpectFetchReceipts(ref.Hash, nil, successfulReceipts[ref.Hash], nil)
 			if i == len(l1Refs)-1 {
 				l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 			}
@@ -220,8 +228,6 @@ func TestAltDADataSource(t *testing.T) {
 			}
 			l1Refs = append(l1Refs, ref)
 			logger.Info("new l1 block", "ref", ref)
-			// called for each l1 block to sync challenges
-			l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 
 			// pick a random number of commitments to include in the l1 block
 			c := rng.Intn(4)
@@ -251,6 +257,10 @@ func TestAltDADataSource(t *testing.T) {
 				txs = append(txs, tx)
 
 			}
+			// called by `getTxSucceed` to fetch tx status
+			l1F.ExpectFetchReceipts(ref.Hash, nil, successfulReceiptsForTxs(txs), nil)
+			// called for each l1 block to sync challenges
+			l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 			logger.Info("included commitments", "count", c)
 			l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 		}
@@ -280,6 +290,13 @@ func TestAltDADataSource(t *testing.T) {
 	// finalize based on the second to last block, which will prune the commitment on block 2, and make it finalized
 	da.Finalize(l1Refs[len(l1Refs)-2])
 	finalitySignal.AssertExpectations(t)
+}
+
+func successfulReceiptsForTxs(txs []*types.Transaction) (receipts types.Receipts) {
+	for _, tx := range txs {
+		receipts = append(receipts, &types.Receipt{TxHash: tx.Hash(), Status: types.ReceiptStatusSuccessful})
+	}
+	return
 }
 
 // This tests makes sure the pipeline returns a temporary error if data is not found.
@@ -350,7 +367,6 @@ func TestAltDADataSourceStall(t *testing.T) {
 		ParentHash: parent.Hash,
 		Time:       parent.Time + l1Time,
 	}
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 	// mock input commitments in l1 transactions
 	input := testutils.RandomData(rng, 2000)
 	comm, _ := storage.SetInput(ctx, input)
@@ -369,6 +385,9 @@ func TestAltDADataSourceStall(t *testing.T) {
 
 	txs := []*types.Transaction{tx}
 
+	// called by `getTxSucceed` to fetch tx status
+	l1F.ExpectFetchReceipts(ref.Hash, nil, successfulReceiptsForTxs(txs), nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 
 	// delete the input from the DA provider so it returns not found
@@ -472,7 +491,6 @@ func TestAltDADataSourceInvalidData(t *testing.T) {
 		ParentHash: parent.Hash,
 		Time:       parent.Time + l1Time,
 	}
-	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 	// mock input commitments in l1 transactions with an oversized input
 	input := testutils.RandomData(rng, altda.MaxInputSize+1)
 	comm, _ := storage.SetInput(ctx, input)
@@ -520,6 +538,9 @@ func TestAltDADataSourceInvalidData(t *testing.T) {
 
 	txs := []*types.Transaction{tx1, tx2, tx3}
 
+	// called by `getTxSucceed` to fetch tx status
+	l1F.ExpectFetchReceipts(ref.Hash, nil, successfulReceiptsForTxs(txs), nil)
+	l1F.ExpectFetchReceipts(ref.Hash, nil, types.Receipts{}, nil)
 	l1F.ExpectInfoAndTxsByHash(ref.Hash, testutils.RandomBlockInfo(rng), txs, nil)
 
 	src, err := factory.OpenData(ctx, ref, batcherAddr)
