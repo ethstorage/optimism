@@ -837,10 +837,10 @@ type L1DependenciesConfig struct {
 // SoulGasTokenConfig configures the SoulGasToken deployment to L2.
 type SoulGasTokenConfig struct {
 	// UseSoulGasToken is a flag that indicates if the system is using SoulGasToken
-	UseSoulGasToken bool `json:"useSoulGasToken"`
+	UseSoulGasToken bool `json:"useSoulGasToken,omitempty"`
 	// IsSoulBackedByNative is a flag that indicates if the SoulGasToken is backed by native.
 	// Only effective when UseSoulGasToken is true.
-	IsSoulBackedByNative bool `json:"isSoulBackedByNative"`
+	IsSoulBackedByNative bool `json:"isSoulBackedByNative,omitempty"`
 }
 
 // DependencyContext is the contextual configuration needed to verify the L1 dependencies,
