@@ -80,6 +80,16 @@ contract SoulGasToken is ERC20Upgradeable, OwnableUpgradeable {
         require(msg.value == totalValue, "unexpected msg.value");
     }
 
+    /// @notice batchDepositForAll is similar to batchDepositFor, but the value is the same for all accounts.
+    function batchDepositForAll(address[] calldata accounts, uint256 value) external payable {
+        require(IS_BACKED_BY_NATIVE, "batchDepositForAll should only be called when IS_BACKED_BY_NATIVE");
+
+        for (uint256 i = 0; i < accounts.length; i++) {
+            _mint(accounts[i], value);
+        }
+        require(msg.value == value * accounts.length, "unexpected msg.value");
+    }
+
     /// @notice withdrawFrom is called by the burner to burn SoulGasToken and return the native token when
     /// IS_BACKED_BY_NATIVE.
     function withdrawFrom(address account, uint256 value) external {
