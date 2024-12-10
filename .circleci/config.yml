@@ -1308,9 +1308,9 @@ workflows:
       #     test_timeout: 1h
       #     test_profile: ciheavy
       - contracts-bedrock-coverage
-      # - contracts-bedrock-checks:
-      #     requires:
-      #       - contracts-bedrock-build
+      - contracts-bedrock-checks:
+          requires:
+            - contracts-bedrock-build
       - contracts-bedrock-validate-spacers:
           requires:
             - contracts-bedrock-build
