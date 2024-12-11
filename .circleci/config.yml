@@ -101,6 +101,11 @@ commands:
         description: "If set, does not trigger on `go.mod` / `go.sum` changes."
     steps:
       - run:
+          name: Install python3
+          command: |
+            sudo apt-get update
+            sudo apt-get install -y python3-pip
+      - run:
           name: "Check for changes"
           environment:
             CHECK_CHANGED_NO_GO_DEPS: "<<parameters.no_go_deps>>"
@@ -1342,12 +1347,12 @@ workflows:
           on_changes: cannon,packages/contracts-bedrock/src/cannon
           uses_artifacts: true
           requires: ["contracts-bedrock-build"]
-      # - fuzz-golang:
-      #     name: op-e2e-fuzz
-      #     package_name: op-e2e
-      #     on_changes: op-e2e,packages/contracts-bedrock/src
-      #     uses_artifacts: true
-      #     requires: ["contracts-bedrock-build"]
+      - fuzz-golang:
+          name: op-e2e-fuzz
+          package_name: op-e2e
+          on_changes: op-e2e,packages/contracts-bedrock/src
+          uses_artifacts: true
+          requires: ["contracts-bedrock-build"]
       - go-test:
           name: go-test-all
           requires:
