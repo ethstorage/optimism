@@ -845,6 +845,8 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
 	var isEOAPointer *bool
 	if l.RollupConfig.UseInboxContract() {
+		// RollupConfig.UseInboxContract() being true just means the batcher's transaction status matters,
+		// but the actual inbox may still be an EOA.
 		isEOAPointer = l.inboxIsEOA.Load()
 		if isEOAPointer == nil {
 			ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
