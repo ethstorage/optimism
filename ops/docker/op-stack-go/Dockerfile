@@ -110,6 +110,10 @@ ARG OP_NODE_VERSION=v0.0.0
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd op-chain-ops && make op-deployer  \
   GOOS=$TARGETOS GOARCH=$TARGETARCH GITCOMMIT=$GIT_COMMIT GITDATE=$GIT_DATE VERSION="$OP_DEPLOYER_VERSION"
 
+FROM --platform=$BUILDPLATFORM builder AS dac-server-builder
+ARG OP_NODE_VERSION=v0.0.0
+RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd da-server && go build -o da-server main.go
+
 FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS cannon-target
 COPY --from=cannon-builder /app/cannon/bin/cannon /usr/local/bin/
 COPY --from=cannon-builder /app/cannon/multicannon/embeds/* /usr/local/bin/
@@ -125,6 +129,8 @@ CMD ["op-wheel"]
 
 FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS op-node-target
 COPY --from=op-node-builder /app/op-node/bin/op-node /usr/local/bin/
+COPY --from=dac-server-builder /app/da-server/da-server /usr/local/bin/
+COPY --from=dac-server-builder /app/da-server/default.json /usr/local/bin/
 CMD ["op-node"]
 
 FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS op-challenger-target
