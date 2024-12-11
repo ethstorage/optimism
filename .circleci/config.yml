@@ -910,6 +910,11 @@ jobs:
       - attach_workspace:
           at: ./tmp/workspace
       - run:
+          name: Install components
+          command: |
+            go version
+            go install gotest.tools/gotestsum@v1.11.0
+      - run:
           name: Load devnet-allocs and artifacts
           command: |
             mkdir -p .devnet
@@ -1353,26 +1358,26 @@ workflows:
           test_directory: ./pkg/deployer/integration_test
           uses_artifacts: true
           requires: ["contracts-bedrock-build"]
-      # - go-e2e-test:
-      #     name: op-e2e-HTTP-tests
-      #     module: op-e2e
-      #     target: test-http
-      #     requires:
-      #       - contracts-bedrock-build
-      # - go-e2e-test:
-      #     name: op-e2e-action-tests
-      #     module: op-e2e
-      #     target: test-actions
-      #     requires:
-      #       - contracts-bedrock-build
-      # - go-e2e-test:
-      #     name: op-e2e-fault-proof-tests
-      #     module: op-e2e
-      #     target: test-fault-proofs
-      #     skip_slow_tests: true
-      #     requires:
-      #       - contracts-bedrock-build
-      #       - cannon-prestate
+      - go-e2e-test:
+          name: op-e2e-HTTP-tests
+          module: op-e2e
+          target: test-http
+          requires:
+            - contracts-bedrock-build
+      - go-e2e-test:
+          name: op-e2e-action-tests
+          module: op-e2e
+          target: test-actions
+          requires:
+            - contracts-bedrock-build
+      - go-e2e-test:
+          name: op-e2e-fault-proof-tests
+          module: op-e2e
+          target: test-fault-proofs
+          skip_slow_tests: true
+          requires:
+            - contracts-bedrock-build
+            - cannon-prestate
       # - op-program-compat
       # - bedrock-go-tests:
       #     requires:
