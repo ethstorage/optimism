@@ -140,16 +140,26 @@ type Config struct {
 	// AltDAConfig. We are in the process of migrating to the AltDAConfig from these legacy top level values
 	AltDAConfig *AltDAConfig `json:"alt_da,omitempty"`
 
-	L2BlobConfig *L2BlobConfig `json:"l2_blob_config,omitempty"`
+	L2BlobConfig        *L2BlobConfig        `json:"l2_blob_config,omitempty"`
+	InboxContractConfig *InboxContractConfig `json:"inbox_contract_config,omitempty"`
 }
 
 type L2BlobConfig struct {
 	L2BlobTime *uint64 `json:"l2BlobTime,omitempty"`
 }
 
+type InboxContractConfig struct {
+	UseInboxContract bool `json:"use_inbox_contract,omitempty"`
+}
+
 // IsL2Blob returns whether l2 blob is enabled
 func (cfg *Config) IsL2Blob(parentTime uint64) bool {
 	return cfg.IsL2BlobTimeSet() && *cfg.L2BlobConfig.L2BlobTime <= parentTime
+}
+
+// UseInboxContract returns whether inbox contract is enabled
+func (cfg *Config) UseInboxContract() bool {
+	return cfg.InboxContractConfig != nil && cfg.InboxContractConfig.UseInboxContract
 }
 
 // IsL2BlobTimeSet returns whether l2 blob activation time is set
