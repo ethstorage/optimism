@@ -310,9 +310,9 @@ contract L2Genesis is Deployer {
         );
         SoulGasToken token;
         if (cfg.isSoulBackedByNative()) {
-            token = new SoulGasToken({ isBackedByNative_: true });
+            token = new SoulGasToken({ _isBackedByNative: true });
         } else {
-            token = new SoulGasToken({ isBackedByNative_: false });
+            token = new SoulGasToken({ _isBackedByNative: false });
         }
         vm.etch(impl, address(token).code);
 
@@ -321,18 +321,18 @@ contract L2Genesis is Deployer {
         vm.resetNonce(address(token));
 
         if (cfg.isSoulBackedByNative()) {
-            SoulGasToken(impl).initialize({ name_: "", symbol_: "", owner_: cfg.proxyAdminOwner() });
+            SoulGasToken(impl).initialize({ _name: "", _symbol: "", _owner: cfg.proxyAdminOwner() });
             SoulGasToken(Predeploys.SOUL_GAS_TOKEN).initialize({
-                name_: "QKC",
-                symbol_: "QKC",
-                owner_: cfg.proxyAdminOwner()
+                _name: "QKC",
+                _symbol: "QKC",
+                _owner: cfg.proxyAdminOwner()
             });
         } else {
-            SoulGasToken(impl).initialize({ name_: "", symbol_: "", owner_: cfg.proxyAdminOwner() });
+            SoulGasToken(impl).initialize({ _name: "", _symbol: "", _owner: cfg.proxyAdminOwner() });
             SoulGasToken(Predeploys.SOUL_GAS_TOKEN).initialize({
-                name_: "QKC",
-                symbol_: "QKC",
-                owner_: cfg.proxyAdminOwner()
+                _name: "QKC",
+                _symbol: "QKC",
+                _owner: cfg.proxyAdminOwner()
             });
         }
     }

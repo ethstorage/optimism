@@ -17,6 +17,7 @@ func TestLoadABIs(t *testing.T) {
 		{"PreimageOracle", LoadPreimageOracleABI},
 		{"MIPS", LoadMIPSABI},
 		{"DelayedWETH", LoadDelayedWETHABI},
+		{"SoulGasToken", LoadSoulGasTokenABI},
 	}
 	for _, test := range tests {
 		test := test
