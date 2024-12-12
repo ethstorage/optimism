@@ -88,12 +88,28 @@ services:
     environment:
       GETH_MINER_RECOMMIT: 100ms
 
+  dac-server:
+    depends_on:
+      - l1
+      - l1-bn
+      - l1-vc
+    build:
+      context: ../
+      dockerfile: ops/docker/op-stack-go/Dockerfile
+      target: op-node-target
+    image: us-docker.pkg.dev/oplabs-tools-artifacts/images/op-node:devnet
+    ports:
+      - 8888:8888
+    command: >
+      da-server da start --config /usr/local/bin/default.json
+
   op-node:
     depends_on:
       - l1
       - l1-bn
       - l1-vc
       - l2
+      - dac-server
     build:
       context: ../
       dockerfile: ops/docker/op-stack-go/Dockerfile
@@ -129,7 +145,7 @@ services:
       --altda.enabled=${ALTDA_ENABLED}
       --altda.da-service=${ALTDA_SERVICE}
       --altda.da-server=http://da-server:3100
-      --dac.urls=
+      --dac.urls=http://dac-server:8888
     ports:
       - "7545:8545"
       - "9003:9003"

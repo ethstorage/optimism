@@ -843,27 +843,32 @@ func (l *BatchSubmitter) sendTransaction(txdata txData, queue *txmgr.Queue[txRef
 // sendTx uses the txmgr queue to send the given transaction candidate after setting its
 // gaslimit. It will block if the txmgr queue has reached its MaxPendingTransactions limit.
 func (l *BatchSubmitter) sendTx(txdata txData, isCancel bool, candidate *txmgr.TxCandidate, queue *txmgr.Queue[txRef], receiptsCh chan txmgr.TxReceipt[txRef]) {
-	isEOAPointer := l.inboxIsEOA.Load()
-	if isEOAPointer == nil {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
-		defer cancel()
-		var code []byte
-		code, err := l.L1Client.CodeAt(ctx, *candidate.To, nil)
-		if err != nil {
-			l.Log.Error("CodeAt failed, assuming code exists", "err", err)
-			// assume code exist, but don't persist the result
-			isEOA := false
-			isEOAPointer = &isEOA
-		} else {
-			isEOA := len(code) == 0
-			isEOAPointer = &isEOA
-			l.inboxIsEOA.Store(isEOAPointer)
+	var isEOAPointer *bool
+	if l.RollupConfig.UseInboxContract() {
+		// RollupConfig.UseInboxContract() being true just means the batcher's transaction status matters,
+		// but the actual inbox may still be an EOA.
+		isEOAPointer = l.inboxIsEOA.Load()
+		if isEOAPointer == nil {
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second*2)
+			defer cancel()
+			var code []byte
+			code, err := l.L1Client.CodeAt(ctx, *candidate.To, nil)
+			if err != nil {
+				l.Log.Error("CodeAt failed, assuming code exists", "err", err)
+				// assume code exist, but don't persist the result
+				isEOA := false
+				isEOAPointer = &isEOA
+			} else {
+				isEOA := len(code) == 0
+				isEOAPointer = &isEOA
+				l.inboxIsEOA.Store(isEOAPointer)
+			}
 		}
-
 	}
+
 	// Set GasLimit as intrinstic gas if the inbox is EOA, otherwise
 	// Leave GasLimit unset when inbox is contract so that later on `EstimateGas` will be called
-	if *isEOAPointer {
+	if !l.RollupConfig.UseInboxContract() || *isEOAPointer {
 		intrinsicGas, err := core.IntrinsicGas(candidate.TxData, nil, false, true, true, false)
 		if err != nil {
 			// we log instead of return an error here because txmgr can do its own gas estimation
@@ -906,7 +911,7 @@ func (l *BatchSubmitter) handleReceipt(r txmgr.TxReceipt[txRef]) {
 		l.recordFailedTx(r.ID.id, r.Err)
 	} else {
 		// check tx status
-		if r.Receipt.Status == types.ReceiptStatusFailed {
+		if l.RollupConfig.UseInboxContract() && r.Receipt.Status == types.ReceiptStatusFailed {
 			l.recordFailedTx(r.ID.id, ErrInboxTransactionFailed)
 			return
 		}
@@ -931,7 +936,9 @@ func (l *BatchSubmitter) recordFailedDARequest(id txID, err error) {
 }
 
 func (l *BatchSubmitter) recordFailedTx(id txID, err error) {
-	l.inboxIsEOA.Store(nil)
+	if l.RollupConfig.UseInboxContract() {
+		l.inboxIsEOA.Store(nil)
+	}
 	l.Log.Warn("Transaction failed to send", logFields(id, err)...)
 	l.state.TxFailed(id)
 }

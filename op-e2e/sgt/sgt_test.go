@@ -36,7 +36,7 @@ type BalanceCheck struct {
 	vaultBalanceDiff *big.Int
 }
 
-func TestDepositSGTBalance(t *testing.T) {
+func TestSGT(t *testing.T) {
 	op_e2e.InitParallel(t)
 	sys, _ := faultproofs.StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
@@ -45,19 +45,19 @@ func TestDepositSGTBalance(t *testing.T) {
 	sgt := NewSgtHelper(t, ctx, sys)
 
 	tests := []struct {
-		name              string
-		depositSgtValue   *big.Int
-		depositL2Value    *big.Int
-		txValue           *big.Int
-		expectedL2Balance *big.Int
-		expectedErr       error
-		action            func(ctx context.Context, t *testing.T, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) (*BalanceCheck, error)
+		name            string
+		depositSgtValue *big.Int
+		depositL2Value  *big.Int
+		txValue         *big.Int
+		expectedErr     error
+		action          func(ctx context.Context, t *testing.T, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) (*BalanceCheck, error)
 	}{
 		{
-			name:              "SGTDepositSuccess",
-			depositSgtValue:   big.NewInt(10000000000000),
-			expectedL2Balance: big.NewInt(0),
-			action:            sgtDeposit,
+			name:            "SGTDepositSuccess",
+			depositSgtValue: big.NewInt(10000000000000),
+			depositL2Value:  big.NewInt(0),
+			txValue:         big.NewInt(0),
+			action:          sgtDeposit,
 		},
 		{
 			name:            "NativaGasPaymentWithoutSGTSuccess",
@@ -67,20 +67,18 @@ func TestDepositSGTBalance(t *testing.T) {
 			action:          sgtTxSuccess,
 		},
 		{
-			name:              "SGTTxWithoutNativeBalanceSuccess",
-			depositSgtValue:   big.NewInt(10000000000000),
-			depositL2Value:    big.NewInt(0),
-			txValue:           big.NewInt(0),
-			expectedL2Balance: big.NewInt(0),
-			action:            sgtTxSuccess,
+			name:            "FullSGTGasPaymentWithoutNativeBalanceSuccess",
+			depositSgtValue: big.NewInt(10000000000000),
+			depositL2Value:  big.NewInt(0),
+			txValue:         big.NewInt(0),
+			action:          sgtTxSuccess,
 		},
 		{
-			name:              "FullSGTGasPaymentWithNativeBalanceSuccess",
-			depositSgtValue:   big.NewInt(10000000000000),
-			depositL2Value:    big.NewInt(10000000000000),
-			txValue:           big.NewInt(0),
-			expectedL2Balance: big.NewInt(10000000000000),
-			action:            sgtTxSuccess,
+			name:            "FullSGTGasPaymentWithNativeBalanceSuccess",
+			depositSgtValue: big.NewInt(10000000000000),
+			depositL2Value:  big.NewInt(10000000000000),
+			txValue:         big.NewInt(0),
+			action:          sgtTxSuccess,
 		},
 		{
 			name:            "PartialSGTGasPaymentSuccess",
@@ -90,12 +88,11 @@ func TestDepositSGTBalance(t *testing.T) {
 			action:          sgtTxSuccess,
 		},
 		{
-			name:              "FullSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess",
-			depositSgtValue:   big.NewInt(10000000000000),
-			depositL2Value:    big.NewInt(10000000000000),
-			txValue:           big.NewInt(10000),
-			expectedL2Balance: big.NewInt(10000000000000 - 10000),
-			action:            sgtTxSuccess,
+			name:            "FullSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess",
+			depositSgtValue: big.NewInt(10000000000000),
+			depositL2Value:  big.NewInt(10000000000000),
+			txValue:         big.NewInt(10000),
+			action:          sgtTxSuccess,
 		},
 		{
 			name:            "PartialSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess",
@@ -108,7 +105,15 @@ func TestDepositSGTBalance(t *testing.T) {
 			name:            "InsufficientGasPaymentFail",
 			depositSgtValue: big.NewInt(10000),
 			depositL2Value:  big.NewInt(10000),
-			txValue:         common.Big0,
+			txValue:         big.NewInt(0),
+			expectedErr:     errorInsufficientBalance,
+			action:          sgtTxFail,
+		},
+		{
+			name:            "FullSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail",
+			depositSgtValue: big.NewInt(10000000000000),
+			depositL2Value:  big.NewInt(10000),
+			txValue:         big.NewInt(10000000000000),
 			expectedErr:     errorInsufficientBalance,
 			action:          sgtTxFail,
 		},
@@ -125,19 +130,17 @@ func TestDepositSGTBalance(t *testing.T) {
 	for index, tCase := range tests {
 		t.Run(tCase.name, func(t *testing.T) {
 			b, err := tCase.action(ctx, t, int64(index), tCase.depositSgtValue, tCase.depositL2Value, tCase.txValue, sgt)
+			require.EqualValues(t, tCase.expectedErr, err)
 			if tCase.depositSgtValue.Cmp(b.gasCost) >= 0 {
-				require.EqualValues(t, tCase.expectedErr, err)
-				require.Equal(t, new(big.Int).Sub(tCase.depositSgtValue, b.gasCost).Cmp(b.sgtBalance), 0)
-				require.Equal(t, tCase.expectedL2Balance.Cmp(b.l2Balance), 0)
+				if tCase.depositL2Value.Cmp(tCase.txValue) >= 0 {
+					require.Equal(t, new(big.Int).Sub(tCase.depositSgtValue, b.gasCost).Cmp(b.sgtBalance), 0)
+					require.Equal(t, tCase.depositL2Value.Sub(tCase.depositL2Value, tCase.txValue).Cmp(b.l2Balance), 0)
+				}
 			} else {
 				balance := tCase.depositSgtValue.Add(tCase.depositSgtValue, tCase.depositL2Value)
 				if balance.Cmp(b.gasCost) >= 0 {
-					require.EqualValues(t, tCase.expectedErr, err)
 					require.Equal(t, int64(0), b.sgtBalance.Int64())
-
 					require.Equal(t, balance.Sub(balance, b.gasCost).Cmp(b.l2Balance.Add(b.l2Balance, tCase.txValue)), 0)
-				} else {
-					require.EqualValues(t, tCase.expectedErr, err)
 				}
 			}
 			if b.vaultBalanceDiff != nil {
@@ -170,10 +173,10 @@ func sgtDeposit(ctx context.Context, t *testing.T, index int64, sgtValue *big.In
 	l2Balance, err := sgt.L2Client.BalanceAt(ctx, addr, nil)
 	require.NoError(t, err)
 	if l2Balance == nil {
-		l2Balance = common.Big0
+		l2Balance = big.NewInt(0)
 	}
 
-	sgtGas := common.Big0
+	sgtGas := big.NewInt(0)
 	var vaultBalanceDiff *big.Int
 	return &BalanceCheck{
 		sgtBalance,

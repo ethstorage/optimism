@@ -662,6 +662,7 @@ type L2InitializationConfig struct {
 	L2CoreDeployConfig
 	AltDADeployConfig
 	SoulGasTokenConfig
+	InboxContractConfig
 }
 
 func (d *L2InitializationConfig) Check(log log.Logger) error {
@@ -843,6 +844,12 @@ type SoulGasTokenConfig struct {
 	IsSoulBackedByNative bool `json:"isSoulBackedByNative,omitempty"`
 }
 
+// InboxContractConfig configures whether inbox contract is enabled.
+// If enabled, the batcher tx will be further filtered by tx status.
+type InboxContractConfig struct {
+	UseInboxContract bool `json:"useInboxContract,omitempty"`
+}
+
 // DependencyContext is the contextual configuration needed to verify the L1 dependencies,
 // used by DeployConfig.CheckAddresses.
 type DependencyContext struct {
@@ -1011,6 +1018,10 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 			L2BlobTime: d.L2BlobTime(l1StartTime),
 		}
 	}
+	var inboxContractConfig *rollup.InboxContractConfig
+	if d.UseInboxContract {
+		inboxContractConfig = &rollup.InboxContractConfig{UseInboxContract: true}
+	}
 
 	return &rollup.Config{
 		Genesis: rollup.Genesis{
@@ -1050,6 +1061,7 @@ func (d *DeployConfig) RollupConfig(l1StartBlock *types.Header, l2GenesisBlockHa
 		ProtocolVersionsAddress: d.ProtocolVersionsProxy,
 		AltDAConfig:             altDA,
 		L2BlobConfig:            l2BlobConfig,
+		InboxContractConfig:     inboxContractConfig,
 	}, nil
 }
 

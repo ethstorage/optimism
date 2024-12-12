@@ -73,8 +73,12 @@ func (ds *BlobDataSource) Next(ctx context.Context) (eth.Data, error) {
 	return data, nil
 }
 
-// getTxSucceed returns a non-nil map which contains all successful tx hashes to batch inbox
-func getTxSucceed(ctx context.Context, fetcher L1Fetcher, hash common.Hash, txs types.Transactions) (successTxs types.Transactions, err error) {
+// getTxSucceed returns all successful txs
+func getTxSucceed(ctx context.Context, useInboxContract bool, fetcher L1Fetcher, hash common.Hash, txs types.Transactions) (successTxs types.Transactions, err error) {
+	if !useInboxContract {
+		// if !useInboxContract, all txs are considered successful
+		return txs, nil
+	}
 	_, receipts, err := fetcher.FetchReceipts(ctx, hash)
 	if err != nil {
 		return nil, NewTemporaryError(fmt.Errorf("failed to fetch L1 block info and receipts: %w", err))
@@ -107,7 +111,7 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		}
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
-	txs, err = getTxSucceed(ctx, ds.fetcher, ds.ref.Hash, txs)
+	txs, err = getTxSucceed(ctx, ds.dsCfg.useInboxContract, ds.fetcher, ds.ref.Hash, txs)
 	if err != nil {
 		return nil, err
 	}
