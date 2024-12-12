@@ -158,10 +158,10 @@ library Predeploys {
             || _addr == SEQUENCER_FEE_WALLET || _addr == OPTIMISM_MINTABLE_ERC20_FACTORY || _addr == L1_BLOCK_NUMBER
             || _addr == L2_ERC721_BRIDGE || _addr == L1_BLOCK_ATTRIBUTES || _addr == L2_TO_L1_MESSAGE_PASSER
             || _addr == OPTIMISM_MINTABLE_ERC721_FACTORY || _addr == PROXY_ADMIN || _addr == BASE_FEE_VAULT
-            || _addr == L1_FEE_VAULT || _addr == SCHEMA_REGISTRY || _addr == EAS || _addr == GOVERNANCE_TOKEN || _addr == SOUL_GAS_TOKEN
-            || (_useInterop && _addr == CROSS_L2_INBOX) || (_useInterop && _addr == L2_TO_L2_CROSS_DOMAIN_MESSENGER)
-            || (_useInterop && _addr == SUPERCHAIN_WETH) || (_useInterop && _addr == ETH_LIQUIDITY)
-            || (_useInterop && _addr == OPTIMISM_SUPERCHAIN_ERC20_FACTORY)
+            || _addr == L1_FEE_VAULT || _addr == SCHEMA_REGISTRY || _addr == EAS || _addr == GOVERNANCE_TOKEN
+            || _addr == SOUL_GAS_TOKEN || (_useInterop && _addr == CROSS_L2_INBOX)
+            || (_useInterop && _addr == L2_TO_L2_CROSS_DOMAIN_MESSENGER) || (_useInterop && _addr == SUPERCHAIN_WETH)
+            || (_useInterop && _addr == ETH_LIQUIDITY) || (_useInterop && _addr == OPTIMISM_SUPERCHAIN_ERC20_FACTORY)
             || (_useInterop && _addr == OPTIMISM_SUPERCHAIN_ERC20_BEACON)
             || (_useInterop && _addr == SUPERCHAIN_TOKEN_BRIDGE);
     }
