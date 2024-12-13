@@ -7,12 +7,10 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
-	"time"
 
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/faultproofs"
-	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
 	"github.com/ethereum-optimism/optimism/op-service/predeploys"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 
@@ -24,279 +22,363 @@ import (
 )
 
 var (
-	vaultAddr                = predeploys.SequencerFeeVaultAddr
+	seqVault                 = predeploys.SequencerFeeVaultAddr
+	baseVault                = predeploys.BaseFeeVaultAddr
+	l1Vault                  = predeploys.L1FeeVault
 	dummyAddr                = common.Address{0xff, 0xff}
 	errorInsufficientBalance = errors.New("insufficientBalance")
 )
 
-type BalanceCheck struct {
-	sgtBalance       *big.Int
-	gasCost          *big.Int
-	l2Balance        *big.Int
-	vaultBalanceDiff *big.Int
-}
-
-func TestSGT(t *testing.T) {
+func TestSGTDepositFunctionSuccess(t *testing.T) {
 	op_e2e.InitParallel(t)
 	sys, _ := faultproofs.StartFaultDisputeSystem(t)
 	t.Cleanup(sys.Close)
 	ctx := context.Background()
 
 	sgt := NewSgtHelper(t, ctx, sys)
+	depositSgtValue := big.NewInt(10000)
+	_, _ = setUpTestAccount(t, ctx, 0, sgt, depositSgtValue, big.NewInt(0))
+}
 
+// Diverse test scenarios to verify that the SoulGasToken(sgt) is utilized for gas payment firstly,
+// unless there is insufficient sgt balance, in which case the native balance will be used instead.
+func TestSGTAsGasPayment(t *testing.T) {
+	op_e2e.InitParallel(t)
+	sys, _ := faultproofs.StartFaultDisputeSystem(t)
+	t.Cleanup(sys.Close)
+	ctx := context.Background()
+
+	sgt := NewSgtHelper(t, ctx, sys)
+	// 1. setup a test account and deposit specified amount of sgt tokens (`depositSgtValue``) and native tokens (`depositL2Value``) into it.
+	// 2. execute a token transfer tx to `dummyAddr` and validate that the gas payment behavior using sgt is as anticipated.
 	tests := []struct {
 		name            string
 		depositSgtValue *big.Int
 		depositL2Value  *big.Int
 		txValue         *big.Int
 		expectedErr     error
-		action          func(ctx context.Context, t *testing.T, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) (*BalanceCheck, error)
+		action          func(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper)
 	}{
-		{
-			name:            "SGTDepositSuccess",
-			depositSgtValue: big.NewInt(10000000000000),
-			depositL2Value:  big.NewInt(0),
-			txValue:         big.NewInt(0),
-			action:          sgtDeposit,
-		},
 		{
 			name:            "NativaGasPaymentWithoutSGTSuccess",
 			depositSgtValue: big.NewInt(0),
 			depositL2Value:  big.NewInt(10000000000000),
 			txValue:         big.NewInt(0),
-			action:          sgtTxSuccess,
+			action:          nativaGasPaymentWithoutSGTSuccess,
 		},
 		{
 			name:            "FullSGTGasPaymentWithoutNativeBalanceSuccess",
 			depositSgtValue: big.NewInt(10000000000000),
 			depositL2Value:  big.NewInt(0),
 			txValue:         big.NewInt(0),
-			action:          sgtTxSuccess,
+			action:          fullSGTGasPaymentWithoutNativeBalanceSuccess,
 		},
 		{
 			name:            "FullSGTGasPaymentWithNativeBalanceSuccess",
 			depositSgtValue: big.NewInt(10000000000000),
 			depositL2Value:  big.NewInt(10000000000000),
 			txValue:         big.NewInt(0),
-			action:          sgtTxSuccess,
+			action:          fullSGTGasPaymentWithNativeBalanceSuccess,
 		},
 		{
 			name:            "PartialSGTGasPaymentSuccess",
 			depositSgtValue: big.NewInt(1000),
 			depositL2Value:  big.NewInt(10000000000000),
 			txValue:         big.NewInt(0),
-			action:          sgtTxSuccess,
+			action:          partialSGTGasPaymentSuccess,
 		},
 		{
 			name:            "FullSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess",
 			depositSgtValue: big.NewInt(10000000000000),
 			depositL2Value:  big.NewInt(10000000000000),
 			txValue:         big.NewInt(10000),
-			action:          sgtTxSuccess,
+			action:          fullSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess,
 		},
 		{
 			name:            "PartialSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess",
 			depositSgtValue: big.NewInt(1000),
 			depositL2Value:  big.NewInt(10000000000000),
 			txValue:         big.NewInt(10000),
-			action:          sgtTxSuccess,
+			action:          partialSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess,
 		},
 		{
-			name:            "InsufficientGasPaymentFail",
+			name:            "FullSGTInsufficientGasPaymentFail",
+			depositSgtValue: big.NewInt(10000),
+			depositL2Value:  big.NewInt(0),
+			txValue:         big.NewInt(0),
+			expectedErr:     errorInsufficientBalance,
+			action:          fullSGTInsufficientGasPaymentFail,
+		},
+		{
+			name:            "FullNativeInsufficientGasPaymentFail",
+			depositSgtValue: big.NewInt(0),
+			depositL2Value:  big.NewInt(10000),
+			txValue:         big.NewInt(0),
+			expectedErr:     errorInsufficientBalance,
+			action:          fullNativeInsufficientGasPaymentFail,
+		},
+		{
+			name:            "PartialSGTInsufficientGasPaymentFail",
 			depositSgtValue: big.NewInt(10000),
 			depositL2Value:  big.NewInt(10000),
 			txValue:         big.NewInt(0),
 			expectedErr:     errorInsufficientBalance,
-			action:          sgtTxFail,
+			action:          partialSGTInsufficientGasPaymentFail,
 		},
 		{
 			name:            "FullSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail",
 			depositSgtValue: big.NewInt(10000000000000),
 			depositL2Value:  big.NewInt(10000),
-			txValue:         big.NewInt(10000000000000),
+			txValue:         big.NewInt(10001),
 			expectedErr:     errorInsufficientBalance,
-			action:          sgtTxFail,
+			action:          fullSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail,
 		},
 		{
 			name:            "PartialSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail",
 			depositSgtValue: big.NewInt(10000),
-			depositL2Value:  big.NewInt(10000),
-			txValue:         big.NewInt(10000000000000),
+			depositL2Value:  big.NewInt(10000000000000),
+			txValue:         big.NewInt(10000000000000 - 10000),
 			expectedErr:     errorInsufficientBalance,
-			action:          sgtTxFail,
+			action:          partialSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail,
 		},
 	}
 
 	for index, tCase := range tests {
 		t.Run(tCase.name, func(t *testing.T) {
-			b, err := tCase.action(ctx, t, int64(index), tCase.depositSgtValue, tCase.depositL2Value, tCase.txValue, sgt)
-			require.EqualValues(t, tCase.expectedErr, err)
-			if tCase.depositSgtValue.Cmp(b.gasCost) >= 0 {
-				if tCase.depositL2Value.Cmp(tCase.txValue) >= 0 {
-					require.Equal(t, new(big.Int).Sub(tCase.depositSgtValue, b.gasCost).Cmp(b.sgtBalance), 0)
-					require.Equal(t, tCase.depositL2Value.Sub(tCase.depositL2Value, tCase.txValue).Cmp(b.l2Balance), 0)
-				}
-			} else {
-				balance := tCase.depositSgtValue.Add(tCase.depositSgtValue, tCase.depositL2Value)
-				if balance.Cmp(b.gasCost) >= 0 {
-					require.Equal(t, int64(0), b.sgtBalance.Int64())
-					require.Equal(t, balance.Sub(balance, b.gasCost).Cmp(b.l2Balance.Add(b.l2Balance, tCase.txValue)), 0)
-				}
-			}
-			if b.vaultBalanceDiff != nil {
-				// todo: how to check vault's balance diff
-			}
+			tCase.action(t, ctx, int64(index), tCase.depositSgtValue, tCase.depositL2Value, tCase.txValue, sgt)
 		})
 	}
-
 }
 
-func sgtDeposit(ctx context.Context, t *testing.T, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) (*BalanceCheck, error) {
+func setUpTestAccount(t *testing.T, ctx context.Context, index int64, sgt *SgtHelper, depositSgtValue *big.Int, depositL2Value *big.Int) (*ecdsa.PrivateKey, common.Address) {
 	opts := &bind.CallOpts{Context: ctx}
 	rng := rand.New(rand.NewSource(index))
 	testPrivKey := testutils.InsecureRandomKey(rng)
-	addr := crypto.PubkeyToAddress(testPrivKey.PublicKey)
-	sgtBalance, err := sgt.SgtContract.BalanceOf(opts, addr)
-	require.NoError(t, err)
-	require.Equal(t, sgtBalance.Cmp(common.Big0), 0)
-
-	privKey := sgt.GetTestAccount(0)
-	txOpts, err := bind.NewKeyedTransactorWithChainID(privKey, sgt.ChainID)
-	txOpts.Value = sgtValue
-	tx, err := sgt.SgtContract.BatchDepositForAll(txOpts, []common.Address{addr}, sgtValue)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
-	require.NoError(t, err)
-
-	sgtBalance, err = sgt.SgtContract.BalanceOf(opts, addr)
-	require.NoError(t, err)
-	l2Balance, err := sgt.L2Client.BalanceAt(ctx, addr, nil)
-	require.NoError(t, err)
-	if l2Balance == nil {
-		l2Balance = big.NewInt(0)
-	}
-
-	sgtGas := big.NewInt(0)
-	var vaultBalanceDiff *big.Int
-	return &BalanceCheck{
-		sgtBalance,
-		sgtGas,
-		l2Balance,
-		vaultBalanceDiff,
-	}, nil
-}
-
-func sgtTxSuccess(ctx context.Context, t *testing.T, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) (*BalanceCheck, error) {
-	opts := &bind.CallOpts{Context: ctx}
-	rng := rand.New(rand.NewSource(index))
-	testPrivKey := testutils.InsecureRandomKey(rng)
-	addr := crypto.PubkeyToAddress(testPrivKey.PublicKey)
+	testAddr := crypto.PubkeyToAddress(testPrivKey.PublicKey)
 
 	// check it's a fresh account
-	sgtBalance, err := sgt.SgtContract.BalanceOf(opts, addr)
+	sgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), sgtBalance.Int64())
-	l2Balance, err := sgt.L2Client.BalanceAt(ctx, addr, nil)
+	l2Balance, err := sgt.L2Client.BalanceAt(ctx, testAddr, nil)
 	require.NoError(t, err)
 	require.Equal(t, int64(0), l2Balance.Int64())
-	// deposit sgt and send native balance first
-	privKey := sgt.GetTestAccount(0)
-	txOpts, err := bind.NewKeyedTransactorWithChainID(privKey, sgt.ChainID)
-	require.NoError(t, err)
-	txOpts.Value = sgtValue
-	tx, err := sgt.SgtContract.BatchDepositForAll(txOpts, []common.Address{addr}, sgtValue)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
-	require.NoError(t, err)
-	transferNativeToken(t, ctx, sgt, privKey, addr, l2Value)
 
-	vaultBalanceBefore, err := sgt.L2Client.BalanceAt(ctx, vaultAddr, nil)
-	// send tx with sgt as gas
-	sgtGas := transferNativeToken(t, ctx, sgt, testPrivKey, dummyAddr, txValue)
-
-	vaultBalanceAfter, err := sgt.L2Client.BalanceAt(ctx, vaultAddr, nil)
-	vaultBalanceDiff := vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore)
-	sgtBalance, err = sgt.SgtContract.BalanceOf(opts, addr)
+	// deposit initial sgt and native(L2) balance to the test account
+	sgt.depositSgtAndNativeFromGenesisAccountToAccount(t, ctx, testAddr, depositSgtValue, depositL2Value)
+	// ensure that sgt and native balance of testAccount are correctly initialized
+	preSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
 	require.NoError(t, err)
-
-	l2Balance, err = sgt.L2Client.BalanceAt(ctx, addr, nil)
+	require.Equal(t, depositSgtValue.Cmp(preSgtBalance), 0)
+	preL2Balance, err := sgt.L2Client.BalanceAt(ctx, testAddr, nil)
 	require.NoError(t, err)
-
-	if l2Balance == nil {
-		l2Balance = big.NewInt(0)
-	}
-
-	return &BalanceCheck{
-		sgtBalance,
-		sgtGas,
-		l2Balance,
-		vaultBalanceDiff,
-	}, nil
+	require.Equal(t, depositL2Value.Cmp(preL2Balance), 0)
+	return testPrivKey, testAddr
 }
 
-func sgtTxFail(ctx context.Context, t *testing.T, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) (*BalanceCheck, error) {
+// balance invariant check: preTotalBalance = postTotalBalance + gasCost + txValue
+func invariantBalanceCheck(t *testing.T, ctx context.Context, sgt *SgtHelper, addr common.Address, gasCost *big.Int, txValue *big.Int, preSgtBalance *big.Int, preL2Balance *big.Int, postSgtBalance *big.Int) {
+	postL2Balance, err := sgt.L2Client.BalanceAt(ctx, addr, nil)
+	require.NoError(t, err)
+	preBalance := preSgtBalance.Add(preSgtBalance, preL2Balance)
+	postBalance := postSgtBalance.Add(postSgtBalance, gasCost)
+	postBalance = postBalance.Add(postBalance, txValue)
+	postBalance = postBalance.Add(postBalance, postL2Balance)
+	require.Equal(t, 0, preBalance.Cmp(postBalance))
+}
+
+func nativaGasPaymentWithoutSGTSuccess(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that sgt balance is 0
+	require.Equal(t, common.Big0.Cmp(sgtValue), 0)
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, testAddr := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.NoError(t, err)
+	receipt, err := wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
+	require.NoError(t, err)
+	gasCost := calcGasFee(receipt)
+
+	// post sgt balance check: it should be 0
 	opts := &bind.CallOpts{Context: ctx}
-	rng := rand.New(rand.NewSource(index))
-	testPrivKey := testutils.InsecureRandomKey(rng)
-	addr := crypto.PubkeyToAddress(testPrivKey.PublicKey)
-
-	// check it's a fresh account
-	sgtBalance, err := sgt.SgtContract.BalanceOf(opts, addr)
+	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
 	require.NoError(t, err)
-	require.Equal(t, int64(0), sgtBalance.Int64())
-	l2Balance, err := sgt.L2Client.BalanceAt(ctx, addr, nil)
-	require.NoError(t, err)
-	require.Equal(t, common.Big0.Cmp(l2Balance), 0)
-	// deposit sgt and send native balance first
-	privKey := sgt.GetTestAccount(0)
-	txOpts, err := bind.NewKeyedTransactorWithChainID(privKey, sgt.ChainID)
-	txOpts.Value = sgtValue
-	depositTx, err := sgt.SgtContract.BatchDepositForAll(txOpts, []common.Address{addr}, sgtValue)
-	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, sgt.L2Client, depositTx.Hash())
-	require.NoError(t, err)
-	transferNativeToken(t, ctx, sgt, privKey, addr, l2Value)
-
-	// send tx with sgt as gas
-	chainID, err := sgt.L2Client.ChainID(ctx)
-	require.NoError(t, err)
-	gasFeeCap := big.NewInt(200)
-	gasTipCap := big.NewInt(10)
-	tx := types.MustSignNewTx(testPrivKey, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
-		ChainID:   chainID,
-		Nonce:     0, // Already have deposit
-		To:        &dummyAddr,
-		Value:     txValue,
-		GasTipCap: gasTipCap,
-		GasFeeCap: gasFeeCap,
-		Gas:       21000,
-	})
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	err = sgt.L2Client.SendTransaction(ctx, tx)
-	if err != nil {
-		err = errorInsufficientBalance
-	}
-	// tx.GasCost() doesn't include the L1 fee, but it's large enough for this test case
-	return &BalanceCheck{gasCost: tx.GasCost()}, err
+	require.Equal(t, common.Big0.Cmp(postSgtBalance), 0)
+	// balance invariant check
+	invariantBalanceCheck(t, ctx, sgt, testAddr, gasCost, txValue, sgtValue, l2Value, postSgtBalance)
 }
 
-func transferNativeToken(t *testing.T, ctx context.Context, sys *SgtHelper, sender *ecdsa.PrivateKey, toAddr common.Address, amount *big.Int) *big.Int {
-	l2Seq := sys.L2Client
-	gasTip := big.NewInt(10)
-	receipt := helpers.SendL2Tx(t, sys.SysCfg, l2Seq, sender, func(opts *helpers.TxOpts) {
-		opts.ToAddr = &toAddr
-		opts.Value = amount
-		opts.GasTipCap = gasTip
-		opts.Gas = 21000
-		opts.GasFeeCap = big.NewInt(200)
-		nonce, err := l2Seq.NonceAt(ctx, crypto.PubkeyToAddress(sender.PublicKey), nil)
-		require.NoError(t, err)
-		opts.Nonce = nonce
-	})
+func fullSGTGasPaymentWithoutNativeBalanceSuccess(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is 0
+	require.Equal(t, common.Big0.Cmp(l2Value), 0)
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, testAddr := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
 
-	require.Equal(t, receipt.Status, types.ReceiptStatusSuccessful)
-	return calcGasFee(receipt)
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.NoError(t, err)
+	receipt, err := wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
+	require.NoError(t, err)
+	gasCost := calcGasFee(receipt)
+
+	// post sgt balance check: sgt should be used as gas first
+	opts := &bind.CallOpts{Context: ctx}
+	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
+	require.NoError(t, err)
+	require.Equal(t, new(big.Int).Add(postSgtBalance, gasCost).Cmp(sgtValue), 0)
+	// balance invariant check
+	invariantBalanceCheck(t, ctx, sgt, testAddr, gasCost, txValue, sgtValue, l2Value, postSgtBalance)
+}
+
+func fullSGTGasPaymentWithNativeBalanceSuccess(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is positive
+	require.Equal(t, common.Big0.Cmp(l2Value), -1)
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, testAddr := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.NoError(t, err)
+	receipt, err := wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
+	require.NoError(t, err)
+	gasCost := calcGasFee(receipt)
+
+	// post sgt balance check: sgt should be used as gas first
+	opts := &bind.CallOpts{Context: ctx}
+	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
+	require.NoError(t, err)
+	require.Equal(t, new(big.Int).Add(postSgtBalance, gasCost).Cmp(sgtValue), 0)
+	// balance invariant check
+	invariantBalanceCheck(t, ctx, sgt, testAddr, gasCost, txValue, sgtValue, l2Value, postSgtBalance)
+}
+
+func partialSGTGasPaymentSuccess(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is positive
+	require.Equal(t, common.Big0.Cmp(l2Value), -1)
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, testAddr := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.NoError(t, err)
+	receipt, err := wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
+	require.NoError(t, err)
+	gasCost := calcGasFee(receipt)
+
+	// post sgt balance check: sgt should be used as gas first and should be spent all
+	opts := &bind.CallOpts{Context: ctx}
+	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
+	require.NoError(t, err)
+	require.Equal(t, common.Big0.Cmp(postSgtBalance), 0)
+	// balance invariant check
+	invariantBalanceCheck(t, ctx, sgt, testAddr, gasCost, txValue, sgtValue, l2Value, postSgtBalance)
+}
+
+func fullSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is positive
+	require.Equal(t, common.Big0.Cmp(l2Value), -1)
+	// ensure that txValue is positive
+	require.Equal(t, common.Big0.Cmp(txValue), -1)
+	testAccount, testAddr := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.NoError(t, err)
+	receipt, err := wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
+	require.NoError(t, err)
+	gasCost := calcGasFee(receipt)
+
+	// post sgt balance check: sgt should be used as gas first
+	opts := &bind.CallOpts{Context: ctx}
+	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
+	require.NoError(t, err)
+	require.Equal(t, new(big.Int).Add(postSgtBalance, gasCost).Cmp(sgtValue), 0)
+	// balance invariant check
+	invariantBalanceCheck(t, ctx, sgt, testAddr, gasCost, txValue, sgtValue, l2Value, postSgtBalance)
+}
+
+func partialSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is positive
+	require.Equal(t, common.Big0.Cmp(l2Value), -1)
+	// ensure that txValue is positive
+	require.Equal(t, common.Big0.Cmp(txValue), -1)
+	testAccount, testAddr := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.NoError(t, err)
+	receipt, err := wait.ForReceiptOK(ctx, sgt.L2Client, tx.Hash())
+	require.NoError(t, err)
+	gasCost := calcGasFee(receipt)
+
+	// post sgt balance check: sgt should be used as gas first and should be spent all
+	opts := &bind.CallOpts{Context: ctx}
+	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
+	require.NoError(t, err)
+	require.Equal(t, common.Big0.Cmp(postSgtBalance), 0)
+	// balance invariant check
+	invariantBalanceCheck(t, ctx, sgt, testAddr, gasCost, txValue, sgtValue, l2Value, postSgtBalance)
+}
+
+func fullSGTInsufficientGasPaymentFail(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is 0
+	require.Equal(t, common.Big0.Cmp(l2Value), 0)
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, _ := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	_, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.Error(t, err)
+}
+
+func fullNativeInsufficientGasPaymentFail(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that sgt balance is 0
+	require.Equal(t, common.Big0.Cmp(sgtValue), 0)
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, _ := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	_, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.Error(t, err)
+}
+
+func partialSGTInsufficientGasPaymentFail(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that txValue is 0
+	require.Equal(t, common.Big0.Cmp(txValue), 0)
+	testAccount, _ := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	_, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	require.Error(t, err)
+}
+
+func fullSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	// ensure that native balance is less than txValue
+	require.Equal(t, l2Value.Cmp(txValue), -1)
+	testAccount, _ := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	// ensure sgt balance is large enough to cover the gas cost
+	require.Equal(t, sgtValue.Cmp(tx.GasCost()), 1)
+	require.Error(t, err)
+}
+
+func partialSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail(t *testing.T, ctx context.Context, index int64, sgtValue *big.Int, l2Value *big.Int, txValue *big.Int, sgt *SgtHelper) {
+	testAccount, _ := setUpTestAccount(t, ctx, index, sgt, sgtValue, l2Value)
+
+	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
+	tx, err := sgt.transferNativeToken(t, ctx, testAccount, dummyAddr, txValue)
+	// ensure native balance is large enough to cover the gas cost
+	require.Equal(t, l2Value.Cmp(tx.GasCost()), 1)
+	require.Error(t, err)
 }
 
 func calcGasFee(receipt *types.Receipt) *big.Int {
