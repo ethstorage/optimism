@@ -1370,7 +1370,7 @@ func TestSoulGasToken(t *testing.T) {
 
 		signer := types.LatestSigner(opGeth.L2ChainConfig)
 
-		// send 0.1 eth to alice
+		// send 1 wei to alice
 		tx := types.MustSignNewTx(targetPK, signer, &types.DynamicFeeTx{
 			ChainID:   big.NewInt(int64(cfg.DeployConfig.L2ChainID)),
 			Nonce:     1,
@@ -1378,7 +1378,7 @@ func TestSoulGasToken(t *testing.T) {
 			GasFeeCap: big.NewInt(100000),
 			Gas:       1_000_001,
 			To:        &cfg.Secrets.Addresses().Alice,
-			Value:     big.NewInt(params.Ether * 0.1),
+			Value:     big.NewInt(params.Wei),
 			Data:      nil,
 		})
 		_, err = opGeth.AddL2Block(ctx, tx)
