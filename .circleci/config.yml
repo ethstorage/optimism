@@ -43,6 +43,7 @@ parameters:
     default: false
 
 orbs:
+  python: circleci/python@3.0.0
   go: circleci/go@1.8.0
   gcp-cli: circleci/gcp-cli@3.0.1
   slack: circleci/slack@4.10.1
@@ -100,11 +101,6 @@ commands:
         default: ""
         description: "If set, does not trigger on `go.mod` / `go.sum` changes."
     steps:
-      - run:
-          name: Install python3
-          command: |
-            apt-get update
-            apt-get install -y python3-pip
       - run:
           name: "Check for changes"
           environment:
