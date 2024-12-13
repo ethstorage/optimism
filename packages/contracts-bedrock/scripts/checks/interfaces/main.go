@@ -30,7 +30,7 @@ var excludeContracts = []string{
 
 	"IInitializable", "IOptimismMintableERC20", "ILegacyMintableERC20",
 	"KontrolCheatsBase", "ISystemConfigInterop", "IResolvedDelegateProxy",
-	"IERC20Upgradeable",
+	"IERC20Upgradeable", "SoulGasToken",
 }
 
 type ContractDefinition struct {
@@ -165,6 +165,7 @@ func processArtifact(contractName, artifactPath, artifactsDir string, fail func(
 	if err != nil {
 		return fmt.Errorf("failed to read corresponding contract artifact: %w", err)
 	}
+	// fmt.Println("interface", artifactPath, "correspondingContractFile", correspondingContractFile)
 
 	interfaceABI := artifact.ABI
 	contractABI := contractArtifact.ABI
