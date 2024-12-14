@@ -137,8 +137,8 @@ func setUpTestAccount(t *testing.T, ctx context.Context, index int64, sgt *SgtHe
 func invariantBalanceCheck(t *testing.T, ctx context.Context, sgt *SgtHelper, addr common.Address, gasCost *big.Int, txValue *big.Int, preSgtBalance *big.Int, preL2Balance *big.Int, postSgtBalance *big.Int) {
 	postL2Balance, err := sgt.L2Client.BalanceAt(ctx, addr, nil)
 	require.NoError(t, err)
-	preBalance := preSgtBalance.Add(preSgtBalance, preL2Balance)
-	postBalance := postSgtBalance.Add(postSgtBalance, gasCost)
+	preBalance := new(big.Int).Add(preSgtBalance, preL2Balance)
+	postBalance := new(big.Int).Add(postSgtBalance, gasCost)
 	postBalance = postBalance.Add(postBalance, txValue)
 	postBalance = postBalance.Add(postBalance, postL2Balance)
 	require.Equal(t, 0, preBalance.Cmp(postBalance))
@@ -146,6 +146,7 @@ func invariantBalanceCheck(t *testing.T, ctx context.Context, sgt *SgtHelper, ad
 
 func nativaGasPaymentWithoutSGTSuccess(t *testing.T, ctx context.Context, index int64, sgt *SgtHelper) {
 	depositSgtValue := big.NewInt(0)
+	// 10000000000000 is a random chosen value that is far bigger than the gas cos (~1225000231000) of the following `transferNativeToken` tx
 	depositL2Value := big.NewInt(10000000000000)
 	txValue := big.NewInt(0)
 	testAccount, testAddr, vaultBalanceBefore := setUpTestAccount(t, ctx, index, sgt, depositSgtValue, depositL2Value)
@@ -159,7 +160,7 @@ func nativaGasPaymentWithoutSGTSuccess(t *testing.T, ctx context.Context, index 
 	vaultBalanceAfter := calcVaultBalance(t, ctx, sgt)
 
 	// gasCost == vaultBalanceDiff check
-	require.Equal(t, vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
+	require.Equal(t, new(big.Int).Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
 	// post sgt balance check: it should be 0
 	opts := &bind.CallOpts{Context: ctx}
 	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
@@ -184,7 +185,7 @@ func fullSGTGasPaymentWithoutNativeBalanceSuccess(t *testing.T, ctx context.Cont
 	vaultBalanceAfter := calcVaultBalance(t, ctx, sgt)
 
 	// gasCost == vaultBalanceDiff check
-	require.Equal(t, vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
+	require.Equal(t, new(big.Int).Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
 	// post sgt balance check: sgt should be used as gas first
 	opts := &bind.CallOpts{Context: ctx}
 	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
@@ -209,7 +210,7 @@ func fullSGTGasPaymentWithNativeBalanceSuccess(t *testing.T, ctx context.Context
 	vaultBalanceAfter := calcVaultBalance(t, ctx, sgt)
 
 	// gasCost == vaultBalanceDiff check
-	require.Equal(t, vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
+	require.Equal(t, new(big.Int).Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
 	// post sgt balance check: sgt should be used as gas first
 	opts := &bind.CallOpts{Context: ctx}
 	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
@@ -220,6 +221,7 @@ func fullSGTGasPaymentWithNativeBalanceSuccess(t *testing.T, ctx context.Context
 }
 
 func partialSGTGasPaymentSuccess(t *testing.T, ctx context.Context, index int64, sgt *SgtHelper) {
+	// 1000 is a random chosen value that is far less than the gas cos (~1225000231000) of the following `transferNativeToken` tx
 	depositSgtValue := big.NewInt(1000)
 	depositL2Value := big.NewInt(10000000000000)
 	txValue := big.NewInt(0)
@@ -234,7 +236,7 @@ func partialSGTGasPaymentSuccess(t *testing.T, ctx context.Context, index int64,
 	vaultBalanceAfter := calcVaultBalance(t, ctx, sgt)
 
 	// gasCost == vaultBalanceDiff check
-	require.Equal(t, vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
+	require.Equal(t, new(big.Int).Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
 	// post sgt balance check: sgt should be used as gas first and should be spent all
 	opts := &bind.CallOpts{Context: ctx}
 	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
@@ -259,7 +261,7 @@ func fullSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess(t *tes
 	vaultBalanceAfter := calcVaultBalance(t, ctx, sgt)
 
 	// gasCost == vaultBalanceDiff check
-	require.Equal(t, vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
+	require.Equal(t, new(big.Int).Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
 	// post sgt balance check: sgt should be used as gas first
 	opts := &bind.CallOpts{Context: ctx}
 	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
@@ -284,7 +286,7 @@ func partialSGTGasPaymentAndNonZeroTxValueWithSufficientNativeBalanceSuccess(t *
 	vaultBalanceAfter := calcVaultBalance(t, ctx, sgt)
 
 	// gasCost == vaultBalanceDiff check
-	require.Equal(t, vaultBalanceAfter.Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
+	require.Equal(t, new(big.Int).Sub(vaultBalanceAfter, vaultBalanceBefore).Cmp(gasCost), 0)
 	// post sgt balance check: sgt should be used as gas first and should be spent all
 	opts := &bind.CallOpts{Context: ctx}
 	postSgtBalance, err := sgt.SgtContract.BalanceOf(opts, testAddr)
@@ -341,7 +343,7 @@ func fullSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail(t *test
 func partialSGTGasPaymentAndNonZeroTxValueWithInsufficientNativeBalanceFail(t *testing.T, ctx context.Context, index int64, sgt *SgtHelper) {
 	depositSgtValue := big.NewInt(10000)
 	depositL2Value := big.NewInt(10000000000000)
-	txValue := big.NewInt(10000000000000 - 10000)
+	txValue := new(big.Int).Sub(depositL2Value, depositSgtValue)
 	testAccount, _, _ := setUpTestAccount(t, ctx, index, sgt, depositSgtValue, depositL2Value)
 
 	// make a simple tx with the testAccount: transfer txValue from testAccount to dummyAddr
