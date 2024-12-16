@@ -1421,27 +1421,27 @@ workflows:
                 - op-supervisor
                 - cannon
       - cannon-prestate
-      # - check-generated-mocks-op-node
-      # - check-generated-mocks-op-service
-      # - cannon-go-lint-and-test:
-      #     name: cannon-go-lint-and-test-<<matrix.mips_word_size>>-bit
-      #     requires:
-      #       - contracts-bedrock-build
-      #     skip_slow_tests: true
-      #     notify: true
-      #     matrix:
-      #       parameters:
-      #         mips_word_size: [ 32, 64 ]
-      # - cannon-build-test-vectors
-      # - todo-issues:
-      #     name: todo-issues-check
-      #     check_closed: false
-      # - shellcheck/check:
-      #     name: shell-check
-      #     # We don't need the `exclude` key as the orb detects the `.shellcheckrc`
-      #     dir: .
-      #     ignore-dirs:
-      #       ./packages/contracts-bedrock/lib
+      - check-generated-mocks-op-node
+      - check-generated-mocks-op-service
+      - cannon-go-lint-and-test:
+          name: cannon-go-lint-and-test-<<matrix.mips_word_size>>-bit
+          requires:
+            - contracts-bedrock-build
+          skip_slow_tests: true
+          notify: true
+          matrix:
+            parameters:
+              mips_word_size: [ 32, 64 ]
+      - cannon-build-test-vectors
+      - todo-issues:
+          name: todo-issues-check
+          check_closed: false
+      - shellcheck/check:
+          name: shell-check
+          # We don't need the `exclude` key as the orb detects the `.shellcheckrc`
+          dir: .
+          ignore-dirs:
+            ./packages/contracts-bedrock/lib
 
   # go-release-deployer:
   #   jobs:
