@@ -30,7 +30,7 @@ var excludeContracts = []string{
 
 	"IInitializable", "IOptimismMintableERC20", "ILegacyMintableERC20",
 	"KontrolCheatsBase", "ISystemConfigInterop", "IResolvedDelegateProxy",
-	"IERC20Upgradeable", "SoulGasToken",
+	"IERC20Upgradeable", "ISoulGasToken",
 }
 
 type ContractDefinition struct {
