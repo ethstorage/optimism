@@ -1332,18 +1332,18 @@ workflows:
                 - op-node
                 - op-service
                 - op-chain-ops
-      # - fuzz-golang:
-      #     name: cannon-fuzz
-      #     package_name: cannon
-      #     on_changes: cannon,packages/contracts-bedrock/src/cannon
-      #     uses_artifacts: true
-      #     requires: ["contracts-bedrock-build"]
-      # - fuzz-golang:
-      #     name: op-e2e-fuzz
-      #     package_name: op-e2e
-      #     on_changes: op-e2e,packages/contracts-bedrock/src
-      #     uses_artifacts: true
-      #     requires: ["contracts-bedrock-build"]
+      - fuzz-golang:
+          name: cannon-fuzz
+          package_name: cannon
+          on_changes: cannon,packages/contracts-bedrock/src/cannon
+          uses_artifacts: true
+          requires: ["contracts-bedrock-build"]
+      - fuzz-golang:
+          name: op-e2e-fuzz
+          package_name: op-e2e
+          on_changes: op-e2e,packages/contracts-bedrock/src
+          uses_artifacts: true
+          requires: ["contracts-bedrock-build"]
       - go-test:
           name: go-test-all
           requires:
