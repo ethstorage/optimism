@@ -43,6 +43,7 @@ parameters:
     default: false
 
 orbs:
+  python: circleci/python@3.0.0
   go: circleci/go@1.8.0
   gcp-cli: circleci/gcp-cli@3.0.1
   slack: circleci/slack@4.10.1
