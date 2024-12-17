@@ -14,9 +14,10 @@ import "src/dispute/lib/Types.sol";
 import "src/dispute/lib/Errors.sol";
 
 // Interfaces
-import { IPreimageOracle } from "src/dispute/interfaces/IBigStepper.sol";
-import { IDelayedWETH } from "src/dispute/interfaces/IDelayedWETH.sol";
-import { IPermissionedDisputeGame } from "src/dispute/interfaces/IPermissionedDisputeGame.sol";
+import { IPreimageOracle } from "interfaces/dispute/IBigStepper.sol";
+import { IDelayedWETH } from "interfaces/dispute/IDelayedWETH.sol";
+import { IPermissionedDisputeGame } from "interfaces/dispute/IPermissionedDisputeGame.sol";
+import { IFaultDisputeGame } from "interfaces/dispute/IFaultDisputeGame.sol";
 
 contract PermissionedDisputeGame_Init is DisputeGameFactory_Init {
     /// @dev The type of the game being tested.
@@ -67,16 +68,18 @@ contract PermissionedDisputeGame_Init is DisputeGameFactory_Init {
                     abi.encodeCall(
                         IPermissionedDisputeGame.__constructor__,
                         (
-                            GAME_TYPE,
-                            absolutePrestate,
-                            2 ** 3,
-                            2 ** 2,
-                            Duration.wrap(3 hours),
-                            Duration.wrap(3.5 days),
-                            _vm,
-                            _weth,
-                            anchorStateRegistry,
-                            10,
+                            IFaultDisputeGame.GameConstructorParams({
+                                gameType: GAME_TYPE,
+                                absolutePrestate: absolutePrestate,
+                                maxGameDepth: 2 ** 3,
+                                splitDepth: 2 ** 2,
+                                clockExtension: Duration.wrap(3 hours),
+                                maxClockDuration: Duration.wrap(3.5 days),
+                                vm: _vm,
+                                weth: _weth,
+                                anchorStateRegistry: anchorStateRegistry,
+                                l2ChainId: 10
+                            }),
                             PROPOSER,
                             CHALLENGER
                         )
@@ -196,6 +199,61 @@ contract PermissionedDisputeGame_Test is PermissionedDisputeGame_Init {
         vm.expectRevert(BadAuth.selector);
         gameProxy.step(0, true, absolutePrestateData, hex"");
         vm.stopPrank();
+    }
+
+    /// @dev Tests that step works properly.
+    function test_step_succeeds() public {
+        // Give the test contract some ether
+        vm.deal(CHALLENGER, 1_000 ether);
+
+        vm.startPrank(CHALLENGER, CHALLENGER);
+
+        // Make claims all the way down the tree.
+        (,,,, Claim disputed,,) = gameProxy.claimData(0);
+        gameProxy.attack{ value: _getRequiredBond(0) }(disputed, 0, _dummyClaim());
+        (,,,, disputed,,) = gameProxy.claimData(1);
+        gameProxy.attack{ value: _getRequiredBond(1) }(disputed, 1, _dummyClaim());
+        (,,,, disputed,,) = gameProxy.claimData(2);
+        gameProxy.attack{ value: _getRequiredBond(2) }(disputed, 2, _dummyClaim());
+        (,,,, disputed,,) = gameProxy.claimData(3);
+        gameProxy.attack{ value: _getRequiredBond(3) }(disputed, 3, _dummyClaim());
+        (,,,, disputed,,) = gameProxy.claimData(4);
+        gameProxy.attack{ value: _getRequiredBond(4) }(disputed, 4, _changeClaimStatus(_dummyClaim(), VMStatuses.PANIC));
+        (,,,, disputed,,) = gameProxy.claimData(5);
+        gameProxy.attack{ value: _getRequiredBond(5) }(disputed, 5, _dummyClaim());
+        (,,,, disputed,,) = gameProxy.claimData(6);
+        gameProxy.attack{ value: _getRequiredBond(6) }(disputed, 6, _dummyClaim());
+        (,,,, disputed,,) = gameProxy.claimData(7);
+        gameProxy.attack{ value: _getRequiredBond(7) }(disputed, 7, _dummyClaim());
+
+        // Verify game state before step
+        assertEq(uint256(gameProxy.status()), uint256(GameStatus.IN_PROGRESS));
+
+        gameProxy.addLocalData(LocalPreimageKey.DISPUTED_L2_BLOCK_NUMBER, 8, 0);
+        gameProxy.step(8, true, absolutePrestateData, hex"");
+
+        vm.warp(block.timestamp + gameProxy.maxClockDuration().raw() + 1);
+        gameProxy.resolveClaim(8, 0);
+        gameProxy.resolveClaim(7, 0);
+        gameProxy.resolveClaim(6, 0);
+        gameProxy.resolveClaim(5, 0);
+        gameProxy.resolveClaim(4, 0);
+        gameProxy.resolveClaim(3, 0);
+        gameProxy.resolveClaim(2, 0);
+        gameProxy.resolveClaim(1, 0);
+
+        gameProxy.resolveClaim(0, 0);
+        gameProxy.resolve();
+
+        assertEq(uint256(gameProxy.status()), uint256(GameStatus.CHALLENGER_WINS));
+        assertEq(gameProxy.resolvedAt().raw(), block.timestamp);
+        (, address counteredBy,,,,,) = gameProxy.claimData(0);
+        assertEq(counteredBy, CHALLENGER);
+    }
+
+    /// @dev Helper to return a pseudo-random claim
+    function _dummyClaim() internal view returns (Claim) {
+        return Claim.wrap(keccak256(abi.encode(gasleft())));
     }
 
     /// @dev Helper to get the required bond for the given claim index.

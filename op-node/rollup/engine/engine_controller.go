@@ -334,6 +334,7 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, envelope *et
 		}
 	}
 	// Insert the payload & then call FCU
+	newPayloadStart := time.Now()
 	status, err := e.engine.NewPayload(ctx, envelope.ExecutionPayload, envelope.ParentBeaconBlockRoot)
 	if err != nil {
 		return derive.NewTemporaryError(fmt.Errorf("failed to update insert payload: %w", err))
@@ -346,6 +347,7 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, envelope *et
 		return derive.NewTemporaryError(fmt.Errorf("cannot process unsafe payload: new - %v; parent: %v; err: %w",
 			payload.ID(), payload.ParentID(), eth.NewPayloadErr(payload, status)))
 	}
+	newPayloadFinish := time.Now()
 
 	// Mark the new payload as valid
 	fc := eth.ForkchoiceState{
@@ -365,6 +367,7 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, envelope *et
 	}
 	logFn := e.logSyncProgressMaybe()
 	defer logFn()
+	fcu2Start := time.Now()
 	fcRes, err := e.engine.ForkchoiceUpdate(ctx, &fc, nil)
 	if err != nil {
 		var rpcErr rpc.Error
@@ -384,6 +387,7 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, envelope *et
 		return derive.NewTemporaryError(fmt.Errorf("cannot prepare unsafe chain for new payload: new - %v; parent: %v; err: %w",
 			payload.ID(), payload.ParentID(), eth.ForkchoiceUpdateErr(fcRes.PayloadStatus)))
 	}
+	fcu2Finish := time.Now()
 	e.SetUnsafeHead(ref)
 	e.needFCUCall = false
 	e.emitter.Emit(UnsafeUpdateEvent{Ref: ref})
@@ -400,6 +404,16 @@ func (e *EngineController) InsertUnsafePayload(ctx context.Context, envelope *et
 			FinalizedL2Head: e.finalizedHead,
 		})
 	}
+
+	totalTime := fcu2Finish.Sub(newPayloadStart)
+	e.log.Info("Inserted new L2 unsafe block (synchronous)",
+		"hash", envelope.ExecutionPayload.BlockHash,
+		"number", uint64(envelope.ExecutionPayload.BlockNumber),
+		"newpayload_time", common.PrettyDuration(newPayloadFinish.Sub(newPayloadStart)),
+		"fcu2_time", common.PrettyDuration(fcu2Finish.Sub(fcu2Start)),
+		"total_time", common.PrettyDuration(totalTime),
+		"mgas", float64(envelope.ExecutionPayload.GasUsed)/1000000,
+		"mgasps", float64(envelope.ExecutionPayload.GasUsed)*1000/float64(totalTime))
 
 	return nil
 }
