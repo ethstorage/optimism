@@ -408,6 +408,8 @@ jobs:
       docker_layer_caching: true # we rely on this for faster builds, and actively warm it up for builds with common stages
     steps:
       - checkout
+      - run:
+          command: git submodule update --init
       - attach_workspace:
           at: /tmp/docker_images
       - run:
