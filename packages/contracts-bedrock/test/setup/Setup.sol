@@ -49,7 +49,7 @@ import { IWETH98 } from "interfaces/universal/IWETH98.sol";
 import { IGovernanceToken } from "interfaces/governance/IGovernanceToken.sol";
 import { ILegacyMessagePasser } from "interfaces/legacy/ILegacyMessagePasser.sol";
 import { ISuperchainTokenBridge } from "interfaces/L2/ISuperchainTokenBridge.sol";
-import { ISoulGasToken } from "src/L2/interfaces/ISoulGasToken.sol";
+import { ISoulGasToken } from "interfaces/L2/ISoulGasToken.sol";
 
 /// @title Setup
 /// @dev This contact is responsible for setting up the contracts in state. It currently
