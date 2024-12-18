@@ -11,6 +11,7 @@ volumes:
   challenger_data:
   da_data:
   op_log:
+  dac_data:
 
 
 services:
@@ -102,6 +103,8 @@ services:
       - 8888:8888
     command: >
       da-server da start --config /usr/local/bin/default.json
+    volumes:
+      - "dac_data:/root/da/data"
 
   op-node:
     depends_on:
