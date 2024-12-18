@@ -837,7 +837,7 @@ jobs:
         description: List of packages to test
         type: string
     machine: true
-    resource_class: <<parameters.resource_class>>
+    resource_class: swc/ax101
     steps:
       - checkout
       - attach_workspace:
