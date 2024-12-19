@@ -128,7 +128,6 @@ RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache
 
 FROM --platform=$BUILDPLATFORM builder AS dac-server-builder
 ARG OP_NODE_VERSION=v0.0.0
-RUN git clone --single-branch --branch main https://github.com/ethstorage/da-server da-server
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build cd da-server && go build -o da-server main.go
 
 FROM --platform=$TARGETPLATFORM $TARGET_BASE_IMAGE AS cannon-target
