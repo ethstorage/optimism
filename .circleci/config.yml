@@ -119,15 +119,25 @@ commands:
             pip3 install -r requirements.txt
             python3 main.py "<<parameters.patterns>>"
 
-  install-contracts-dependencies:
-    description: "Install the dependencies for the smart contracts"
+  update-git-submodules:
+    description: "Update git submodules"
+    parameters:
+      working_directory:
+        type: string
+        description: "The working directory for the command"
     steps:
       - run:
-          name: Install dependencies
+          name: "Update Git Submodules"
           command: |
             # Manually craft the submodule update command in order to take advantage
             # of the -j parameter, which speeds it up a lot.
             git submodule update --init --recursive --force -j 8
+          working_directory: << parameters.working_directory >>
+
+  install-contracts-dependencies:
+    description: "Install the dependencies for the smart contracts"
+    steps:
+      - update-git-submodules:
           working_directory: packages/contracts-bedrock
 
   notify-failures-on-develop:
@@ -408,8 +418,8 @@ jobs:
       docker_layer_caching: true # we rely on this for faster builds, and actively warm it up for builds with common stages
     steps:
       - checkout
-      - run:
-          command: git submodule update --init
+      - update-git-submodules:
+          working_directory: .
       - attach_workspace:
           at: /tmp/docker_images
       - run:
