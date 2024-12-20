@@ -6,7 +6,7 @@ import {
     ChallengeStatus,
     Challenge,
     CommitmentType
-} from "src/L1/interfaces/IDataAvailabilityChallenge.sol";
+} from "interfaces/L1/IDataAvailabilityChallenge.sol";
 import { computeCommitmentKeccak256 } from "src/L1/DataAvailabilityChallenge.sol";
 import { CommonTest } from "test/setup/CommonTest.sol";
 import { Preinstalls } from "src/libraries/Preinstalls.sol";
@@ -58,6 +58,7 @@ contract DataAvailabilityChallengeTest is CommonTest {
         // EntryPoint will revert if using amount > type(uint112).max.
         vm.assume(sender != Preinstalls.EntryPoint_v060);
         vm.assume(sender != address(dataAvailabilityChallenge));
+        vm.assume(sender != deploy.mustGetAddress("DataAvailabilityChallenge"));
         vm.assume(sender.balance == 0);
         vm.deal(sender, amount);
 

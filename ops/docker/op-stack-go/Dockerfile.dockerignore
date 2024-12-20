@@ -21,3 +21,5 @@
 !/da-server
 !/go.mod
 !/go.sum
+!/just
+!/mise.toml
