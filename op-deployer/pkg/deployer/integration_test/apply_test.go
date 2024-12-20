@@ -16,6 +16,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/retryproxy"
+
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/inspect"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -68,6 +70,8 @@ network_params:
   genesis_delay: 0
 `
 
+const defaultL1ChainID uint64 = 77799777
+
 type deployerKey struct{}
 
 func (d *deployerKey) HDPath() string {
@@ -98,21 +102,22 @@ func TestEndToEndApply(t *testing.T) {
 	l1Client, err := ethclient.Dial(rpcURL)
 	require.NoError(t, err)
 
-	depKey := new(deployerKey)
-	l1ChainID := big.NewInt(77799777)
-	dk, err := devkeys.NewMnemonicDevKeys(devkeys.TestMnemonic)
+	pk, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	require.NoError(t, err)
-	pk, err := dk.Secret(depKey)
+
+	l1ChainID := new(big.Int).SetUint64(defaultL1ChainID)
+	dk, err := devkeys.NewMnemonicDevKeys(devkeys.TestMnemonic)
 	require.NoError(t, err)
 
 	l2ChainID1 := uint256.NewInt(1)
 	l2ChainID2 := uint256.NewInt(2)
 
 	loc, _ := testutil.LocalArtifacts(t)
-	intent, st := newIntent(t, l1ChainID, dk, l2ChainID1, loc, loc)
-	cg := ethClientCodeGetter(ctx, l1Client)
 
-	t.Run("initial chain", func(t *testing.T) {
+	t.Run("two chains one after another", func(t *testing.T) {
+		intent, st := newIntent(t, l1ChainID, dk, l2ChainID1, loc, loc)
+		cg := ethClientCodeGetter(ctx, l1Client)
+
 		require.NoError(t, deployer.ApplyPipeline(
 			ctx,
 			deployer.ApplyPipelineOpts{
@@ -125,11 +130,6 @@ func TestEndToEndApply(t *testing.T) {
 			},
 		))
 
-		validateSuperchainDeployment(t, st, cg)
-		validateOPChainDeployment(t, cg, st, intent)
-	})
-
-	t.Run("subsequent chain", func(t *testing.T) {
 		// create a new environment with wiped state to ensure we can continue using the
 		// state from the previous deployment
 		intent.Chains = append(intent.Chains, newChainIntent(t, dk, l1ChainID, l2ChainID2))
@@ -146,14 +146,43 @@ func TestEndToEndApply(t *testing.T) {
 			},
 		))
 
+		validateSuperchainDeployment(t, st, cg)
 		validateOPChainDeployment(t, cg, st, intent)
+	})
+
+	t.Run("chain with tagged artifacts", func(t *testing.T) {
+		intent, st := newIntent(t, l1ChainID, dk, l2ChainID1, loc, loc)
+		intent.L1ContractsLocator = artifacts.DefaultL1ContractsLocator
+		intent.L2ContractsLocator = artifacts.DefaultL2ContractsLocator
+
+		require.ErrorIs(t, deployer.ApplyPipeline(
+			ctx,
+			deployer.ApplyPipelineOpts{
+				L1RPCUrl:           rpcURL,
+				DeployerPrivateKey: pk,
+				Intent:             intent,
+				State:              st,
+				Logger:             lgr,
+				StateWriter:        pipeline.NoopStateWriter(),
+			},
+		), pipeline.ErrRefusingToDeployTaggedReleaseWithoutOPCM)
 	})
 }
 
 func TestApplyExistingOPCM(t *testing.T) {
+	t.Run("mainnet", func(t *testing.T) {
+		testApplyExistingOPCM(t, 1, os.Getenv("MAINNET_RPC_URL"), standard.L1VersionsMainnet)
+	})
+	t.Run("sepolia", func(t *testing.T) {
+		testApplyExistingOPCM(t, 11155111, os.Getenv("SEPOLIA_RPC_URL"), standard.L1VersionsSepolia)
+	})
+}
+
+func testApplyExistingOPCM(t *testing.T, l1ChainID uint64, forkRPCUrl string, versions standard.L1Versions) {
+	op_e2e.InitParallel(t)
+
 	anvil.Test(t)
 
-	forkRPCUrl := os.Getenv("SEPOLIA_RPC_URL")
 	if forkRPCUrl == "" {
 		t.Skip("no fork RPC URL provided")
 	}
@@ -163,8 +192,14 @@ func TestApplyExistingOPCM(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
+	retryProxy := retryproxy.New(lgr, forkRPCUrl)
+	require.NoError(t, retryProxy.Start())
+	t.Cleanup(func() {
+		require.NoError(t, retryProxy.Stop())
+	})
+
 	runner, err := anvil.New(
-		forkRPCUrl,
+		retryProxy.Endpoint(),
 		lgr,
 	)
 	require.NoError(t, err)
@@ -177,20 +212,20 @@ func TestApplyExistingOPCM(t *testing.T) {
 	l1Client, err := ethclient.Dial(runner.RPCUrl())
 	require.NoError(t, err)
 
-	l1ChainID := big.NewInt(11155111)
+	l1ChainIDBig := new(big.Int).SetUint64(l1ChainID)
 	dk, err := devkeys.NewMnemonicDevKeys(devkeys.TestMnemonic)
 	require.NoError(t, err)
 	// index 0 from Anvil's test set
 	pk, err := crypto.HexToECDSA("ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80")
 	require.NoError(t, err)
 
-	l2ChainID := uint256.NewInt(1)
+	l2ChainID := uint256.NewInt(777)
 
 	// Hardcode the below tags to ensure the test is validating the correct
 	// version even if the underlying tag changes
 	intent, st := newIntent(
 		t,
-		l1ChainID,
+		l1ChainIDBig,
 		dk,
 		l2ChainID,
 		artifacts.MustNewLocatorFromTag("op-contracts/v1.6.0"),
@@ -214,7 +249,7 @@ func TestApplyExistingOPCM(t *testing.T) {
 
 	validateOPChainDeployment(t, ethClientCodeGetter(ctx, l1Client), st, intent)
 
-	releases := standard.L1VersionsSepolia.Releases["op-contracts/v1.6.0"]
+	releases := versions.Releases["op-contracts/v1.6.0"]
 
 	implTests := []struct {
 		name    string
@@ -233,9 +268,26 @@ func TestApplyExistingOPCM(t *testing.T) {
 		{"DelayedWETH", releases.DelayedWETH.ImplementationAddress, st.ImplementationsDeployment.DelayedWETHImplAddress},
 	}
 	for _, tt := range implTests {
-		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.expAddr, tt.actAddr)
-		})
+		require.Equal(t, tt.expAddr, tt.actAddr, "unexpected address for %s", tt.name)
+	}
+
+	superchain, err := standard.SuperchainFor(l1ChainIDBig.Uint64())
+	require.NoError(t, err)
+
+	managerOwner, err := standard.ManagerOwnerAddrFor(l1ChainIDBig.Uint64())
+	require.NoError(t, err)
+
+	superchainTests := []struct {
+		name    string
+		expAddr common.Address
+		actAddr common.Address
+	}{
+		{"ProxyAdmin", managerOwner, st.SuperchainDeployment.ProxyAdminAddress},
+		{"SuperchainConfig", common.Address(*superchain.Config.SuperchainConfigAddr), st.SuperchainDeployment.SuperchainConfigProxyAddress},
+		{"ProtocolVersions", common.Address(*superchain.Config.ProtocolVersionsAddr), st.SuperchainDeployment.ProtocolVersionsProxyAddress},
+	}
+	for _, tt := range superchainTests {
+		require.Equal(t, tt.expAddr, tt.actAddr, "unexpected address for %s", tt.name)
 	}
 
 	artifactsFSL2, cleanupL2, err := artifacts.Download(
@@ -287,7 +339,7 @@ func TestApplyExistingOPCM(t *testing.T) {
 
 	require.EqualValues(t, expectedSemversL2, semvers)
 
-	f, err := os.Open("./testdata/allocs-l2-v160.json.gz")
+	f, err := os.Open(fmt.Sprintf("./testdata/allocs-l2-v160-%d.json.gz", l1ChainID))
 	require.NoError(t, err)
 	defer f.Close()
 	gzr, err := gzip.NewReader(f)
@@ -370,7 +422,7 @@ func TestL2BlockTimeOverride(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	opts, intent, st := setupGenesisChain(t)
+	opts, intent, st := setupGenesisChain(t, defaultL1ChainID)
 	intent.GlobalDeployOverrides = map[string]interface{}{
 		"l2BlockTime": float64(3),
 	}
@@ -388,7 +440,7 @@ func TestApplyGenesisStrategy(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	opts, intent, st := setupGenesisChain(t)
+	opts, intent, st := setupGenesisChain(t, defaultL1ChainID)
 
 	require.NoError(t, deployer.ApplyPipeline(ctx, opts))
 
@@ -408,7 +460,7 @@ func TestProofParamOverrides(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	opts, intent, st := setupGenesisChain(t)
+	opts, intent, st := setupGenesisChain(t, defaultL1ChainID)
 	intent.GlobalDeployOverrides = map[string]any{
 		"withdrawalDelaySeconds":                  standard.WithdrawalDelaySeconds + 1,
 		"minProposalSizeBytes":                    standard.MinProposalSizeBytes + 1,
@@ -505,7 +557,7 @@ func TestInteropDeployment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	opts, intent, st := setupGenesisChain(t)
+	opts, intent, st := setupGenesisChain(t, defaultL1ChainID)
 	intent.UseInterop = true
 
 	require.NoError(t, deployer.ApplyPipeline(ctx, opts))
@@ -523,7 +575,7 @@ func TestAltDADeployment(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	opts, intent, st := setupGenesisChain(t)
+	opts, intent, st := setupGenesisChain(t, defaultL1ChainID)
 	altDACfg := genesis.AltDADeployConfig{
 		UseAltDA:                   true,
 		DACommitmentType:           altda.KeccakCommitmentString,
@@ -601,7 +653,7 @@ func TestInvalidL2Genesis(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			opts, intent, _ := setupGenesisChain(t)
+			opts, intent, _ := setupGenesisChain(t, defaultL1ChainID)
 			intent.DeploymentStrategy = state.DeploymentStrategyGenesis
 			intent.GlobalDeployOverrides = tt.overrides
 
@@ -612,11 +664,11 @@ func TestInvalidL2Genesis(t *testing.T) {
 	}
 }
 
-func setupGenesisChain(t *testing.T) (deployer.ApplyPipelineOpts, *state.Intent, *state.State) {
+func setupGenesisChain(t *testing.T, l1ChainID uint64) (deployer.ApplyPipelineOpts, *state.Intent, *state.State) {
 	lgr := testlog.Logger(t, slog.LevelDebug)
 
 	depKey := new(deployerKey)
-	l1ChainID := big.NewInt(77799777)
+	l1ChainIDBig := new(big.Int).SetUint64(l1ChainID)
 	dk, err := devkeys.NewMnemonicDevKeys(devkeys.TestMnemonic)
 	require.NoError(t, err)
 
@@ -627,8 +679,8 @@ func setupGenesisChain(t *testing.T) (deployer.ApplyPipelineOpts, *state.Intent,
 
 	loc, _ := testutil.LocalArtifacts(t)
 
-	intent, st := newIntent(t, l1ChainID, dk, l2ChainID1, loc, loc)
-	intent.Chains = append(intent.Chains, newChainIntent(t, dk, l1ChainID, l2ChainID1))
+	intent, st := newIntent(t, l1ChainIDBig, dk, l2ChainID1, loc, loc)
+	intent.Chains = append(intent.Chains, newChainIntent(t, dk, l1ChainIDBig, l2ChainID1))
 	intent.DeploymentStrategy = state.DeploymentStrategyGenesis
 
 	opts := deployer.ApplyPipelineOpts{
@@ -657,6 +709,7 @@ func newIntent(
 	l2Loc *artifacts.Locator,
 ) (*state.Intent, *state.State) {
 	intent := &state.Intent{
+		ConfigType:         state.IntentConfigTypeCustom,
 		DeploymentStrategy: state.DeploymentStrategyLive,
 		L1ChainID:          l1ChainID.Uint64(),
 		SuperchainRoles: &state.SuperchainRoles{
@@ -683,8 +736,9 @@ func newChainIntent(t *testing.T, dk *devkeys.MnemonicDevKeys, l1ChainID *big.In
 		BaseFeeVaultRecipient:      addrFor(t, dk, devkeys.BaseFeeVaultRecipientRole.Key(l1ChainID)),
 		L1FeeVaultRecipient:        addrFor(t, dk, devkeys.L1FeeVaultRecipientRole.Key(l1ChainID)),
 		SequencerFeeVaultRecipient: addrFor(t, dk, devkeys.SequencerFeeVaultRecipientRole.Key(l1ChainID)),
-		Eip1559Denominator:         50,
-		Eip1559Elasticity:          6,
+		Eip1559DenominatorCanyon:   standard.Eip1559DenominatorCanyon,
+		Eip1559Denominator:         standard.Eip1559Denominator,
+		Eip1559Elasticity:          standard.Eip1559Elasticity,
 		Roles: state.ChainRoles{
 			L1ProxyAdminOwner: addrFor(t, dk, devkeys.L2ProxyAdminOwnerRole.Key(l1ChainID)),
 			L2ProxyAdminOwner: addrFor(t, dk, devkeys.L2ProxyAdminOwnerRole.Key(l1ChainID)),
