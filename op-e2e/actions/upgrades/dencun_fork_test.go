@@ -204,7 +204,7 @@ func TestDencunBlobTxRPC(gt *testing.T) {
 	cl := engine.EthClient()
 	tx := aliceSimpleBlobTx(t, dp)
 	err := cl.SendTransaction(context.Background(), tx)
-	require.ErrorContains(t, err, "transaction type not supported")
+	require.NoError(t, err, "must accept blob tx via RPC")
 }
 
 // TestDencunBlobTxInTxPool tries to insert a blob tx directly into the tx pool, it should not be accepted.
@@ -217,7 +217,7 @@ func TestDencunBlobTxInTxPool(gt *testing.T) {
 	engine := newEngine(t, sd, log)
 	tx := aliceSimpleBlobTx(t, dp)
 	errs := engine.Eth.TxPool().Add([]*types.Transaction{tx}, true, true)
-	require.ErrorContains(t, errs[0], "transaction type not supported")
+	require.NoError(t, errs[0], "must accept blob tx In tx pool")
 }
 
 // TestDencunBlobTxInclusion tries to send a Blob tx to the L2 engine, it should not be accepted.
@@ -235,5 +235,5 @@ func TestDencunBlobTxInclusion(gt *testing.T) {
 
 	sequencer.ActL2StartBlock(t)
 	err := engine.EngineApi.IncludeTx(tx, dp.Addresses.Alice)
-	require.NoError(t, err, "must accept blob tx")
+	require.NoError(t, err, "must inlcude blob tx")
 }
