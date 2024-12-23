@@ -342,14 +342,17 @@ jobs:
       - notify-failures-on-develop
 
   check-kontrol-build:
-    machine: true
-    resource_class: swc/ax101
+    docker:
+      - image: <<pipeline.parameters.ci_builder_image>>
+    resource_class: xlarge
     steps:
       - checkout
       - attach_workspace: { at: "." }
       - install-contracts-dependencies
       - check-changed:
           patterns: contracts-bedrock
+      - setup_remote_docker:
+          docker_layer_caching: true
       - run:
           name: Run Kontrol build
           command: just kontrol-summary-full
