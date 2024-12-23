@@ -813,6 +813,9 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		c.Rollup.LogDescription(cfg.Loggers[name], chaincfg.L2ChainIDToNetworkDisplayName)
 		l := cfg.Loggers[name]
 
+		if name == "sequencer" {
+			c.Rollup.L2BlobConfig = nodeConfig.Rollup.L2BlobConfig
+		}
 		n, err := opnode.NewOpnode(l, &c, func(err error) {
 			t.Error(err)
 		})
