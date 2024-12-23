@@ -44,7 +44,7 @@ func testOPCMLiveChain(t *testing.T, version string, forkRPCURL string) {
 	}
 
 	lgr := testlog.Logger(t, slog.LevelDebug)
-
+	lgr.Info("using forkRPCURL", "forkRPCURL", forkRPCURL)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 
