@@ -11,10 +11,10 @@ import (
 	"testing"
 	"time"
 
-	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
+	"github.com/ethereum-optimism/optimism/op-e2e"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
-	"github.com/ethereum-optimism/optimism/op-e2e/faultproofs"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
+	"github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
@@ -46,9 +46,8 @@ func TestFunctionSuccess(t *testing.T) {
 	dacServer := StartDACServer(t)
 	defer dacServer.Stop(ctx)
 
-	sys, _ := faultproofs.StartFaultDisputeSystem(t, faultproofs.WithDAC(dacUrl))
+	sys, l2Client := StartSystemWithDAC(t)
 	t.Cleanup(sys.Close)
-	l2Client := sys.NodeClient(e2esys.RoleSeq)
 
 	for i := range blobs {
 		b := GetRandBlob(t, int64(i))
@@ -72,6 +71,24 @@ func TestFunctionSuccess(t *testing.T) {
 			t.Error("blob content", blob[:32], blobs[i][:32])
 		}
 	}
+}
+
+func StartSystemWithDAC(t *testing.T) (*e2esys.System, *ethclient.Client) {
+	cfg := e2esys.DefaultSystemConfig(t)
+	delete(cfg.Nodes, "verifier")
+	if c, ok := cfg.Nodes["sequencer"]; ok {
+		c.SafeDBPath = t.TempDir()
+		c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
+		c.Driver.SequencerEnabled = true
+	}
+	cfg.DeployConfig.SequencerWindowSize = 30
+	cfg.DeployConfig.FinalizationPeriodSeconds = 2
+	cfg.SupportL1TimeTravel = true
+	// Disable proposer creating fast games automatically - required games are manually created
+	cfg.DisableProposer = true
+	sys, err := cfg.Start(t)
+	require.Nil(t, err, "Error starting up system")
+	return sys, sys.NodeClient(e2esys.RoleSeq)
 }
 
 func sendTransactionWithBlobs(t *testing.T, ctx context.Context, l2Client *ethclient.Client, sender *ecdsa.PrivateKey,

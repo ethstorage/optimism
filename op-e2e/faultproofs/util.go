@@ -4,14 +4,10 @@ import (
 	"crypto/ecdsa"
 	"testing"
 
-	"github.com/ethereum-optimism/optimism/op-batcher/flags"
+	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	"github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/helpers"
-	"github.com/ethereum-optimism/optimism/op-node/node"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -29,7 +25,7 @@ func WithBatcherStopped() faultDisputeConfigOpts {
 
 func WithBlobBatches() faultDisputeConfigOpts {
 	return func(cfg *e2esys.SystemConfig) {
-		cfg.DataAvailabilityType = flags.BlobsType
+		cfg.DataAvailabilityType = batcherFlags.BlobsType
 
 		genesisActivation := hexutil.Uint64(0)
 		cfg.DeployConfig.L1CancunTimeOffset = &genesisActivation
@@ -56,18 +52,6 @@ func WithSequencerWindowSize(size uint64) faultDisputeConfigOpts {
 func WithAllocType(allocType config.AllocType) faultDisputeConfigOpts {
 	return func(cfg *e2esys.SystemConfig) {
 		cfg.AllocType = allocType
-	}
-}
-
-func WithDAC(dacUrl string) faultDisputeConfigOpts {
-	return func(cfg *e2esys.SystemConfig) {
-		if c, ok := cfg.Nodes["sequencer"]; ok {
-			c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
-			c.Driver = driver.Config{SequencerEnabled: true}
-			c.Rollup.L2BlobConfig = &rollup.L2BlobConfig{
-				L2BlobTime: cfg.DeployConfig.L2BlobTime(c.Rollup.Genesis.L2Time),
-			}
-		}
 	}
 }
 
