@@ -58,7 +58,6 @@ func TestFunctionSuccess(t *testing.T) {
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l2Client, tx.Hash())
 
-	// TODO: wait for DAC server bug fix check in to refactor here
 	for i, blobHash := range tx.BlobHashes() {
 		dblobs, err := downloadBlobs(dacUrl, []common.Hash{blobHash})
 		require.NoError(t, err)
@@ -81,6 +80,7 @@ func StartSystemWithDAC(t *testing.T) (*e2esys.System, *ethclient.Client) {
 		c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
 		c.Driver.SequencerEnabled = true
 	}
+	cfg.DeployConfig.L2GenesisBlobTimeOffset = new(hexutil.Uint64)
 	cfg.DeployConfig.SequencerWindowSize = 30
 	cfg.DeployConfig.FinalizationPeriodSeconds = 2
 	cfg.SupportL1TimeTravel = true

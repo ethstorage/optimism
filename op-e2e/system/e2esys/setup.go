@@ -621,7 +621,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	}
 
 	var l2BlobConfig *rollup.L2BlobConfig
-	if c, ok := cfg.Nodes["sequencer"]; ok && c.DACConfig != nil {
+	if cfg.DeployConfig.L2GenesisBlobTimeOffset != nil {
 		l2BlobConfig = &rollup.L2BlobConfig{
 			L2BlobTime: cfg.DeployConfig.L2BlobTime(l1Block.Time()),
 		}
