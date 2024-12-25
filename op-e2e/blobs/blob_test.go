@@ -58,11 +58,12 @@ func TestFunctionSuccess(t *testing.T) {
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l2Client, tx.Hash())
 
-	for i, blobHash := range tx.BlobHashes() {
-		dblobs, err := downloadBlobs(dacUrl, []common.Hash{blobHash})
-		require.NoError(t, err)
-		require.True(t, len(dblobs) == 1, "we should get one blob with blob hash")
-		blob := dblobs[0]
+	dblobs, err := downloadBlobs(dacUrl, tx.BlobHashes())
+	require.NoError(t, err)
+	require.True(t, len(dblobs) == len(tx.BlobHashes()), "blobs downloaded is not equal to blob hashes")
+
+	for i, blobHash := range dblobs {
+		blob := dblobs[i]
 		if len(blob) != eth.BlobSize {
 			t.Error("Invalid downloaded blob len", "blob hash", blobHash, "blob len", len(blob))
 		}
