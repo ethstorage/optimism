@@ -8,8 +8,7 @@
       }
     ],
     "stateMutability": "nonpayable",
-    "type": "
-"
+    "type": "constructor"
   },
   {
     "inputs": [
