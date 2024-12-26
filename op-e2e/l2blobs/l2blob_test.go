@@ -1,4 +1,4 @@
-package blobs
+package l2blobs
 
 import (
 	"bytes"
@@ -35,22 +35,24 @@ const (
 )
 
 var (
-	ctx       = context.Background()
-	dacUrl    = fmt.Sprintf("http://127.0.0.1:%d", dacPort)
-	toAddress = testutils.RandomAddress(mrand.New(mrand.NewSource(dacPort)))
-	blobs     = make([]*eth.Blob, 3)
+	ctx, _ = context.WithTimeout(context.Background(), 10*time.Second)
+	dacUrl = fmt.Sprintf("http://127.0.0.1:%d", dacPort)
 )
 
-func TestFunctionSuccess(t *testing.T) {
+func TestSubmitTXWithBlobsFunctionSuccess(t *testing.T) {
 	op_e2e.InitParallel(t)
-	dacServer := StartDACServer(t)
+	dacServer := startDACServer(t)
 	defer dacServer.Stop(ctx)
 
-	sys, l2Client := StartSystemWithDAC(t)
+	sys, l2Client := startSystemWithDAC(t)
 	t.Cleanup(sys.Close)
 
+	var (
+		toAddress = testutils.RandomAddress(mrand.New(mrand.NewSource(dacPort)))
+		blobs     = make([]*eth.Blob, 3)
+	)
 	for i := range blobs {
-		b := GetRandBlob(t, int64(i))
+		b := getRandBlob(t, int64(i))
 		blobs[i] = &b
 	}
 
@@ -62,29 +64,24 @@ func TestFunctionSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, len(dblobs) == len(tx.BlobHashes()), "blobs downloaded is not equal to blob hashes")
 
-	for i, blobHash := range dblobs {
-		blob := dblobs[i]
-		if len(blob) != eth.BlobSize {
-			t.Error("Invalid downloaded blob len", "blob hash", blobHash, "blob len", len(blob))
-		}
-		if bytes.Compare(blob, blobs[i][:]) != 0 {
-			t.Error("blob content", blob[:32], blobs[i][:32])
-		}
+	for i, blob := range dblobs {
+		require.True(t, len(blob) == eth.BlobSize, fmt.Sprintf("invalid downloaded blob, index %d; len %d", i, len(blob)))
+		require.True(t, bytes.Compare(blob, blobs[i][:]) == 0, fmt.Sprintf("blob content diff: %s vs %s",
+			common.Bytes2Hex(blob[:32]), common.Bytes2Hex(blobs[i][:32])))
 	}
 }
 
-func StartSystemWithDAC(t *testing.T) (*e2esys.System, *ethclient.Client) {
+func startSystemWithDAC(t *testing.T) (*e2esys.System, *ethclient.Client) {
 	cfg := e2esys.DefaultSystemConfig(t)
 	delete(cfg.Nodes, "verifier")
-	if c, ok := cfg.Nodes["sequencer"]; ok {
+	c, ok := cfg.Nodes["sequencer"]
+	require.True(t, ok, "sequencer is required")
+	if ok {
 		c.SafeDBPath = t.TempDir()
 		c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
 		c.Driver.SequencerEnabled = true
 	}
 	cfg.DeployConfig.L2GenesisBlobTimeOffset = new(hexutil.Uint64)
-	cfg.DeployConfig.SequencerWindowSize = 30
-	cfg.DeployConfig.FinalizationPeriodSeconds = 2
-	cfg.SupportL1TimeTravel = true
 	// Disable proposer creating fast games automatically - required games are manually created
 	cfg.DisableProposer = true
 	sys, err := cfg.Start(t)
@@ -96,7 +93,7 @@ func sendTransactionWithBlobs(t *testing.T, ctx context.Context, l2Client *ethcl
 	toAddr common.Address, blobs []*eth.Blob) (*types.Transaction, error) {
 	chainID, err := l2Client.ChainID(ctx)
 	require.NoError(t, err)
-	gasTipCap, gasFeeCap, blobFeeCap, err := GasPriceEstimator(ctx, l2Client)
+	gasTipCap, gasFeeCap, blobFeeCap, err := gasPriceEstimator(ctx, l2Client)
 	require.NoError(t, err)
 	nonce, err := l2Client.NonceAt(ctx, crypto.PubkeyToAddress(sender.PublicKey), nil)
 	require.NoError(t, err)
@@ -120,7 +117,7 @@ func sendTransactionWithBlobs(t *testing.T, ctx context.Context, l2Client *ethcl
 	return tx, err
 }
 
-func GasPriceEstimator(ctx context.Context, client *ethclient.Client) (*big.Int, *big.Int, *big.Int, error) {
+func gasPriceEstimator(ctx context.Context, client *ethclient.Client) (*big.Int, *big.Int, *big.Int, error) {
 	tip, err := client.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, nil, nil, err
@@ -146,19 +143,18 @@ func GasPriceEstimator(ctx context.Context, client *ethclient.Client) (*big.Int,
 	return tip, gasFeeCap, blobFee, nil
 }
 
-func GetRandBlob(t *testing.T, seed int64) eth.Blob {
+func getRandBlob(t *testing.T, seed int64) eth.Blob {
 	r := mrand.New(mrand.NewSource(seed))
 	bigData := eth.Data(make([]byte, eth.MaxBlobDataSize))
-	for i := range bigData {
-		bigData[i] = byte(r.Intn(256))
-	}
+	_, err := r.Read(bigData)
+	require.NoError(t, err)
 	var b eth.Blob
-	err := b.FromData(bigData)
+	err = b.FromData(bigData)
 	require.NoError(t, err)
 	return b
 }
 
-func StartDACServer(t *testing.T) *da.Server {
+func startDACServer(t *testing.T) *da.Server {
 	config := da.Config{
 		SequencerIP: "127.0.0.1",
 		ListenAddr:  fmt.Sprintf("0.0.0.0:%d", dacPort),
