@@ -1,4 +1,4 @@
-package l2blobs
+package l2blob
 
 import (
 	"bytes"
@@ -76,11 +76,9 @@ func startSystemWithDAC(t *testing.T) (*e2esys.System, *ethclient.Client) {
 	delete(cfg.Nodes, "verifier")
 	c, ok := cfg.Nodes["sequencer"]
 	require.True(t, ok, "sequencer is required")
-	if ok {
-		c.SafeDBPath = t.TempDir()
-		c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
-		c.Driver.SequencerEnabled = true
-	}
+	c.SafeDBPath = t.TempDir()
+	c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
+	c.Driver.SequencerEnabled = true
 	cfg.DeployConfig.L2GenesisBlobTimeOffset = new(hexutil.Uint64)
 	// Disable proposer creating fast games automatically - required games are manually created
 	cfg.DisableProposer = true
