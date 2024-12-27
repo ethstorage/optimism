@@ -188,7 +188,6 @@ func testApplyExistingOPCM(t *testing.T, l1ChainID uint64, forkRPCUrl string, ve
 	}
 
 	lgr := testlog.Logger(t, slog.LevelDebug)
-	lgr.Info("using forkRPCURL", "forkRPCURL", forkRPCUrl)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
