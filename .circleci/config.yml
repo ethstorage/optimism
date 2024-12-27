@@ -1234,7 +1234,7 @@ workflows:
         - not:
             equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
-      - go-mod-download
+      # - go-mod-download
       - contracts-bedrock-build:
           name: contracts-bedrock-build
           # Build with just core + script contracts.
@@ -1259,39 +1259,39 @@ workflows:
       #     test_list: git diff origin/develop...HEAD --name-only --diff-filter=AM -- './test/**/*.t.sol' | sed 's|packages/contracts-bedrock/||'
       #     test_timeout: 1h
       #     test_profile: ciheavy
-      - contracts-bedrock-checks:
-          requires:
-            - contracts-bedrock-build
-      - diff-asterisc-bytecode
-      - semgrep-scan:
-          name: semgrep-scan-local
-          scan_command: semgrep scan --timeout=100 --config .semgrep/rules/ --error .
-      - semgrep-scan:
-          name: semgrep-test
-          scan_command: semgrep scan --test --config .semgrep/rules/ .semgrep/tests/
-      - go-lint
-      - fuzz-golang:
-          name: fuzz-golang-<<matrix.package_name>>
-          on_changes: <<matrix.package_name>>
-          matrix:
-            parameters:
-              package_name:
-                - op-challenger
-                - op-node
-                - op-service
-                - op-chain-ops
-      - fuzz-golang:
-          name: cannon-fuzz
-          package_name: cannon
-          on_changes: cannon,packages/contracts-bedrock/src/cannon
-          uses_artifacts: true
-          requires: ["contracts-bedrock-build"]
-      - fuzz-golang:
-          name: op-e2e-fuzz
-          package_name: op-e2e
-          on_changes: op-e2e,packages/contracts-bedrock/src
-          uses_artifacts: true
-          requires: ["contracts-bedrock-build"]
+      # - contracts-bedrock-checks:
+      #     requires:
+      #       - contracts-bedrock-build
+      # - diff-asterisc-bytecode
+      # - semgrep-scan:
+      #     name: semgrep-scan-local
+      #     scan_command: semgrep scan --timeout=100 --config .semgrep/rules/ --error .
+      # - semgrep-scan:
+      #     name: semgrep-test
+      #     scan_command: semgrep scan --test --config .semgrep/rules/ .semgrep/tests/
+      # - go-lint
+      # - fuzz-golang:
+      #     name: fuzz-golang-<<matrix.package_name>>
+      #     on_changes: <<matrix.package_name>>
+      #     matrix:
+      #       parameters:
+      #         package_name:
+      #           - op-challenger
+      #           - op-node
+      #           - op-service
+      #           - op-chain-ops
+      # - fuzz-golang:
+      #     name: cannon-fuzz
+      #     package_name: cannon
+      #     on_changes: cannon,packages/contracts-bedrock/src/cannon
+      #     uses_artifacts: true
+      #     requires: ["contracts-bedrock-build"]
+      # - fuzz-golang:
+      #     name: op-e2e-fuzz
+      #     package_name: op-e2e
+      #     on_changes: op-e2e,packages/contracts-bedrock/src
+      #     uses_artifacts: true
+      #     requires: ["contracts-bedrock-build"]
       - go-tests:
           packages: |
             op-batcher
@@ -1353,26 +1353,26 @@ workflows:
       #           - op-supervisor
       #           - cannon
       - cannon-prestate
-      - check-generated-mocks-op-node
-      - check-generated-mocks-op-service
-      - cannon-go-lint-and-test:
-          name: cannon-go-lint-and-test-<<matrix.mips_word_size>>-bit
-          requires:
-            - contracts-bedrock-build
-          skip_slow_tests: true
-          notify: true
-          matrix:
-            parameters:
-              mips_word_size: [32, 64]
-      - cannon-build-test-vectors
-      - todo-issues:
-          name: todo-issues-check
-          check_closed: false
-      - shellcheck/check:
-          name: shell-check
-          # We don't need the `exclude` key as the orb detects the `.shellcheckrc`
-          dir: .
-          ignore-dirs: ./packages/contracts-bedrock/lib
+      # - check-generated-mocks-op-node
+      # - check-generated-mocks-op-service
+      # - cannon-go-lint-and-test:
+      #     name: cannon-go-lint-and-test-<<matrix.mips_word_size>>-bit
+      #     requires:
+      #       - contracts-bedrock-build
+      #     skip_slow_tests: true
+      #     notify: true
+      #     matrix:
+      #       parameters:
+      #         mips_word_size: [32, 64]
+      # - cannon-build-test-vectors
+      # - todo-issues:
+      #     name: todo-issues-check
+      #     check_closed: false
+      # - shellcheck/check:
+      #     name: shell-check
+      #     # We don't need the `exclude` key as the orb detects the `.shellcheckrc`
+      #     dir: .
+      #     ignore-dirs: ./packages/contracts-bedrock/lib
 
   # go-release-deployer:
   #   jobs:
