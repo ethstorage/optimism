@@ -620,6 +620,13 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		}
 	}
 
+	var l2BlobConfig *rollup.L2BlobConfig
+	if cfg.DeployConfig.L2GenesisBlobTimeOffset != nil {
+		l2BlobConfig = &rollup.L2BlobConfig{
+			L2BlobTime: cfg.DeployConfig.L2BlobTime(l1Block.Time()),
+		}
+	}
+
 	makeRollupConfig := func() rollup.Config {
 		return rollup.Config{
 			Genesis: rollup.Genesis{
@@ -653,6 +660,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
 			AltDAConfig:             rollupAltDAConfig,
+			L2BlobConfig:            l2BlobConfig,
 		}
 	}
 	defaultConfig := makeRollupConfig()

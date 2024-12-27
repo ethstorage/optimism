@@ -685,6 +685,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"holocene_time", fmtForkTimeOrUnset(c.HoloceneTime),
 		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
 		"alt_da", c.AltDAConfig != nil,
+		"l2_blob_config", c.L2BlobConfig != nil,
 	)
 }
 
