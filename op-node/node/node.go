@@ -258,8 +258,9 @@ func (n *OpNode) initRuntimeConfig(ctx context.Context, cfg *Config) error {
 			n.log.Error("failed to fetch runtime config data", "err", err)
 			return l1Head, err
 		}
-
-		err = n.handleProtocolVersionsUpdate(ctx)
+		updateCtx, updateCancel := context.WithTimeout(ctx, time.Second*30)
+		err = n.handleProtocolVersionsUpdate(updateCtx)
+		updateCancel()
 		return l1Head, err
 	}
 

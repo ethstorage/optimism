@@ -131,8 +131,9 @@ func TestRequiredProtocolVersionChangeAndHalt(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		available := client.IsURLAvailable(ctx, sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC())
-		t.Log("verifier op-geth is available: ", sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC())
+		t.Log("verifier op-geth is available: ", sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC(), "ctx.Err()", ctx.Err())
 		if !available && ctx.Err() == nil { // waiting for client to stop responding to RPC requests (slow dials with timeout don't count)
+			t.Log("verifier op-geth is not available!!!")
 			return struct{}{}, nil
 		}
 		return struct{}{}, errors.New("verifier EL node is not closed yet")
