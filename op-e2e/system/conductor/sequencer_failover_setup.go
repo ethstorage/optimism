@@ -361,6 +361,7 @@ func sequencerCfg(conductorRPCEndpoint rollupNode.ConductorRPCFunc) *rollupNode.
 		ConductorEnabled:            true,
 		ConductorRpc:                conductorRPCEndpoint,
 		ConductorRpcTimeout:         5 * time.Second,
+		DACConfig:                   &rollupNode.DACConfig{URLS: []string{"http://127.0.0.1:37777"}},
 	}
 }
 

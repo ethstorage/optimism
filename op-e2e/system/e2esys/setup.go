@@ -160,6 +160,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 				RuntimeConfigReloadInterval: time.Minute * 10,
 				ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
 				Sync:                        sync.Config{SyncMode: sync.CLSync},
+				DACConfig:                   &rollupNode.DACConfig{URLS: []string{"http://127.0.0.1:37777"}},
 			},
 			RoleVerif: {
 				Driver: driver.Config{
