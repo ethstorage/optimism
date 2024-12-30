@@ -86,7 +86,7 @@ func ForUnsafeBlock(ctx context.Context, rollupCl *sources.RollupClient, n uint6
 }
 
 func ForSafeBlock(ctx context.Context, rollupClient *sources.RollupClient, n uint64) error {
-	ctx, cancel := context.WithTimeout(ctx, 300*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 600*time.Second)
 	defer cancel()
 	_, err := AndGet(ctx, time.Second, func() (*eth.SyncStatus, error) {
 		return rollupClient.SyncStatus(ctx)
