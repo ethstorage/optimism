@@ -116,6 +116,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 	require.NoError(t, err)
 	deployConfig := config.DeployConfig(sco.AllocType)
 	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
+	deployConfig.L2GenesisBlobTimeOffset = nil
 	e2eutils.ApplyDeployConfigForks(deployConfig)
 	require.NoError(t, deployConfig.Check(testlog.Logger(t, log.LevelInfo)),
 		"Deploy config is invalid, do you need to run make devnet-allocs?")
@@ -160,7 +161,6 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 				RuntimeConfigReloadInterval: time.Minute * 10,
 				ConfigPersistence:           &rollupNode.DisabledConfigPersistence{},
 				Sync:                        sync.Config{SyncMode: sync.CLSync},
-				DACConfig:                   &rollupNode.DACConfig{URLS: []string{"http://127.0.0.1:37777"}},
 			},
 			RoleVerif: {
 				Driver: driver.Config{
