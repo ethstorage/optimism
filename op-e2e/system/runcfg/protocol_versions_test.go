@@ -127,7 +127,7 @@ func TestRequiredProtocolVersionChangeAndHalt(t *testing.T) {
 	t.Log("verified that op-node closed!")
 	// Checking if the engine is down is not trivial in op-e2e.
 	// In op-geth we have halting tests covering the Engine API, in op-e2e we instead check if the API stops.
-	_, err = retry.Do(context.Background(), 10, retry.Fixed(time.Second*10), func() (struct{}, error) {
+	_, err = retry.Do(context.Background(), 3, retry.Fixed(time.Second*10), func() (struct{}, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		available := client.IsURLAvailable(ctx, sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC())
