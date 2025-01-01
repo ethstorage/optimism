@@ -163,42 +163,29 @@ func dialRPCClientWithBackoff(ctx context.Context, log log.Logger, addr string, 
 		return client, nil
 	})
 }
-func IsURLAvailable(ctx context.Context, address string) bool {
-	fmt.Printf("Step 1: Received address=%s\n", address)
 
+func IsURLAvailable(ctx context.Context, address string) bool {
 	u, err := url.Parse(address)
 	if err != nil {
-		fmt.Printf("Step 2: Error parsing URL: err=%v\n", err)
 		return false
 	}
-	fmt.Printf("Step 3: Parsed URL: host=%s, scheme=%s, port=%s\n", u.Host, u.Scheme, u.Port())
-
 	addr := u.Host
 	if u.Port() == "" {
 		switch u.Scheme {
 		case "http", "ws":
 			addr += ":80"
-			fmt.Printf("Step 4: No port specified. Defaulting to HTTP port: addr=%s\n", addr)
 		case "https", "wss":
 			addr += ":443"
-			fmt.Printf("Step 5: No port specified. Defaulting to HTTPS port: addr=%s\n", addr)
 		default:
-			fmt.Println("Step 6: Unable to determine port. Failing open.")
+			// Fail open if we can't figure out what the port should be
 			return true
 		}
-	} else {
-		fmt.Printf("Step 7: Port specified in URL: addr=%s\n", addr)
 	}
-
 	dialer := net.Dialer{Timeout: 5 * time.Second}
-	fmt.Println("Step 8: Attempting to dial the address...")
 	conn, err := dialer.DialContext(ctx, "tcp", addr)
 	if err != nil {
-		fmt.Printf("Step 9: Error dialing address: err=%v\n", err)
 		return false
 	}
-
-	fmt.Println("Step 10: Connection established. Closing connection...")
 	conn.Close()
 	return true
 }
