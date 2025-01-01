@@ -180,11 +180,11 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 			},
 		},
 		Loggers: map[string]log.Logger{
-			RoleVerif:   testlog.Logger(t, log.LevelWarn).New("role", RoleVerif),
-			RoleSeq:     testlog.Logger(t, log.LevelWarn).New("role", RoleSeq),
-			"batcher":   testlog.Logger(t, log.LevelWarn).New("role", "batcher"),
-			"proposer":  testlog.Logger(t, log.LevelWarn).New("role", "proposer"),
-			"da-server": testlog.Logger(t, log.LevelWarn).New("role", "da-server"),
+			RoleVerif:   testlog.Logger(t, log.LevelInfo).New("role", RoleVerif),
+			RoleSeq:     testlog.Logger(t, log.LevelInfo).New("role", RoleSeq),
+			"batcher":   testlog.Logger(t, log.LevelInfo).New("role", "batcher"),
+			"proposer":  testlog.Logger(t, log.LevelInfo).New("role", "proposer"),
+			"da-server": testlog.Logger(t, log.LevelInfo).New("role", "da-server"),
 		},
 		GethOptions:                   map[string][]geth.GethOption{},
 		P2PTopology:                   nil, // no P2P connectivity by default
