@@ -137,9 +137,7 @@ func TestRequiredProtocolVersionChangeAndHalt(t *testing.T) {
 		}
 		// `IsURLAvailable()` returns incorrect value when url == "http://" and port 80 is occupied.
 		available := client.IsURLAvailable(ctx, sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC())
-		t.Log("verifier op-geth is available: ", "available=", available, "rpc=", sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC(), "err", ctx.Err())
 		if !available && ctx.Err() == nil { // waiting for client to stop responding to RPC requests (slow dials with timeout don't count)
-			t.Log("verifier op-geth is not available!!!")
 			return struct{}{}, nil
 		}
 		return struct{}{}, errors.New("verifier EL node is not closed yet")

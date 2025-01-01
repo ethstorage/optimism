@@ -159,6 +159,5 @@ func (s *EngineAPIClient) SignalSuperchainV1(ctx context.Context, recommended, r
 		Recommended: recommended,
 		Required:    required,
 	})
-	s.log.Warn("engine_signalSuperchainV1", "required", required, "result", result, "err", err)
 	return result, err
 }
