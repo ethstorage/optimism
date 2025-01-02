@@ -218,10 +218,9 @@ contract Deploy is Deployer {
         deployAnchorStateRegistry();
         initializeAnchorStateRegistry();
 
-        setAlphabetFaultGameImplementation({ _allowUpgrade: true });
-        setFastFaultGameImplementation({ _allowUpgrade: true });
-        setCannonFaultGameImplementation({ _allowUpgrade: true });
-        setPermissionedCannonFaultGameImplementation({ _allowUpgrade: true });
+        setAlphabetFaultGameImplementation();
+        setFastFaultGameImplementation();
+        setCannonFaultGameImplementation();
     }
 
     /// @notice Deploy all L1 contracts and write the state diff to a file.
@@ -564,6 +563,25 @@ contract Deploy is Deployer {
         });
 
         addr_ = address(oracle);
+    }
+
+    /// @notice Deploy the AnchorStateRegistry
+    function deployAnchorStateRegistry() public broadcast returns (address addr_) {
+        IAnchorStateRegistry anchorStateRegistry = IAnchorStateRegistry(
+            DeployUtils.create2AndSave({
+                _save: this,
+                _salt: _implSalt(),
+                _name: "AnchorStateRegistry",
+                _args: DeployUtils.encodeConstructor(
+                    abi.encodeCall(
+                        IAnchorStateRegistry.__constructor__,
+                        (IDisputeGameFactory(mustGetAddress("DisputeGameFactoryProxy")))
+                    )
+                )
+            })
+        );
+
+        addr_ = address(anchorStateRegistry);
     }
 
     /// @notice Deploy the DataAvailabilityChallenge
