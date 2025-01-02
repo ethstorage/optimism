@@ -1,0 +1,29 @@
+# This workflow will publish a github release for optimism
+
+name: Publish
+run-name: ${{ github.actor }} is publishing a release 🚀
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Always wait for previous release to finish before releasing again
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      BUILD_DIR: optimism.${{ github.ref_name }}
+      BIN_DIR: optimism.${{ github.ref_name }}/build/bin
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          generate_release_notes: true

@@ -24,17 +24,18 @@ contract PredeploysBaseTest is CommonTest {
     /// @dev Returns true if the predeploy is initializable.
     function _isInitializable(address _addr) internal pure returns (bool) {
         return _addr == Predeploys.L2_CROSS_DOMAIN_MESSENGER || _addr == Predeploys.L2_STANDARD_BRIDGE
-            || _addr == Predeploys.L2_ERC721_BRIDGE || _addr == Predeploys.OPTIMISM_MINTABLE_ERC20_FACTORY;
+            || _addr == Predeploys.L2_ERC721_BRIDGE || _addr == Predeploys.OPTIMISM_MINTABLE_ERC20_FACTORY
+            || _addr == Predeploys.SOUL_GAS_TOKEN;
     }
 
     /// @dev Returns true if the predeploy uses immutables.
     function _usesImmutables(address _addr) internal pure returns (bool) {
         return _addr == Predeploys.OPTIMISM_MINTABLE_ERC721_FACTORY || _addr == Predeploys.SEQUENCER_FEE_WALLET
             || _addr == Predeploys.BASE_FEE_VAULT || _addr == Predeploys.L1_FEE_VAULT || _addr == Predeploys.EAS
-            || _addr == Predeploys.GOVERNANCE_TOKEN || _addr == Predeploys.OPTIMISM_SUPERCHAIN_ERC20_BEACON;
+            || _addr == Predeploys.GOVERNANCE_TOKEN;
     }
 
-    function test_predeployToCodeNamespace() external pure {
+    function test_predeployToCodeNamespace_works() external pure {
         assertEq(
             address(0xc0D3C0d3C0d3C0D3c0d3C0d3c0D3C0d3c0d30000),
             Predeploys.predeployToCodeNamespace(Predeploys.LEGACY_MESSAGE_PASSER)

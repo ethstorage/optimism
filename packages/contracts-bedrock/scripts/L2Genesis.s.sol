@@ -18,24 +18,21 @@ import { Preinstalls } from "src/libraries/Preinstalls.sol";
 import { Types } from "src/libraries/Types.sol";
 
 // Interfaces
-import { ISequencerFeeVault } from "src/L2/interfaces/ISequencerFeeVault.sol";
-import { IBaseFeeVault } from "src/L2/interfaces/IBaseFeeVault.sol";
-import { IL1FeeVault } from "src/L2/interfaces/IL1FeeVault.sol";
-import { IOptimismSuperchainERC20Beacon } from "src/L2/interfaces/IOptimismSuperchainERC20Beacon.sol";
-import { IOptimismMintableERC721Factory } from "src/universal/interfaces/IOptimismMintableERC721Factory.sol";
-import { IGovernanceToken } from "src/governance/interfaces/IGovernanceToken.sol";
-import { IOptimismMintableERC20Factory } from "src/universal/interfaces/IOptimismMintableERC20Factory.sol";
-import { IL2StandardBridge } from "src/L2/interfaces/IL2StandardBridge.sol";
-import { IL2ERC721Bridge } from "src/L2/interfaces/IL2ERC721Bridge.sol";
-import { IStandardBridge } from "src/universal/interfaces/IStandardBridge.sol";
-import { ICrossDomainMessenger } from "src/universal/interfaces/ICrossDomainMessenger.sol";
-import { IL2CrossDomainMessenger } from "src/L2/interfaces/IL2CrossDomainMessenger.sol";
-import { IGasPriceOracle } from "src/L2/interfaces/IGasPriceOracle.sol";
-import { IL1Block } from "src/L2/interfaces/IL1Block.sol";
+import { ISequencerFeeVault } from "interfaces/L2/ISequencerFeeVault.sol";
+import { IBaseFeeVault } from "interfaces/L2/IBaseFeeVault.sol";
+import { IL1FeeVault } from "interfaces/L2/IL1FeeVault.sol";
+import { IOptimismMintableERC721Factory } from "interfaces/universal/IOptimismMintableERC721Factory.sol";
+import { IGovernanceToken } from "interfaces/governance/IGovernanceToken.sol";
+import { IOptimismMintableERC20Factory } from "interfaces/universal/IOptimismMintableERC20Factory.sol";
+import { IL2StandardBridge } from "interfaces/L2/IL2StandardBridge.sol";
+import { IL2ERC721Bridge } from "interfaces/L2/IL2ERC721Bridge.sol";
+import { IStandardBridge } from "interfaces/universal/IStandardBridge.sol";
+import { ICrossDomainMessenger } from "interfaces/universal/ICrossDomainMessenger.sol";
+import { IL2CrossDomainMessenger } from "interfaces/L2/IL2CrossDomainMessenger.sol";
+import { IGasPriceOracle } from "interfaces/L2/IGasPriceOracle.sol";
+import { IL1Block } from "interfaces/L2/IL1Block.sol";
 
-interface IInitializable {
-    function initialize(address _addr) external;
-}
+import { SoulGasToken } from "src/L2/SoulGasToken.sol";
 
 struct L1Dependencies {
     address payable l1CrossDomainMessengerProxy;
@@ -183,6 +180,10 @@ contract L2Genesis is Deployer {
         if (writeForkGenesisAllocs(_fork, Fork.GRANITE, _mode)) {
             return;
         }
+
+        if (writeForkGenesisAllocs(_fork, Fork.HOLOCENE, _mode)) {
+            return;
+        }
     }
 
     function writeForkGenesisAllocs(Fork _latest, Fork _current, OutputMode _mode) internal returns (bool isLatest_) {
@@ -269,6 +270,7 @@ contract L2Genesis is Deployer {
         // 1B,1C,1D,1E,1F: not used.
         setSchemaRegistry(); // 20
         setEAS(); // 21
+        if (cfg.useSoulGasToken()) setSoulGasToken(); // 800
         setGovernanceToken(); // 42: OP (not behind a proxy)
         if (cfg.useInterop()) {
             setCrossL2Inbox(); // 22
@@ -277,6 +279,7 @@ contract L2Genesis is Deployer {
             setETHLiquidity(); // 25
             setOptimismSuperchainERC20Factory(); // 26
             setOptimismSuperchainERC20Beacon(); // 27
+            setSuperchainTokenBridge(); // 28
         }
     }
 
@@ -294,6 +297,44 @@ contract L2Genesis is Deployer {
 
     function setL2ToL1MessagePasser() public {
         _setImplementationCode(Predeploys.L2_TO_L1_MESSAGE_PASSER);
+    }
+
+    /// @notice This predeploy is following the safety invariant #2.
+    function setSoulGasToken() public {
+        address impl = Predeploys.predeployToCodeNamespace(Predeploys.SOUL_GAS_TOKEN);
+        console.log(
+            "Setting %s implementation at: %s, isSoulBackedByNative:%d",
+            "SoulGasToken",
+            impl,
+            cfg.isSoulBackedByNative()
+        );
+        SoulGasToken token;
+        if (cfg.isSoulBackedByNative()) {
+            token = new SoulGasToken({ _isBackedByNative: true });
+        } else {
+            token = new SoulGasToken({ _isBackedByNative: false });
+        }
+        vm.etch(impl, address(token).code);
+
+        /// Reset so its not included state dump
+        vm.etch(address(token), "");
+        vm.resetNonce(address(token));
+
+        if (cfg.isSoulBackedByNative()) {
+            SoulGasToken(impl).initialize({ _name: "", _symbol: "", _owner: cfg.proxyAdminOwner() });
+            SoulGasToken(Predeploys.SOUL_GAS_TOKEN).initialize({
+                _name: "QKC",
+                _symbol: "QKC",
+                _owner: cfg.proxyAdminOwner()
+            });
+        } else {
+            SoulGasToken(impl).initialize({ _name: "", _symbol: "", _owner: cfg.proxyAdminOwner() });
+            SoulGasToken(Predeploys.SOUL_GAS_TOKEN).initialize({
+                _name: "QKC",
+                _symbol: "QKC",
+                _owner: cfg.proxyAdminOwner()
+            });
+        }
     }
 
     /// @notice This predeploy is following the safety invariant #1.
@@ -576,29 +617,20 @@ contract L2Genesis is Deployer {
         _setImplementationCode(Predeploys.OPTIMISM_SUPERCHAIN_ERC20_FACTORY);
     }
 
-    /// @notice This predeploy is following the safety invariant #2.
+    /// @notice This predeploy is following the safety invariant #1.
+    ///         This contract has no initializer.
     function setOptimismSuperchainERC20Beacon() internal {
         address superchainERC20Impl = Predeploys.OPTIMISM_SUPERCHAIN_ERC20;
         console.log("Setting %s implementation at: %s", "OptimismSuperchainERC20", superchainERC20Impl);
         vm.etch(superchainERC20Impl, vm.getDeployedCode("OptimismSuperchainERC20.sol:OptimismSuperchainERC20"));
 
-        IOptimismSuperchainERC20Beacon beacon = IOptimismSuperchainERC20Beacon(
-            DeployUtils.create1(
-                "OptimismSuperchainERC20Beacon",
-                DeployUtils.encodeConstructor(
-                    abi.encodeCall(IOptimismSuperchainERC20Beacon.__constructor__, (superchainERC20Impl))
-                )
-            )
-        );
+        _setImplementationCode(Predeploys.OPTIMISM_SUPERCHAIN_ERC20_BEACON);
+    }
 
-        address beaconImpl = Predeploys.predeployToCodeNamespace(Predeploys.OPTIMISM_SUPERCHAIN_ERC20_BEACON);
-
-        console.log("Setting %s implementation at: %s", "OptimismSuperchainERC20Beacon", beaconImpl);
-        vm.etch(beaconImpl, address(beacon).code);
-
-        /// Reset so its not included state dump
-        vm.etch(address(beacon), "");
-        vm.resetNonce(address(beacon));
+    /// @notice This predeploy is following the safety invariant #1.
+    ///         This contract has no initializer.
+    function setSuperchainTokenBridge() internal {
+        _setImplementationCode(Predeploys.SUPERCHAIN_TOKEN_BRIDGE);
     }
 
     /// @notice Sets all the preinstalls.
@@ -651,11 +683,7 @@ contract L2Genesis is Deployer {
 
     /// @notice Sorts the allocs by address
     function sortJsonByKeys(string memory _path) internal {
-        string[] memory commands = new string[](3);
-        commands[0] = "bash";
-        commands[1] = "-c";
-        commands[2] = string.concat("cat <<< $(jq -S '.' ", _path, ") > ", _path);
-        Process.run(commands);
+        Process.bash(string.concat("cat <<< $(jq -S '.' ", _path, ") > ", _path));
     }
 
     /// @notice Funds the default dev accounts with ether

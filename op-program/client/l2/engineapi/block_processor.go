@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip1559"
+	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -51,6 +52,14 @@ func NewBlockProcessorFromPayloadAttributes(provider BlockDataProvider, parent c
 		Nonce:            types.EncodeNonce(0),
 		ParentBeaconRoot: attrs.ParentBeaconBlockRoot,
 	}
+	if attrs.EIP1559Params != nil {
+		d, e := eip1559.DecodeHolocene1559Params(attrs.EIP1559Params[:])
+		if d == 0 {
+			d = provider.Config().BaseFeeChangeDenominator(header.Time)
+			e = provider.Config().ElasticityMultiplier()
+		}
+		header.Extra = eip1559.EncodeHoloceneExtraData(d, e)
+	}
 
 	return NewBlockProcessorFromHeader(provider, header)
 }
@@ -90,7 +99,14 @@ func NewBlockProcessorFromHeader(provider BlockDataProvider, h *types.Header) (*
 			// Blob tx not supported on optimism chains but fields must be set when Cancun is active.
 			zero := uint64(0)
 			header.BlobGasUsed = &zero
-			header.ExcessBlobGas = &zero
+			var excessBlobGas uint64
+			if provider.Config().IsCancun(parentHeader.Number, parentHeader.Time) {
+				excessBlobGas = eip4844.CalcExcessBlobGas(*parentHeader.ExcessBlobGas, *parentHeader.BlobGasUsed)
+			} else {
+				// For the first post-fork block, both parent.data_gas_used and parent.excess_data_gas are evaluated as 0
+				excessBlobGas = eip4844.CalcExcessBlobGas(0, 0)
+			}
+			header.ExcessBlobGas = &excessBlobGas
 		}
 		vmenv := mkEVM()
 		core.ProcessBeaconBlockRoot(*header.ParentBeaconRoot, vmenv, statedb)
@@ -127,6 +143,9 @@ func (b *BlockProcessor) AddTx(tx *types.Transaction) error {
 	}
 	b.receipts = append(b.receipts, receipt)
 	b.transactions = append(b.transactions, tx)
+	if b.header.BlobGasUsed != nil {
+		*b.header.BlobGasUsed += receipt.BlobGasUsed
+	}
 	return nil
 }
 

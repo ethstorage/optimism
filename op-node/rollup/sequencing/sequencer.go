@@ -33,6 +33,7 @@ type L1OriginSelectorIface interface {
 }
 
 type Metrics interface {
+	SetSequencerState(active bool)
 	RecordSequencerInconsistentL1Origin(from eth.BlockID, to eth.BlockID)
 	RecordSequencerReset()
 	RecordSequencingError()
@@ -55,8 +56,7 @@ type AsyncGossiper interface {
 // This event is used to prioritize sequencer work over derivation work,
 // by emitting it before e.g. a derivation-pipeline step.
 // A future sequencer in an async world may manage its own execution.
-type SequencerActionEvent struct {
-}
+type SequencerActionEvent struct{}
 
 func (ev SequencerActionEvent) String() string {
 	return "sequencer-action"
@@ -119,6 +119,8 @@ type Sequencer struct {
 
 	// toBlockRef converts a payload to a block-ref, and is only configurable for test-purposes
 	toBlockRef func(rollupCfg *rollup.Config, payload *eth.ExecutionPayload) (eth.L2BlockRef, error)
+
+	dacClient engine.DACClient
 }
 
 var _ SequencerIface = (*Sequencer)(nil)
@@ -129,7 +131,9 @@ func NewSequencer(driverCtx context.Context, log log.Logger, rollupCfg *rollup.C
 	listener SequencerStateListener,
 	conductor conductor.SequencerConductor,
 	asyncGossip AsyncGossiper,
-	metrics Metrics) *Sequencer {
+	metrics Metrics,
+	dacClient engine.DACClient,
+) *Sequencer {
 	return &Sequencer{
 		ctx:              driverCtx,
 		log:              log,
@@ -143,6 +147,7 @@ func NewSequencer(driverCtx context.Context, log log.Logger, rollupCfg *rollup.C
 		metrics:          metrics,
 		timeNow:          time.Now,
 		toBlockRef:       derive.PayloadToBlockRef,
+		dacClient:        dacClient,
 	}
 }
 
@@ -265,12 +270,35 @@ func (d *Sequencer) onBuildSealed(x engine.BuildSealedEvent) {
 		"txs", len(x.Envelope.ExecutionPayload.Transactions),
 		"time", uint64(x.Envelope.ExecutionPayload.Timestamp))
 
+	{
+		envelope := x.Envelope
+		if envelope.BlobsBundle != nil && len(envelope.BlobsBundle.Blobs) > 0 {
+			// Deriving is based on onchain-data which doesn't contain L2 blob.
+			if x.DerivedFrom != (eth.L1BlockRef{}) {
+				d.emitter.Emit(rollup.EngineTemporaryErrorEvent{
+					Err: fmt.Errorf("got blobs when deriving")})
+				return
+			}
+			if d.dacClient != nil {
+				ctx, cancel := context.WithTimeout(d.ctx, time.Second*5)
+				defer cancel()
+				err := d.dacClient.UploadBlobs(ctx, envelope)
+				if err != nil {
+					d.emitter.Emit(rollup.EngineTemporaryErrorEvent{
+						Err: fmt.Errorf("UploadBlobs failed: %w", err)})
+					return
+				}
+			}
+		}
+	}
+
 	// generous timeout, the conductor is important
 	ctx, cancel := context.WithTimeout(d.ctx, time.Second*30)
 	defer cancel()
 	if err := d.conductor.CommitUnsafePayload(ctx, x.Envelope); err != nil {
 		d.emitter.Emit(rollup.EngineTemporaryErrorEvent{
-			Err: fmt.Errorf("failed to commit unsafe payload to conductor: %w", err)})
+			Err: fmt.Errorf("failed to commit unsafe payload to conductor: %w", err),
+		})
 		return
 	}
 
@@ -280,8 +308,9 @@ func (d *Sequencer) onBuildSealed(x engine.BuildSealedEvent) {
 	d.asyncGossip.Gossip(x.Envelope)
 	// Now after having gossiped the block, try to put it in our own canonical chain
 	d.emitter.Emit(engine.PayloadProcessEvent{
-		IsLastInSpan: x.IsLastInSpan,
+		Concluding:   x.Concluding,
 		DerivedFrom:  x.DerivedFrom,
+		BuildStarted: x.BuildStarted,
 		Envelope:     x.Envelope,
 		Ref:          x.Ref,
 	})
@@ -333,7 +362,7 @@ func (d *Sequencer) onPayloadSuccess(x engine.PayloadSuccessEvent) {
 	d.asyncGossip.Clear()
 }
 
-func (d *Sequencer) onSequencerAction(x SequencerActionEvent) {
+func (d *Sequencer) onSequencerAction(SequencerActionEvent) {
 	d.log.Debug("Sequencer action")
 	payload := d.asyncGossip.Get()
 	if payload != nil {
@@ -355,10 +384,10 @@ func (d *Sequencer) onSequencerAction(x SequencerActionEvent) {
 		// meaning that we have seen BuildSealedEvent already.
 		// We can retry processing to make it canonical.
 		d.emitter.Emit(engine.PayloadProcessEvent{
-			IsLastInSpan: false,
-			DerivedFrom:  eth.L1BlockRef{},
-			Envelope:     payload,
-			Ref:          ref,
+			Concluding:  false,
+			DerivedFrom: eth.L1BlockRef{},
+			Envelope:    payload,
+			Ref:         ref,
 		})
 		d.latest.Ref = ref
 	} else {
@@ -370,7 +399,7 @@ func (d *Sequencer) onSequencerAction(x SequencerActionEvent) {
 			d.emitter.Emit(engine.BuildSealEvent{
 				Info:         d.latest.Info,
 				BuildStarted: d.latest.Started,
-				IsLastInSpan: false,
+				Concluding:   false,
 				DerivedFrom:  eth.L1BlockRef{},
 			})
 		} else if d.latest == (BuildingState{}) {
@@ -382,8 +411,7 @@ func (d *Sequencer) onSequencerAction(x SequencerActionEvent) {
 
 func (d *Sequencer) onEngineTemporaryError(x rollup.EngineTemporaryErrorEvent) {
 	if d.latest == (BuildingState{}) {
-		d.log.Debug("Engine reported temporary error, but sequencer is not using engine", "err", x.Err)
-		return
+		d.log.Debug("Engine reported temporary error while building state is empty", "err", x.Err)
 	}
 	d.log.Error("Engine failed temporarily, backing off sequencer", "err", x.Err)
 	if errors.Is(x.Err, engine.ErrEngineSyncing) { // if it is syncing we can back off by more
@@ -416,7 +444,7 @@ func (d *Sequencer) onReset(x rollup.ResetEvent) {
 	d.nextActionOK = false
 }
 
-func (d *Sequencer) onEngineResetConfirmedEvent(x engine.EngineResetConfirmedEvent) {
+func (d *Sequencer) onEngineResetConfirmedEvent(engine.EngineResetConfirmedEvent) {
 	d.nextActionOK = d.active.Load()
 	// Before sequencing we can wait a block,
 	// assuming the execution-engine just churned through some work for the reset.
@@ -552,10 +580,10 @@ func (d *Sequencer) startBuildingBlock() {
 
 	// Start a payload building process.
 	withParent := &derive.AttributesWithParent{
-		Attributes:   attrs,
-		Parent:       l2Head,
-		IsLastInSpan: false,
-		DerivedFrom:  eth.L1BlockRef{}, // zero, not going to be pending-safe / safe
+		Attributes:  attrs,
+		Parent:      l2Head,
+		Concluding:  false,
+		DerivedFrom: eth.L1BlockRef{}, // zero, not going to be pending-safe / safe
 	}
 
 	// Don't try to start building a block again, until we have heard back from this attempt
@@ -619,6 +647,7 @@ func (d *Sequencer) Init(ctx context.Context, active bool) error {
 	if active {
 		return d.forceStart()
 	} else {
+		d.metrics.SetSequencerState(false)
 		if err := d.listener.SequencerStopped(); err != nil {
 			return fmt.Errorf("failed to notify sequencer-state listener of initial stopped state: %w", err)
 		}
@@ -652,6 +681,7 @@ func (d *Sequencer) forceStart() error {
 	d.nextActionOK = true
 	d.nextAction = d.timeNow()
 	d.active.Store(true)
+	d.metrics.SetSequencerState(true)
 	d.log.Info("Sequencer has been started", "next action", d.nextAction)
 	return nil
 }
@@ -697,6 +727,7 @@ func (d *Sequencer) Stop(ctx context.Context) (common.Hash, error) {
 
 	d.nextActionOK = false
 	d.active.Store(false)
+	d.metrics.SetSequencerState(false)
 	d.log.Info("Sequencer has been stopped")
 	return d.latestHead.Hash, nil
 }

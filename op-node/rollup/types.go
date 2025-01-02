@@ -2,8 +2,10 @@ package rollup
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"time"
 
@@ -137,6 +139,32 @@ type Config struct {
 
 	// AltDAConfig. We are in the process of migrating to the AltDAConfig from these legacy top level values
 	AltDAConfig *AltDAConfig `json:"alt_da,omitempty"`
+
+	L2BlobConfig        *L2BlobConfig        `json:"l2_blob_config,omitempty"`
+	InboxContractConfig *InboxContractConfig `json:"inbox_contract_config,omitempty"`
+}
+
+type L2BlobConfig struct {
+	L2BlobTime *uint64 `json:"l2BlobTime,omitempty"`
+}
+
+type InboxContractConfig struct {
+	UseInboxContract bool `json:"use_inbox_contract,omitempty"`
+}
+
+// IsL2Blob returns whether l2 blob is enabled
+func (cfg *Config) IsL2Blob(parentTime uint64) bool {
+	return cfg.IsL2BlobTimeSet() && *cfg.L2BlobConfig.L2BlobTime <= parentTime
+}
+
+// UseInboxContract returns whether inbox contract is enabled
+func (cfg *Config) UseInboxContract() bool {
+	return cfg.InboxContractConfig != nil && cfg.InboxContractConfig.UseInboxContract
+}
+
+// IsL2BlobTimeSet returns whether l2 blob activation time is set
+func (cfg *Config) IsL2BlobTimeSet() bool {
+	return cfg.L2BlobConfig != nil && cfg.L2BlobConfig.L2BlobTime != nil
 }
 
 // ValidateL1Config checks L1 config variables for errors.
@@ -463,6 +491,17 @@ func (c *Config) IsInteropActivationBlock(l2BlockTime uint64) bool {
 		!c.IsInterop(l2BlockTime-c.BlockTime)
 }
 
+// IsActivationBlock returns the fork which activates at the block with time newTime if the previous
+// block's time is oldTime. It return an empty ForkName if no fork activation takes place between
+// those timestamps. It can be used for both, L1 and L2 blocks.
+// TODO(12490): Currently only supports Holocene. Will be modularized in a follow-up.
+func (c *Config) IsActivationBlock(oldTime, newTime uint64) ForkName {
+	if c.IsHolocene(newTime) && !c.IsHolocene(oldTime) {
+		return Holocene
+	}
+	return ""
+}
+
 func (c *Config) ActivateAtGenesis(hardfork ForkName) {
 	// IMPORTANT! ordered from newest to oldest
 	switch hardfork {
@@ -647,6 +686,15 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
 		"alt_da", c.AltDAConfig != nil,
 	)
+}
+
+func (c *Config) ParseRollupConfig(in io.Reader) error {
+	dec := json.NewDecoder(in)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(c); err != nil {
+		return fmt.Errorf("failed to decode rollup config: %w", err)
+	}
+	return nil
 }
 
 func fmtForkTimeOrUnset(v *uint64) string {

@@ -17,10 +17,14 @@ import (
 	oprpc "github.com/ethereum-optimism/optimism/op-service/rpc"
 	"github.com/ethereum-optimism/optimism/op-service/testlog"
 	"github.com/ethereum-optimism/optimism/op-supervisor/config"
+	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/backend/depset"
 	"github.com/ethereum-optimism/optimism/op-supervisor/supervisor/types"
 )
 
 func TestSupervisorService(t *testing.T) {
+	depSet, err := depset.NewStaticConfigDependencySet(make(map[types.ChainID]*depset.StaticConfigDependency))
+	require.NoError(t, err)
+
 	cfg := &config.Config{
 		Version: "",
 		LogConfig: oplog.CLIConfig{
@@ -46,7 +50,8 @@ func TestSupervisorService(t *testing.T) {
 			ListenPort:  0, // pick a port automatically
 			EnableAdmin: true,
 		},
-		MockRun: true,
+		DependencySetSource: depSet,
+		MockRun:             true,
 	}
 	logger := testlog.Logger(t, log.LevelError)
 	supervisor, err := SupervisorFromConfig(context.Background(), cfg, logger)

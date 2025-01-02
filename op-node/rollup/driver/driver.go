@@ -49,6 +49,7 @@ type Metrics interface {
 	RecordUnsafePayloadsBuffer(length uint64, memSize uint64, next eth.BlockID)
 
 	SetDerivationIdle(idle bool)
+	SetSequencerState(active bool)
 
 	RecordL1ReorgDepth(d uint64)
 
@@ -173,6 +174,7 @@ func NewDriver(
 	syncCfg *sync.Config,
 	sequencerConductor conductor.SequencerConductor,
 	altDA AltDAIface,
+	dacClient engine.DACClient,
 ) *Driver {
 	driverCtx, driverCancel := context.WithCancel(context.Background())
 
@@ -248,7 +250,7 @@ func NewDriver(
 		findL1Origin := sequencing.NewL1OriginSelector(driverCtx, log, cfg, sequencerConfDepth)
 		sys.Register("origin-selector", findL1Origin, opts)
 		sequencer = sequencing.NewSequencer(driverCtx, log, cfg, attrBuilder, findL1Origin,
-			sequencerStateListener, sequencerConductor, asyncGossiper, metrics)
+			sequencerStateListener, sequencerConductor, asyncGossiper, metrics, dacClient)
 		sys.Register("sequencer", sequencer, opts)
 	} else {
 		sequencer = sequencing.DisabledSequencer{}

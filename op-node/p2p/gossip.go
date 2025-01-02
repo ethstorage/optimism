@@ -319,7 +319,7 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 		now := uint64(time.Now().Unix())
 
 		// [REJECT] if the `payload.timestamp` is older than 60 seconds in the past
-		if uint64(payload.Timestamp) < now-60 {
+		if uint64(payload.Timestamp) < now-60 || uint64(payload.Timestamp) < cfg.BlockTime /* ensure timestamp>=BlockTime since we'll do subtraction below */ {
 			log.Warn("payload is too old", "timestamp", uint64(payload.Timestamp))
 			return pubsub.ValidationReject
 		}
@@ -368,13 +368,13 @@ func BuildBlocksValidator(log log.Logger, cfg *rollup.Config, runCfg GossipRunti
 
 		if blockVersion.HasBlobProperties() {
 			// [REJECT] if the block is on a topic >= V3 and has a blob gas used value that is not zero
-			if payload.BlobGasUsed == nil || *payload.BlobGasUsed != 0 {
+			if payload.BlobGasUsed == nil || (!cfg.IsL2Blob(uint64(payload.Timestamp)-cfg.BlockTime) && *payload.BlobGasUsed != 0) {
 				log.Warn("payload is on v3 topic, but has non-zero blob gas used", "bad_hash", payload.BlockHash.String(), "blob_gas_used", payload.BlobGasUsed)
 				return pubsub.ValidationReject
 			}
 
 			// [REJECT] if the block is on a topic >= V3 and has an excess blob gas value that is not zero
-			if payload.ExcessBlobGas == nil || *payload.ExcessBlobGas != 0 {
+			if payload.ExcessBlobGas == nil || (!cfg.IsL2Blob(uint64(payload.Timestamp)-cfg.BlockTime) && *payload.ExcessBlobGas != 0) {
 				log.Warn("payload is on v3 topic, but has non-zero excess blob gas", "bad_hash", payload.BlockHash.String(), "excess_blob_gas", payload.ExcessBlobGas)
 				return pubsub.ValidationReject
 			}

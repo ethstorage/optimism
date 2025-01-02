@@ -1,10 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.15;
 
-import { ISemver } from "src/universal/interfaces/ISemver.sol";
+// Libraries
 import { Constants } from "src/libraries/Constants.sol";
 import { GasPayingToken, IGasToken } from "src/libraries/GasPayingToken.sol";
-import "src/libraries/L1BlockErrors.sol";
+import { NotDepositor } from "src/libraries/L1BlockErrors.sol";
+
+// Interfaces
+import { ISemver } from "interfaces/universal/ISemver.sol";
 
 /// @custom:proxied true
 /// @custom:predeploy 0x4200000000000000000000000000000000000015
@@ -57,9 +60,9 @@ contract L1Block is ISemver, IGasToken {
     /// @notice The latest L1 blob base fee.
     uint256 public blobBaseFee;
 
-    /// @custom:semver 1.5.1-beta.2
+    /// @custom:semver 1.5.1-beta.5
     function version() public pure virtual returns (string memory) {
-        return "1.5.1-beta.2";
+        return "1.5.1-beta.5";
     }
 
     /// @notice Returns the gas paying token, its decimals, name and symbol.
@@ -86,6 +89,11 @@ contract L1Block is ISemver, IGasToken {
         (address token,) = gasPayingToken();
         return token != Constants.ETHER;
     }
+
+    /// @notice size of historyHashes.
+    uint256 internal constant HISTORY_SIZE = 8192;
+    /// @notice The 8191 history L1 blockhashes and 1 latest L1 blockhash.
+    bytes32[HISTORY_SIZE] internal historyHashes;
 
     /// @custom:legacy
     /// @notice Updates the L1 block values.
@@ -166,6 +174,30 @@ contract L1Block is ISemver, IGasToken {
             sstore(hash.slot, calldataload(100)) // bytes32
             sstore(batcherHash.slot, calldataload(132)) // bytes32
         }
+
+        historyHashes[number % HISTORY_SIZE] = hash;
+    }
+
+    /// @custom:legacy
+    /// @notice Returns the L1 block hash at the requested L1 blocknumber.
+    /// Only the most recent 8191 L1 block hashes are available, excluding the current one.
+    /// @param _historyNumber         L1 blocknumber.
+    function blockHash(uint256 _historyNumber) external view returns (bytes32) {
+        // translated from
+        // [opBlockhash](https://github.com/ethereum/go-ethereum/blob/e31709db6570e302557a9bccd681034ea0dcc246/core/vm/instructions.go#L434)
+        // with 256 => HISTORY_SIZE-1
+        uint256 lower;
+        uint256 upper = number;
+        if (upper < HISTORY_SIZE) {
+            lower = 0;
+        } else {
+            lower = upper - HISTORY_SIZE + 1;
+        }
+        if (_historyNumber >= lower && _historyNumber < upper) {
+            return historyHashes[_historyNumber % HISTORY_SIZE];
+        } else {
+            return bytes32(0);
+        }
     }
 
     /// @notice Sets the gas paying token for the L2 system. Can only be called by the special
@@ -177,5 +209,10 @@ contract L1Block is ISemver, IGasToken {
         GasPayingToken.set({ _token: _token, _decimals: _decimals, _name: _name, _symbol: _symbol });
 
         emit GasPayingTokenSet({ token: _token, decimals: _decimals, name: _name, symbol: _symbol });
+    }
+
+    /// @notice Returns the size of history hashes.
+    function historySize() external pure returns (uint256) {
+        return HISTORY_SIZE;
     }
 }
