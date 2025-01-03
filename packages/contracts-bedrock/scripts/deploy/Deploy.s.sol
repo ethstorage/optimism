@@ -1084,7 +1084,7 @@ contract Deploy is Deployer {
                 maxGameDepth: cfg.faultGameSplitDepth() + 3 + 1,
                 splitDepth: cfg.faultGameSplitDepth(),
                 clockExtension: Duration.wrap(uint64(cfg.faultGameClockExtension())),
-                maxClockDuration: Duration.wrap(0), // Resolvable immediately
+                maxClockDuration: Duration.wrap(uint64(cfg.faultGameMaxClockDuration())), // fastGame is not enabled in FP-devnet, set with faultGameMaxClockDuration to avoid compilation error
                 vm: IBigStepper(new AlphabetVM(outputAbsolutePrestate, fastOracle)),
                 weth: weth,
                 anchorStateRegistry: IAnchorStateRegistry(mustGetAddress("AnchorStateRegistryProxy")),
@@ -1100,7 +1100,9 @@ contract Deploy is Deployer {
     )
         internal
     {
-        if (address(_factory.gameImpls(_params.gameType)) != address(0)) {
+        // we alloc upgrade to be called here only in devnet
+        bool _allowUpgrade = true;
+        if (address(_factory.gameImpls(_params.gameType)) != address(0) && !_allowUpgrade) {
             console.log(
                 "[WARN] DisputeGameFactoryProxy: `FaultDisputeGame` implementation already set for game type: %s",
                 vm.toString(GameType.unwrap(_params.gameType))
