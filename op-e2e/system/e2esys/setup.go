@@ -116,6 +116,7 @@ func DefaultSystemConfig(t testing.TB, opts ...SystemConfigOpt) SystemConfig {
 	require.NoError(t, err)
 	deployConfig := config.DeployConfig(sco.AllocType)
 	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
+	deployConfig.L2GenesisBlobTimeOffset = nil
 	e2eutils.ApplyDeployConfigForks(deployConfig)
 	require.NoError(t, deployConfig.Check(testlog.Logger(t, log.LevelInfo)),
 		"Deploy config is invalid, do you need to run make devnet-allocs?")
@@ -620,6 +621,13 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		}
 	}
 
+	var l2BlobConfig *rollup.L2BlobConfig
+	if cfg.DeployConfig.L2GenesisBlobTimeOffset != nil {
+		l2BlobConfig = &rollup.L2BlobConfig{
+			L2BlobTime: cfg.DeployConfig.L2BlobTime(l1Block.Time()),
+		}
+	}
+
 	makeRollupConfig := func() rollup.Config {
 		return rollup.Config{
 			Genesis: rollup.Genesis{
@@ -653,6 +661,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			InteropTime:             cfg.DeployConfig.InteropTime(uint64(cfg.DeployConfig.L1GenesisBlockTimestamp)),
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
 			AltDAConfig:             rollupAltDAConfig,
+			L2BlobConfig:            l2BlobConfig,
 		}
 	}
 	defaultConfig := makeRollupConfig()
