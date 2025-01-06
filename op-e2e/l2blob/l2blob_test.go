@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum-optimism/optimism/op-e2e"
+	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-node/node"
@@ -42,7 +42,11 @@ var (
 func TestSubmitTXWithBlobsFunctionSuccess(t *testing.T) {
 	op_e2e.InitParallel(t)
 	dacServer := startDACServer(t)
-	defer dacServer.Stop(ctx)
+	defer func() {
+		if err := dacServer.Stop(ctx); err != nil {
+			t.Errorf("Failed to stop DAC server: %v", err)
+		}
+	}()
 
 	sys, l2Client := startSystemWithDAC(t)
 	t.Cleanup(sys.Close)
@@ -59,6 +63,7 @@ func TestSubmitTXWithBlobsFunctionSuccess(t *testing.T) {
 	tx, err := sendTransactionWithBlobs(t, ctx, l2Client, sys.TestAccount(0), toAddress, blobs)
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(ctx, l2Client, tx.Hash())
+	require.NoError(t, err)
 
 	dblobs, err := downloadBlobs(dacUrl, tx.BlobHashes())
 	require.NoError(t, err)
@@ -66,7 +71,7 @@ func TestSubmitTXWithBlobsFunctionSuccess(t *testing.T) {
 
 	for i, blob := range dblobs {
 		require.True(t, len(blob) == eth.BlobSize, fmt.Sprintf("invalid downloaded blob, index %d; len %d", i, len(blob)))
-		require.True(t, bytes.Compare(blob, blobs[i][:]) == 0, fmt.Sprintf("blob content diff: %s vs %s",
+		require.True(t, bytes.Equal(blob, blobs[i][:]), fmt.Sprintf("blob content diff: %s vs %s",
 			common.Bytes2Hex(blob[:32]), common.Bytes2Hex(blobs[i][:32])))
 	}
 }
