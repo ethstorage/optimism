@@ -1084,7 +1084,8 @@ contract Deploy is Deployer {
                 maxGameDepth: cfg.faultGameSplitDepth() + 3 + 1,
                 splitDepth: cfg.faultGameSplitDepth(),
                 clockExtension: Duration.wrap(uint64(cfg.faultGameClockExtension())),
-                maxClockDuration: Duration.wrap(uint64(cfg.faultGameMaxClockDuration())), // fastGame is not enabled in FP-devnet, set with faultGameMaxClockDuration to avoid compilation error
+                maxClockDuration: Duration.wrap(uint64(cfg.faultGameMaxClockDuration())), // fastGame is not enabled in
+                    // FP-devnet, set with faultGameMaxClockDuration to avoid compilation error
                 vm: IBigStepper(new AlphabetVM(outputAbsolutePrestate, fastOracle)),
                 weth: weth,
                 anchorStateRegistry: IAnchorStateRegistry(mustGetAddress("AnchorStateRegistryProxy")),
