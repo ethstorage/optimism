@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strings"
 	"time"
 
 	altda "github.com/ethereum-optimism/optimism/op-alt-da"
@@ -12,9 +13,12 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/p2p"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/engine"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-service/oppprof"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethstorage/da-server/pkg/da/client"
+	"github.com/urfave/cli/v2"
 )
 
 type Config struct {
@@ -69,12 +73,39 @@ type Config struct {
 
 	// Conductor is used to determine this node is the leader sequencer.
 	ConductorEnabled    bool
-	ConductorRpc        string
+	ConductorRpc        ConductorRPCFunc
 	ConductorRpcTimeout time.Duration
 
 	// AltDA config
 	AltDA altda.CLIConfig
+
+	// DACConfig for sequencer when l2 blob is enabled
+	DACConfig *DACConfig
 }
+
+func ReadDACConfigFromCLI(c *cli.Context) *DACConfig {
+	urls := c.String(flags.DACUrlsFlag.Name)
+	if urls == "" {
+		return nil
+	}
+	return &DACConfig{
+		URLS: strings.Split(urls, ","),
+	}
+}
+
+type DACConfig struct {
+	URLS []string
+}
+
+func (dacConfig *DACConfig) Client() engine.DACClient {
+	if dacConfig == nil || len(dacConfig.URLS) == 0 {
+		return nil
+	}
+	return client.New(dacConfig.URLS)
+}
+
+// ConductorRPCFunc retrieves the endpoint. The RPC may not immediately be available.
+type ConductorRPCFunc func(ctx context.Context) (string, error)
 
 type RPCConfig struct {
 	ListenAddr  string
@@ -176,6 +207,12 @@ func (cfg *Config) Check() error {
 	}
 	if cfg.AltDA.Enabled {
 		log.Warn("Alt-DA Mode is a Beta feature of the MIT licensed OP Stack.  While it has received initial review from core contributors, it is still undergoing testing, and may have bugs or other issues.")
+	}
+	if cfg.Driver.SequencerEnabled && cfg.Rollup.IsL2BlobTimeSet() && cfg.DACConfig == nil {
+		return fmt.Errorf("dac.urls must be set for sequencer when l2 blob time is set")
+	}
+	if (!cfg.Driver.SequencerEnabled || !cfg.Rollup.IsL2BlobTimeSet()) && cfg.DACConfig != nil {
+		return fmt.Errorf("dac.urls can only be set for sequencer when l2 blob time is set")
 	}
 	return nil
 }

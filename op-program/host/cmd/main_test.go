@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-program/chainconfig"
+	"github.com/ethereum-optimism/optimism/op-program/client"
 	"github.com/ethereum-optimism/optimism/op-program/host/config"
 	"github.com/ethereum-optimism/optimism/op-program/host/types"
 	oplog "github.com/ethereum-optimism/optimism/op-service/log"
@@ -160,6 +161,30 @@ func TestL2Genesis(t *testing.T) {
 	})
 }
 
+func TestL2ChainID(t *testing.T) {
+	t.Run("DefaultToNetworkChainID", func(t *testing.T) {
+		cfg := configForArgs(t, replaceRequiredArg("--network", "op-mainnet"))
+		require.Equal(t, uint64(10), cfg.L2ChainID)
+	})
+
+	t.Run("DefaultToGenesisChainID", func(t *testing.T) {
+		rollupCfgFile := writeValidRollupConfig(t)
+		genesisFile := writeValidGenesis(t)
+		cfg := configForArgs(t, addRequiredArgsExcept("--network", "--rollup.config", rollupCfgFile, "--l2.genesis", genesisFile))
+		require.Equal(t, l2GenesisConfig.ChainID.Uint64(), cfg.L2ChainID)
+	})
+
+	t.Run("OverrideToCustomIndicator", func(t *testing.T) {
+		rollupCfgFile := writeValidRollupConfig(t)
+		genesisFile := writeValidGenesis(t)
+		cfg := configForArgs(t, addRequiredArgsExcept("--network",
+			"--rollup.config", rollupCfgFile,
+			"--l2.genesis", genesisFile,
+			"--l2.custom"))
+		require.Equal(t, client.CustomChainIDIndicator, cfg.L2ChainID)
+	})
+}
+
 func TestL2Head(t *testing.T) {
 	t.Run("Required", func(t *testing.T) {
 		verifyArgsInvalid(t, "flag l2.head is required", addRequiredArgsExcept("--l2.head"))
@@ -271,6 +296,19 @@ func TestL2Claim(t *testing.T) {
 	t.Run("Allows all zero with prefix", func(t *testing.T) {
 		cfg := configForArgs(t, replaceRequiredArg("--l2.claim", "0x0000000000000000000000000000000000000000000000000000000000000000"))
 		require.EqualValues(t, common.Hash{}, cfg.L2Claim)
+	})
+}
+
+func TestL2Experimental(t *testing.T) {
+	t.Run("DefaultEmpty", func(t *testing.T) {
+		cfg := configForArgs(t, addRequiredArgs())
+		require.Equal(t, cfg.L2ExperimentalURL, "")
+	})
+
+	t.Run("Valid", func(t *testing.T) {
+		expected := "https://example.com:8545"
+		cfg := configForArgs(t, replaceRequiredArg("--l2.experimental", expected))
+		require.EqualValues(t, expected, cfg.L2ExperimentalURL)
 	})
 }
 

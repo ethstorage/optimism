@@ -73,6 +73,7 @@ var (
 		EnvVars:  prefixEnvVars("L1_BEACON"),
 		Category: RollupCategory,
 	}
+	/* Optional Flags */
 	SupervisorAddr = &cli.StringFlag{
 		Name: "supervisor",
 		Usage: "RPC address of interop supervisor service for cross-chain safety verification." +
@@ -80,7 +81,6 @@ var (
 		Hidden:  true, // hidden for now during early testing.
 		EnvVars: prefixEnvVars("SUPERVISOR"),
 	}
-	/* Optional Flags */
 	BeaconHeader = &cli.StringFlag{
 		Name:     "l1.beacon-header",
 		Usage:    "Optional HTTP header to add to all requests to the L1 Beacon endpoint. Format: 'X-Key: Value'",
@@ -372,6 +372,12 @@ var (
 		Value:    time.Second * 1,
 		Category: SequencerCategory,
 	}
+	DACUrlsFlag = &cli.StringFlag{
+		Name:     "dac.urls",
+		Usage:    "dac urls for sequencer when l2 blob is enabled",
+		EnvVars:  prefixEnvVars("DAC_URLS"),
+		Category: SequencerCategory,
+	}
 )
 
 var requiredFlags = []cli.Flag{
@@ -419,6 +425,7 @@ var optionalFlags = []cli.Flag{
 	ConductorRpcTimeoutFlag,
 	SafeDBPath,
 	L2EngineKind,
+	DACUrlsFlag,
 }
 
 var DeprecatedFlags = []cli.Flag{

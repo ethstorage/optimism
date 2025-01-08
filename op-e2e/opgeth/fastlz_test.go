@@ -173,7 +173,7 @@ func FuzzFjordCostFunction(f *testing.F) {
 		l1FeeSolidity.Mul(l1FeeSolidity, feeScaled)
 		l1FeeSolidity.Div(l1FeeSolidity, big.NewInt(1e12))
 
-		costData := types.NewRollupCostData(fuzzedData)
+		costData := types.NewRollupCostData(fuzzedData, 0)
 
 		l1FeeGeth := costFunc(costData, zeroTime)
 

@@ -27,13 +27,13 @@ type BlobDataSource struct {
 	ref          eth.L1BlockRef
 	batcherAddr  common.Address
 	dsCfg        DataSourceConfig
-	fetcher      L1TransactionFetcher
+	fetcher      L1Fetcher
 	blobsFetcher L1BlobsFetcher
 	log          log.Logger
 }
 
 // NewBlobDataSource creates a new blob data source.
-func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1TransactionFetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
+func NewBlobDataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, blobsFetcher L1BlobsFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
 	return &BlobDataSource{
 		ref:          ref,
 		dsCfg:        dsCfg,
@@ -73,6 +73,32 @@ func (ds *BlobDataSource) Next(ctx context.Context) (eth.Data, error) {
 	return data, nil
 }
 
+// getTxSucceed returns all successful txs
+func getTxSucceed(ctx context.Context, useInboxContract bool, fetcher L1Fetcher, hash common.Hash, txs types.Transactions) (successTxs types.Transactions, err error) {
+	if !useInboxContract {
+		// if !useInboxContract, all txs are considered successful
+		return txs, nil
+	}
+	_, receipts, err := fetcher.FetchReceipts(ctx, hash)
+	if err != nil {
+		return nil, NewTemporaryError(fmt.Errorf("failed to fetch L1 block info and receipts: %w", err))
+	}
+
+	txSucceeded := make(map[common.Hash]bool)
+	for _, receipt := range receipts {
+		if receipt.Status == types.ReceiptStatusSuccessful {
+			txSucceeded[receipt.TxHash] = true
+		}
+	}
+	successTxs = make(types.Transactions, 0)
+	for _, tx := range txs {
+		if _, ok := txSucceeded[tx.Hash()]; ok {
+			successTxs = append(successTxs, tx)
+		}
+	}
+	return successTxs, nil
+}
+
 // open fetches and returns the blob or calldata (as appropriate) from all valid batcher
 // transactions in the referenced block. Returns an empty (non-nil) array if no batcher
 // transactions are found. It returns ResetError if it cannot find the referenced block or a
@@ -84,6 +110,10 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 			return nil, NewResetError(fmt.Errorf("failed to open blob data source: %w", err))
 		}
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
+	}
+	txs, err = getTxSucceed(ctx, ds.dsCfg.useInboxContract, ds.fetcher, ds.ref.Hash, txs)
+	if err != nil {
+		return nil, err
 	}
 
 	data, hashes := dataAndHashesFromTxs(txs, &ds.dsCfg, ds.batcherAddr, ds.log)
@@ -120,8 +150,8 @@ func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batc
 	var hashes []eth.IndexedBlobHash
 	blobIndex := 0 // index of each blob in the block's blob sidecar
 	for _, tx := range txs {
-		// skip any non-batcher transactions
-		if !isValidBatchTx(tx, config.l1Signer, config.batchInboxAddress, batcherAddr, logger) {
+		// skip any non-batcher transactions or failed transactions
+		if !(isValidBatchTx(tx, config.l1Signer, config.batchInboxAddress, batcherAddr, logger)) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}

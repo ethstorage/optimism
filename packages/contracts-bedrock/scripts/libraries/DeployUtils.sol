@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity 0.8.15;
+pragma solidity ^0.8.0;
 
 // Scripts
 import { Vm } from "forge-std/Vm.sol";
@@ -12,10 +12,10 @@ import { Bytes } from "src/libraries/Bytes.sol";
 import { Constants } from "src/libraries/Constants.sol";
 
 // Interfaces
-import { IProxy } from "src/universal/interfaces/IProxy.sol";
-import { IAddressManager } from "src/legacy/interfaces/IAddressManager.sol";
-import { IL1ChugSplashProxy, IStaticL1ChugSplashProxy } from "src/legacy/interfaces/IL1ChugSplashProxy.sol";
-import { IResolvedDelegateProxy } from "src/legacy/interfaces/IResolvedDelegateProxy.sol";
+import { IProxy } from "interfaces/universal/IProxy.sol";
+import { IAddressManager } from "interfaces/legacy/IAddressManager.sol";
+import { IL1ChugSplashProxy, IStaticL1ChugSplashProxy } from "interfaces/legacy/IL1ChugSplashProxy.sol";
+import { IResolvedDelegateProxy } from "interfaces/legacy/IResolvedDelegateProxy.sol";
 
 library DeployUtils {
     Vm internal constant vm = Vm(address(uint160(uint256(keccak256("hevm cheat code")))));
@@ -103,6 +103,11 @@ library DeployUtils {
         require(preComputedAddress.code.length == 0, "DeployUtils: contract already deployed");
         assembly {
             addr_ := create2(0, add(initCode, 0x20), mload(initCode), _salt)
+            if iszero(addr_) {
+                let size := returndatasize()
+                returndatacopy(0, 0, size)
+                revert(0, size)
+            }
         }
         assertValidContractAddress(addr_);
     }
@@ -215,6 +220,10 @@ library DeployUtils {
     /// @notice Asserts that the given address is a valid contract address.
     /// @param _who Address to check.
     function assertValidContractAddress(address _who) internal view {
+        // Foundry will set returned address to address(1) whenever a contract creation fails
+        // inside of a test. If this is the case then let Foundry handle the error itself and don't
+        // trigger a revert (which would probably break a test).
+        if (_who == address(1)) return;
         require(_who != address(0), "DeployUtils: zero address");
         require(_who.code.length > 0, string.concat("DeployUtils: no code at ", LibString.toHexStringChecksummed(_who)));
     }
@@ -254,7 +263,7 @@ library DeployUtils {
 
     /// @notice Builds an ERC1967 Proxy with a dummy implementation.
     /// @param _proxyImplName Name of the implementation contract.
-    function buildERC1967ProxyWithImpl(string memory _proxyImplName) public returns (IProxy genericProxy_) {
+    function buildERC1967ProxyWithImpl(string memory _proxyImplName) internal returns (IProxy genericProxy_) {
         genericProxy_ = IProxy(
             create1({
                 _name: "Proxy",
@@ -270,7 +279,10 @@ library DeployUtils {
 
     /// @notice Builds an L1ChugSplashProxy with a dummy implementation.
     /// @param _proxyImplName Name of the implementation contract.
-    function buildL1ChugSplashProxyWithImpl(string memory _proxyImplName) public returns (IL1ChugSplashProxy proxy_) {
+    function buildL1ChugSplashProxyWithImpl(string memory _proxyImplName)
+        internal
+        returns (IL1ChugSplashProxy proxy_)
+    {
         proxy_ = IL1ChugSplashProxy(
             create1({
                 _name: "L1ChugSplashProxy",
@@ -290,7 +302,7 @@ library DeployUtils {
         IAddressManager _addressManager,
         string memory _proxyImplName
     )
-        public
+        internal
         returns (IResolvedDelegateProxy proxy_)
     {
         proxy_ = IResolvedDelegateProxy(
@@ -307,7 +319,7 @@ library DeployUtils {
     }
 
     /// @notice Builds an AddressManager contract.
-    function buildAddressManager() public returns (IAddressManager addressManager_) {
+    function buildAddressManager() internal returns (IAddressManager addressManager_) {
         addressManager_ = IAddressManager(
             create1({
                 _name: "AddressManager",

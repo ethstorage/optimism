@@ -24,7 +24,7 @@ type CalldataSource struct {
 	// Required to re-attempt fetching
 	ref     eth.L1BlockRef
 	dsCfg   DataSourceConfig
-	fetcher L1TransactionFetcher
+	fetcher L1Fetcher
 	log     log.Logger
 
 	batcherAddr common.Address
@@ -32,8 +32,19 @@ type CalldataSource struct {
 
 // NewCalldataSource creates a new calldata source. It suppresses errors in fetching the L1 block if they occur.
 // If there is an error, it will attempt to fetch the result on the next call to `Next`.
-func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1TransactionFetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
+func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConfig, fetcher L1Fetcher, ref eth.L1BlockRef, batcherAddr common.Address) DataIter {
 	_, txs, err := fetcher.InfoAndTxsByHash(ctx, ref.Hash)
+	if err != nil {
+		return &CalldataSource{
+			open:        false,
+			ref:         ref,
+			dsCfg:       dsCfg,
+			fetcher:     fetcher,
+			log:         log,
+			batcherAddr: batcherAddr,
+		}
+	}
+	txs, err = getTxSucceed(ctx, dsCfg.useInboxContract, fetcher, ref.Hash, txs)
 	if err != nil {
 		return &CalldataSource{
 			open:        false,
@@ -56,6 +67,10 @@ func NewCalldataSource(ctx context.Context, log log.Logger, dsCfg DataSourceConf
 func (ds *CalldataSource) Next(ctx context.Context) (eth.Data, error) {
 	if !ds.open {
 		if _, txs, err := ds.fetcher.InfoAndTxsByHash(ctx, ds.ref.Hash); err == nil {
+			txs, err := getTxSucceed(ctx, ds.dsCfg.useInboxContract, ds.fetcher, ds.ref.Hash, txs)
+			if err != nil {
+				return nil, err
+			}
 			ds.open = true
 			ds.data = DataFromEVMTransactions(ds.dsCfg, ds.batcherAddr, txs, ds.log)
 		} else if errors.Is(err, ethereum.NotFound) {
