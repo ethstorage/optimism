@@ -1633,15 +1633,15 @@ workflows:
   #         requires:
   #           - <<matrix.op_component>>-docker-publish
 
-  # scheduled-preimage-reproducibility:
-  #   when:
-  #     or:
-  #       - equal: [build_daily, <<pipeline.schedule.name>>]
-  #       # Trigger on manual triggers if explicitly requested
-  #       - equal: [true, << pipeline.parameters.reproducibility_dispatch >>]
-  #   jobs:
-  #     - preimage-reproducibility:
-  #         context: slack
+  scheduled-preimage-reproducibility:
+    when:
+      or:
+        - equal: [build_daily, <<pipeline.schedule.name>>]
+        # Trigger on manual triggers if explicitly requested
+        - equal: [true, << pipeline.parameters.reproducibility_dispatch >>]
+    jobs:
+      - preimage-reproducibility:
+          context: slack
 
   # scheduled-stale-check:
   #   when:
