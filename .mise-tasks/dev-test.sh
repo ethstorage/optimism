@@ -29,10 +29,6 @@ export OP_E2E_SKIP_SLOW_TEST=true
 export OP_E2E_USE_HTTP=true
 export ENABLE_ANVIL=true
 
-# # Set your own RPC URLs below.
-export SEPOLIA_RPC_URL=<YOUR_SEPOLIA_RPC_URL>
-export MAINNET_RPC_URL=<YOUR_MAINNET_RPC_URL>
-
 packages=(
     op-batcher
     op-chain-ops
