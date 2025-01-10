@@ -1318,25 +1318,25 @@ workflows:
           requires:
             - contracts-bedrock-build
             - cannon-prestate
-      # - op-program-compat
-      # - bedrock-go-tests:
-      #     requires:
-      #       - go-mod-download
-      #       - go-lint
-      #       - cannon-build-test-vectors
-      #       - cannon-go-lint-and-test-32-bit
-      #       - cannon-go-lint-and-test-64-bit
-      #       - check-generated-mocks-op-node
-      #       - check-generated-mocks-op-service
-      #       - go-mod-download
-      #       - op-program-compat
-      #       # Not needed for the devnet but we want to make sure they build successfully
-      #       - cannon-docker-build
-      #       - op-dispute-mon-docker-build
-      #       - op-program-docker-build
-      #       - op-supervisor-docker-build
-      #       - proofs-tools-docker-build
-      #       - go-tests
+      - op-program-compat
+      - bedrock-go-tests:
+          requires:
+            - go-mod-download
+            - go-lint
+            - cannon-build-test-vectors
+            - cannon-go-lint-and-test-32-bit
+            - cannon-go-lint-and-test-64-bit
+            - check-generated-mocks-op-node
+            - check-generated-mocks-op-service
+            - go-mod-download
+            - op-program-compat
+            # Not needed for the devnet but we want to make sure they build successfully
+            - cannon-docker-build
+            - op-dispute-mon-docker-build
+            - op-program-docker-build
+            - op-supervisor-docker-build
+            - proofs-tools-docker-build
+            - go-tests
       - docker-build:
           name: <<matrix.docker_name>>-docker-build
           docker_tags: <<pipeline.git.revision>>,<<pipeline.git.branch>>
