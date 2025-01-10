@@ -4,21 +4,21 @@ set -e
 #MISE description="Developers' local tests"
 #MISE alias="dt"
 
+# Just for environment test
 forge --version
 
+# Solidity
+
 cd packages/contracts-bedrock
-
 just pre-pr
-
 just test
 
+# Go
+
 cd ../..
-
 make lint-go
-
 make build
 
-# # Build other essential components
 cd op-program && make op-program-client && cd ..
 cd cannon && make elf && cd ..
 cd op-e2e && make pre-test && cd ..
@@ -29,6 +29,8 @@ export OP_E2E_SKIP_SLOW_TEST=true
 export OP_E2E_USE_HTTP=true
 export ENABLE_ANVIL=true
 
+# Note: not all packages are tested.
+# For example the test `TestFinalization` in `op-alt-da` package fails even in upstream.
 packages=(
     op-batcher
     op-chain-ops
@@ -58,9 +60,8 @@ gotestsum --no-summary=skipped,output \
    --packages="$formatted_packages" \
    --format=short-verbose \
    --rerun-fails=2
-   --format=testname \
-   --rerun-fails=2
 
+# End-to-End
 
 cd op-e2e
 make test-actions
