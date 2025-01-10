@@ -748,6 +748,10 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, fmt.Errorf("waiting for blocks: %w", err)
 	}
 
+	if action, ok := parsedStartOpts.Get("afterL1Start", ""); ok {
+		action(&cfg, sys)
+	}
+
 	sys.Mocknet = mocknet.New()
 
 	p2pNodes := make(map[string]*p2p.Prepared)
