@@ -9,8 +9,6 @@ import (
 
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
-	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/transactions"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -47,7 +45,7 @@ func TestBatchInboxFunctionSuccess(t *testing.T) {
 	t.Cleanup(sys.Close)
 
 	// Wait for batch submitted and check event
-	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 20*time.Second)
+	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 12*time.Second)
 }
 
 func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient.Client) {
@@ -103,36 +101,6 @@ func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *
 
 		return false
 	}, timeout, time.Second, "expected batcher tx type didn't arrive")
-}
-
-func sendTxs(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client) []*types.Transaction {
-	ethPrivKey := cfg.Secrets.Alice
-	fromAddr := cfg.Secrets.Addresses().Alice
-	nonce, err := l1Client.NonceAt(ctx, fromAddr, nil)
-	require.NoError(t, err)
-
-	// Send deposit transactions in a loop to drive up L1 base fee
-	depAmount := big.NewInt(1_000_000_000_000)
-	const numDeps = 3
-	txs := make([]*types.Transaction, 0, numDeps)
-	t.Logf("Sending %d deposits...", numDeps)
-	for i := int64(0); i < numDeps; i++ {
-		opts, err := bind.NewKeyedTransactorWithChainID(ethPrivKey, cfg.L1ChainIDBig())
-		require.NoError(t, err)
-		opts.Value = depAmount
-		opts.Nonce = big.NewInt(int64(nonce) + i)
-		depositContract, err := bindings.NewOptimismPortal(cfg.L1Deployments.OptimismPortalProxy, l1Client)
-		require.NoError(t, err)
-
-		tx, err := transactions.PadGasEstimate(opts, 2, func(opts *bind.TransactOpts) (*types.Transaction, error) {
-			return depositContract.DepositTransaction(opts, fromAddr, depAmount, 1_000_000, false, nil)
-		})
-		require.NoErrorf(t, err, "failed to send deposit tx[%d]", i)
-		t.Logf("Deposit submitted[%d]: tx hash: %v", i, tx.Hash())
-		txs = append(txs, tx)
-	}
-	require.Len(t, txs, numDeps)
-	return txs
 }
 
 func deployContract(t *testing.T, cfg *e2esys.SystemConfig, client *ethclient.Client, meta *bind.MetaData,
