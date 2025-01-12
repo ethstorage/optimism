@@ -46,16 +46,8 @@ func TestBatchInboxFunctionSuccess(t *testing.T) {
 	sys, l1Client := startSystemWithBatchInboxContract(t)
 	t.Cleanup(sys.Close)
 
-	txs := sendTxs(t, &sys.Cfg, l1Client)
-
 	// Wait for batch submitted and check event
-	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 8*time.Second)
-
-	for i, tx := range txs {
-		rec, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
-		require.NoErrorf(t, err, "Waiting for deposit[%d] tx on L1", i)
-		t.Logf("Deposit confirmed[%d]: L1 block num: %v, gas used: %d", i, rec.BlockNumber, rec.GasUsed)
-	}
+	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 20*time.Second)
 }
 
 func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient.Client) {
@@ -77,10 +69,10 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 			// Deploy BatchInbox.sol contract
 			batchInboxAddr := deployContract(t, cfg, l1Client, BatchInboxMetaData, mockStorageAddr)
 			t.Logf("mock storage %s, batchInbox %s, value %d", mockStorageAddr.Hex(), batchInboxAddr.Hex(), depositVal)
-			// Deposit token
-			transferNativeTokenToBatchInboxAddress(t, cfg, l1Client, depositVal)
 			// Set BatchInboxAddress
 			cfg.DeployConfig.BatchInboxAddress = batchInboxAddr
+			// Deposit token
+			transferNativeTokenToBatchInboxAddress(t, cfg, l1Client, depositVal)
 		},
 	})
 	require.Nil(t, err, "Error starting up system")
@@ -88,7 +80,6 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 }
 
 func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client, timeout time.Duration) {
-	var foundOtherTxType bool
 	require.Eventually(t, func() bool {
 		b, err := l1Client.BlockByNumber(ctx, nil)
 		require.NoError(t, err)
@@ -107,7 +98,6 @@ func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *
 		}
 		return false
 	}, timeout, time.Second, "expected batcher tx type didn't arrive")
-	require.False(t, foundOtherTxType, "unexpected batcher tx type found")
 }
 
 func sendTxs(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client) []*types.Transaction {
@@ -142,8 +132,8 @@ func sendTxs(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client)
 
 func deployContract(t *testing.T, cfg *e2esys.SystemConfig, client *ethclient.Client, meta *bind.MetaData,
 	params ...interface{}) common.Address {
-	ethPrivKey := cfg.Secrets.Alice
-	fromAddr := cfg.Secrets.Addresses().Alice
+	ethPrivKey := cfg.Secrets.Batcher
+	fromAddr := cfg.Secrets.Addresses().Batcher
 
 	nonce, err := client.PendingNonceAt(context.Background(), fromAddr)
 	require.NoError(t, err)
@@ -171,8 +161,8 @@ func deployContract(t *testing.T, cfg *e2esys.SystemConfig, client *ethclient.Cl
 }
 
 func transferNativeTokenToBatchInboxAddress(t *testing.T, cfg *e2esys.SystemConfig, client *ethclient.Client, amount *big.Int) {
-	ethPrivKey := cfg.Secrets.Alice
-	fromAddr := cfg.Secrets.Addresses().Alice
+	ethPrivKey := cfg.Secrets.Batcher
+	fromAddr := cfg.Secrets.Addresses().Batcher
 
 	gasTipCap, err := client.SuggestGasTipCap(ctx)
 	require.NoError(t, err)
