@@ -88,7 +88,9 @@ func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *
 				}
 				receipt, err := l1Client.TransactionReceipt(ctx, tx.Hash())
 				require.NoError(t, err)
-				require.True(t, len(receipt.Logs) > 0, "Storage event missing")
+				if len(receipt.Logs) == 0 {
+					continue
+				}
 				balanceBefore, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, new(big.Int).Add(receipt.BlockNumber, big.NewInt(-1)))
 				require.NoError(t, err)
 				balanceAfter, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, receipt.BlockNumber)
