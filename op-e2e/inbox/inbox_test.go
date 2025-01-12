@@ -34,9 +34,9 @@ var BatchInboxMetaData = &bind.MetaData{
 }
 
 var (
-	ctx, _          = context.WithTimeout(context.Background(), 10*time.Second)
+	ctx, _          = context.WithTimeout(context.Background(), 20*time.Second)
 	cost            = big.NewInt(1500000000000000)
-	depositVal      = new(big.Int).Mul(cost, big.NewInt(10))
+	depositVal      = new(big.Int).Mul(cost, big.NewInt(1000))
 	mockStorageAddr = common.Address{}
 )
 
@@ -46,16 +46,23 @@ func TestBatchInboxFunctionSuccess(t *testing.T) {
 	sys, l1Client := startSystemWithBatchInboxContract(t)
 	t.Cleanup(sys.Close)
 
-	sendTxs(t, &sys.Cfg, l1Client)
+	txs := sendTxs(t, &sys.Cfg, l1Client)
 
 	// Wait for batch submitted and check event
 	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 8*time.Second)
+
+	for i, tx := range txs {
+		rec, err := wait.ForReceiptOK(ctx, l1Client, tx.Hash())
+		require.NoErrorf(t, err, "Waiting for deposit[%d] tx on L1", i)
+		t.Logf("Deposit confirmed[%d]: L1 block num: %v, gas used: %d", i, rec.BlockNumber, rec.GasUsed)
+	}
 }
 
 func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient.Client) {
 	cfg := e2esys.DefaultSystemConfig(t)
 	cfg.DataAvailabilityType = batcherFlags.BlobsType
 	cfg.BatcherTargetNumFrames = eth.MaxBlobsPerBlobTx
+	cfg.DeployConfig.UseInboxContract = true
 	c, ok := cfg.Nodes["sequencer"]
 	require.True(t, ok, "sequencer is required")
 	c.SafeDBPath = t.TempDir()
@@ -69,6 +76,7 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 			mockStorageAddr = deployContract(t, cfg, l1Client, MockStorageMetaData, cost)
 			// Deploy BatchInbox.sol contract
 			batchInboxAddr := deployContract(t, cfg, l1Client, BatchInboxMetaData, mockStorageAddr)
+			t.Logf("mock storage %s, batchInbox %s, value %d", mockStorageAddr.Hex(), batchInboxAddr.Hex(), depositVal)
 			// Deposit token
 			transferNativeTokenToBatchInboxAddress(t, cfg, l1Client, depositVal)
 			// Set BatchInboxAddress
@@ -105,6 +113,8 @@ func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *
 func sendTxs(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client) []*types.Transaction {
 	ethPrivKey := cfg.Secrets.Alice
 	fromAddr := cfg.Secrets.Addresses().Alice
+	nonce, err := l1Client.NonceAt(ctx, fromAddr, nil)
+	require.NoError(t, err)
 
 	// Send deposit transactions in a loop to drive up L1 base fee
 	depAmount := big.NewInt(1_000_000_000_000)
@@ -115,7 +125,7 @@ func sendTxs(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client)
 		opts, err := bind.NewKeyedTransactorWithChainID(ethPrivKey, cfg.L1ChainIDBig())
 		require.NoError(t, err)
 		opts.Value = depAmount
-		opts.Nonce = big.NewInt(i)
+		opts.Nonce = big.NewInt(int64(nonce) + i)
 		depositContract, err := bindings.NewOptimismPortal(cfg.L1Deployments.OptimismPortalProxy, l1Client)
 		require.NoError(t, err)
 
@@ -164,24 +174,32 @@ func transferNativeTokenToBatchInboxAddress(t *testing.T, cfg *e2esys.SystemConf
 	ethPrivKey := cfg.Secrets.Alice
 	fromAddr := cfg.Secrets.Addresses().Alice
 
-	chainID, err := client.ChainID(ctx)
+	gasTipCap, err := client.SuggestGasTipCap(ctx)
 	require.NoError(t, err)
-	gasFeeCap := big.NewInt(200)
-	gasTipCap := big.NewInt(10)
+	head, err := client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+	gasFeeCap := new(big.Int).Add(
+		gasTipCap,
+		new(big.Int).Mul(head.BaseFee, big.NewInt(2)),
+	)
 
 	nonce, err := client.NonceAt(ctx, fromAddr, nil)
 	require.NoError(t, err)
-	tx := types.MustSignNewTx(ethPrivKey, types.LatestSignerForChainID(chainID), &types.DynamicFeeTx{
-		ChainID:   chainID,
+	tx := types.MustSignNewTx(ethPrivKey, types.LatestSignerForChainID(cfg.L1ChainIDBig()), &types.DynamicFeeTx{
+		ChainID:   cfg.L1ChainIDBig(),
 		Nonce:     nonce,
 		To:        &cfg.DeployConfig.BatchInboxAddress,
 		Value:     amount,
 		GasTipCap: gasTipCap,
 		GasFeeCap: gasFeeCap,
-		Gas:       3000000,
+		Gas:       1000000,
 	})
 	err = client.SendTransaction(ctx, tx)
 	require.NoError(t, err)
-	_, err = wait.ForReceiptOK(ctx, client, tx.Hash())
+	_, err = wait.ForReceiptOK(context.Background(), client, tx.Hash())
 	require.NoError(t, err)
+
+	balance, err := client.BalanceAt(ctx, cfg.DeployConfig.BatchInboxAddress, nil)
+	require.NoError(t, err)
+	require.True(t, balance.Uint64() == amount.Uint64(), "balance no match")
 }

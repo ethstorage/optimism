@@ -628,6 +628,11 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		}
 	}
 
+	var inboxContractConfig *rollup.InboxContractConfig
+	if cfg.DeployConfig.UseInboxContract {
+		inboxContractConfig = &rollup.InboxContractConfig{UseInboxContract: true}
+	}
+
 	makeRollupConfig := func() rollup.Config {
 		return rollup.Config{
 			Genesis: rollup.Genesis{
@@ -662,6 +667,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
 			AltDAConfig:             rollupAltDAConfig,
 			L2BlobConfig:            l2BlobConfig,
+			InboxContractConfig:     inboxContractConfig,
 		}
 	}
 	defaultConfig := makeRollupConfig()

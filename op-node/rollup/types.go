@@ -686,6 +686,7 @@ func (c *Config) LogDescription(log log.Logger, l2Chains map[string]string) {
 		"interop_time", fmtForkTimeOrUnset(c.InteropTime),
 		"alt_da", c.AltDAConfig != nil,
 		"l2_blob_config", c.L2BlobConfig != nil,
+		"use_inbox_contract", c.UseInboxContract(),
 	)
 }
 
