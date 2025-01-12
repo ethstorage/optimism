@@ -100,8 +100,6 @@ func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *
 			}
 			time.Sleep(time.Second)
 		}
-
-		return false
 	}, timeout, time.Second, "expected batcher tx type didn't arrive")
 }
 
