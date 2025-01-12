@@ -81,21 +81,26 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 
 func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client, timeout time.Duration) {
 	require.Eventually(t, func() bool {
-		b, err := l1Client.BlockByNumber(ctx, nil)
-		require.NoError(t, err)
-		for _, tx := range b.Transactions() {
-			if tx.To().Cmp(cfg.DeployConfig.BatchInboxAddress) != 0 {
-				continue
+		for {
+			b, err := l1Client.BlockByNumber(ctx, nil)
+			require.NoError(t, err)
+			for _, tx := range b.Transactions() {
+				if tx.To().Cmp(cfg.DeployConfig.BatchInboxAddress) != 0 {
+					continue
+				}
+				receipt, err := l1Client.TransactionReceipt(ctx, tx.Hash())
+				require.NoError(t, err)
+				require.True(t, len(receipt.Logs) > 0, "Storage event missing")
+				balanceBefore, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, new(big.Int).Add(receipt.BlockNumber, big.NewInt(-1)))
+				require.NoError(t, err)
+				balanceAfter, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, receipt.BlockNumber)
+				require.NoError(t, err)
+				require.True(t, balanceAfter.Uint64()-balanceBefore.Uint64() == cost.Uint64()*uint64(len(receipt.Logs)), "Cost is mismatch")
+				return true
 			}
-			receipt, err := l1Client.TransactionReceipt(ctx, tx.Hash())
-			require.NoError(t, err)
-			require.True(t, len(receipt.Logs) > 0, "Storage event missing")
-			balanceBefore, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, new(big.Int).Add(receipt.BlockNumber, big.NewInt(-1)))
-			require.NoError(t, err)
-			balanceAfter, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, receipt.BlockNumber)
-			require.NoError(t, err)
-			require.True(t, balanceAfter.Uint64()-balanceBefore.Uint64() == cost.Uint64()*uint64(len(receipt.Logs)), "Cost is mismatch")
+			time.Sleep(time.Second)
 		}
+
 		return false
 	}, timeout, time.Second, "expected batcher tx type didn't arrive")
 }
