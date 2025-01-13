@@ -14,7 +14,7 @@ ARG UBUNTU_TARGET_BASE_IMAGE=ubuntu:22.04
 
 # The version of kona to use.
 # The only build that uses this is `op-challenger-target`.
-ARG KONA_VERSION=none
+ARG KONA_VERSION=kona-client-v0.1.0-beta.5
 
 # We may be cross-building for another platform. Specify which platform we need as builder.
 FROM --platform=$BUILDPLATFORM golang:1.22.7-alpine3.20 AS builder
@@ -150,7 +150,7 @@ COPY --from=dac-server-builder /app/da-server/default.json /usr/local/bin/
 CMD ["op-node"]
 
 # Make the kona docker image published by upstream available as a source to copy kona and asterisc from.
-FROM --platform=$TARGETPLATFORM ghcr.io/anton-rs/kona/kona-fpp-asterisc:$KONA_VERSION AS kona
+FROM --platform=$TARGETPLATFORM ghcr.io/op-rs/kona/kona-fpp-asterisc:$KONA_VERSION AS kona
 
 # Also produce an op-challenger loaded with kona and asterisc using ubuntu
 FROM --platform=$TARGETPLATFORM $UBUNTU_TARGET_BASE_IMAGE AS op-challenger-target

@@ -131,12 +131,12 @@ func TestRequiredProtocolVersionChangeAndHalt(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cancel()
 		url := sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC()
-		// verifier op-geth URL get removed after being stoped
+		// The URL of the verifier op-geth becomes empty after it is stopped.
+		// In this case, IsURLAvailable() returns an incorrect value when port 80 happens to be occupied by another process.
 		if url == "http://" {
 			return struct{}{}, nil
 		}
-		// `IsURLAvailable()` returns incorrect value when url == "http://" and port 80 is occupied.
-		available := client.IsURLAvailable(ctx, sys.NodeEndpoint("verifier").(endpoint.HttpRPC).HttpRPC())
+		available := client.IsURLAvailable(ctx, url)
 		if !available && ctx.Err() == nil { // waiting for client to stop responding to RPC requests (slow dials with timeout don't count)
 			return struct{}{}, nil
 		}
