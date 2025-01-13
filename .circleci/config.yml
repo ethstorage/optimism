@@ -665,7 +665,7 @@ jobs:
             TEST_FILES=$(<<parameters.test_list>>)
             if [ -z "$TEST_FILES" ]; then
               echo "No test files to run. Exiting early."
-              circleci-agent step halt
+              exit 1
             fi
           working_directory: packages/contracts-bedrock
       - check-changed:
@@ -690,7 +690,6 @@ jobs:
           name: Run tests
           command: |
             TEST_FILES=$(<<parameters.test_list>>)
-            TEST_FILES=$(echo "$TEST_FILES" | circleci tests split --split-by=timings)
             TEST_FILES=$(echo "$TEST_FILES" | sed 's|^test/||')
             MATCH_PATH="./test/{$(echo "$TEST_FILES" | paste -sd "," -)}"
             forge test --match-path "$MATCH_PATH"
