@@ -1235,20 +1235,20 @@ workflows:
             equal: [scheduled_pipeline, << pipeline.trigger_source >>]
     jobs:
       # - go-mod-download
-      - contracts-bedrock-build:
-          name: contracts-bedrock-build
-          # Build with just core + script contracts.
-          build_args: --deny-warnings --skip test
+      # - contracts-bedrock-build:
+      #     name: contracts-bedrock-build
+      #     # Build with just core + script contracts.
+      #     build_args: --deny-warnings --skip test
       # - contracts-bedrock-build:
       #     name: contracts-bedrock-build-coverage
       #     profile: cicoverage
       # - check-kontrol-build:
       #     requires:
       #       - contracts-bedrock-build
-      # - contracts-bedrock-tests:
-      #     # Test everything except PreimageOracle.t.sol since it's slow.
-      #     name: contracts-bedrock-tests
-      #     test_list: find test -name "*.t.sol" -not -name "PreimageOracle.t.sol"
+      - contracts-bedrock-tests:
+          # Test everything except PreimageOracle.t.sol since it's slow.
+          name: contracts-bedrock-tests
+          test_list: find test -name "*.t.sol" -not -name "PreimageOracle.t.sol"
       # - contracts-bedrock-tests:
       #     # PreimageOracle test is slow, run it separately to unblock CI.
       #     name: contracts-bedrock-tests-preimage-oracle
@@ -1292,29 +1292,29 @@ workflows:
       #     on_changes: op-e2e,packages/contracts-bedrock/src
       #     uses_artifacts: true
       #     requires: ["contracts-bedrock-build"]
-      - go-tests:
-          packages: |
-            op-batcher
-            op-chain-ops
-            op-node
-            op-proposer
-            op-challenger
-            op-dispute-mon
-            op-conductor
-            op-program
-            op-service
-            op-supervisor
-            op-deployer
-            op-e2e/system
-            op-e2e/e2eutils
-            op-e2e/opgeth
-            op-e2e/interop
-            op-e2e/actions
-            op-e2e/faultproofs
-            packages/contracts-bedrock/scripts/checks
-          requires:
-            - contracts-bedrock-build
-            - cannon-prestate
+      # - go-tests:
+      #     packages: |
+      #       op-batcher
+      #       op-chain-ops
+      #       op-node
+      #       op-proposer
+      #       op-challenger
+      #       op-dispute-mon
+      #       op-conductor
+      #       op-program
+      #       op-service
+      #       op-supervisor
+      #       op-deployer
+      #       op-e2e/system
+      #       op-e2e/e2eutils
+      #       op-e2e/opgeth
+      #       op-e2e/interop
+      #       op-e2e/actions
+      #       op-e2e/faultproofs
+      #       packages/contracts-bedrock/scripts/checks
+      #     requires:
+      #       - contracts-bedrock-build
+      #       - cannon-prestate
       # - op-program-compat
       # - bedrock-go-tests:
       #     requires:
@@ -1352,7 +1352,7 @@ workflows:
       #           - da-server
       #           - op-supervisor
       #           - cannon
-      - cannon-prestate
+      # - cannon-prestate
       # - check-generated-mocks-op-node
       # - check-generated-mocks-op-service
       # - cannon-go-lint-and-test:
