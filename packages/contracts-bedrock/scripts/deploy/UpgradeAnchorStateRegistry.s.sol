@@ -3,13 +3,13 @@ pragma solidity ^0.8.15;
 
 // Forge
 import {Script} from "forge-std/Script.sol";
+import {console} from "forge-std/console.sol";
 
 // Scripts
-import {BaseDeployIO} from "scripts/deploy/BaseDeployIO.sol";
 import {DeployUtils} from "scripts/libraries/DeployUtils.sol";
 
 // Libraries
-import {GameType, Hash} from "src/dispute/lib/Types.sol";
+import {GameType, Hash, OutputRoot} from "src/dispute/lib/Types.sol";
 // Contracts
 import {StorageSetter} from "src/universal/StorageSetter.sol";
 
@@ -20,192 +20,81 @@ import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol"
 import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";
 import {ISuperchainConfig} from "interfaces/L1/ISuperchainConfig.sol";
 
-/// @title UpgradeAnchorStateRegistryInput
-contract UpgradeAnchorStateRegistryInput is BaseDeployIO {
-    IDisputeGameFactory _disputeGameFactoryProxy;
-    IProxyAdmin internal _opChainProxyAdmin;
-    IAnchorStateRegistry internal _anchorStateRegistryProxy;
-    ISuperchainConfig internal _superchainConfig;
-    bytes internal _startingAnchorRoots;
-
-    function set(bytes4 _sel, address _value) public {
-        if (_sel == this.disputeGameFactoryProxy.selector) {
-            require(
-                _value != address(0),
-                "UpgradeAnchorStateRegistryInput: disputeGameFactoryProxy cannot be zero address"
-            );
-            _disputeGameFactoryProxy = IDisputeGameFactory(_value);
-        } else if (_sel == this.opChainProxyAdmin.selector) {
-            require(
-                _value != address(0),
-                "UpgradeAnchorStateRegistryInput: opChainProxyAdmin cannot be zero address"
-            );
-            _opChainProxyAdmin = IProxyAdmin(_value);
-        } else if (_sel == this.anchorStateRegistryProxy.selector) {
-            require(
-                _value != address(0),
-                "UpgradeAnchorStateRegistryInput: anchorStateRegistryProxy cannot be zero address"
-            );
-            _anchorStateRegistryProxy = IAnchorStateRegistry(_value);
-        } else if (_sel == this.superchainConfig.selector) {
-            require(
-                _value != address(0),
-                "UpgradeAnchorStateRegistryInput: superchainConfig cannot be zero address"
-            );
-            _superchainConfig = ISuperchainConfig(_value);
-        } else {
-            revert(
-                "UpgradeAnchorStateRegistryInput: unknown selector for address"
-            );
-        }
-    }
-
-    function set(bytes4 _sel, bytes memory _value) public {
-        if (_sel == this.startingAnchorRoots.selector) {
-            require(
-                _value.length > 0,
-                "UpgradeAnchorStateRegistryInput: startingAnchorRoots cannot be empty bytes"
-            );
-            _startingAnchorRoots = _value;
-        } else {
-            revert(
-                "UpgradeAnchorStateRegistryInput: unknown selector for bytes"
-            );
-        }
-    }
-
-    function opChainProxyAdmin() public view returns (IProxyAdmin) {
-        DeployUtils.assertValidContractAddress(address(_opChainProxyAdmin));
-        return _opChainProxyAdmin;
-    }
-
-    function disputeGameFactoryProxy()
-        public
-        view
-        returns (IDisputeGameFactory)
-    {
-        DeployUtils.assertValidContractAddress(
-            address(_disputeGameFactoryProxy)
-        );
-        return _disputeGameFactoryProxy;
-    }
-
-    function anchorStateRegistryProxy() public view returns (address) {
-        DeployUtils.assertValidContractAddress(
-            address(_anchorStateRegistryProxy)
-        );
-        return address(_anchorStateRegistryProxy);
-    }
-
-    function superchainConfig() public view returns (ISuperchainConfig) {
-        DeployUtils.assertValidContractAddress(address(_superchainConfig));
-        return _superchainConfig;
-    }
-
-    function startingAnchorRoots() public view returns (bytes memory) {
-        require(
-            _startingAnchorRoots.length > 0,
-            "UpgradeAnchorStateRegistryInput: startingAnchorRoots not set"
-        );
-        return _startingAnchorRoots;
-    }
-}
-
-/// @title UpgradeAnchorStateRegistryOutput
-contract UpgradeAnchorStateRegistryOutput is BaseDeployIO {
-    IAnchorStateRegistry internal _anchorStateRegistryImpl;
-    StorageSetter internal _storageSetter;
-
-    function set(bytes4 _sel, address _value) public {
-        if (_sel == this.anchorStateRegistryImpl.selector) {
-            require(
-                _value != address(0),
-                "UpgradeAnchorStateRegistryOutput: anchorStateRegistryImpl cannot be zero address"
-            );
-            _anchorStateRegistryImpl = IAnchorStateRegistry(_value);
-        } else if (_sel == this.storageSetter.selector) {
-            require(
-                _value != address(0),
-                "UpgradeAnchorStateRegistryOutput: storageSetter cannot be zero address"
-            );
-            _storageSetter = StorageSetter(_value);
-        } else {
-            revert("UpgradeAnchorStateRegistryOutput: unknown selector");
-        }
-    }
-
-    function anchorStateRegistryImpl() public view returns (address) {
-        DeployUtils.assertValidContractAddress(
-            address(_anchorStateRegistryImpl)
-        );
-        return address(_anchorStateRegistryImpl);
-    }
-
-    function storageSetter() public view returns (address) {
-        DeployUtils.assertValidContractAddress(address(_storageSetter));
-        return address(_storageSetter);
-    }
-    function checkOutput(UpgradeAnchorStateRegistryInput _input) public view {
-        IAnchorStateRegistry.StartingAnchorRoot[]
-            memory startingAnchorRoots = abi.decode(
-                _input.startingAnchorRoots(),
-                (IAnchorStateRegistry.StartingAnchorRoot[])
-            );
-        (Hash root, uint256 l2BlockNumber) = IAnchorStateRegistry(
-            _input.anchorStateRegistryProxy()
-        ).anchors(startingAnchorRoots[0].gameType);
-        require(
-            Hash.unwrap(root) ==
-                Hash.unwrap(startingAnchorRoots[0].outputRoot.root),
-            "UpgradeAnchorStateRegistryOutput: root mismatch"
-        );
-        require(
-            l2BlockNumber == startingAnchorRoots[0].outputRoot.l2BlockNumber,
-            "UpgradeAnchorStateRegistryOutput: l2BlockNumber mismatch"
-        );
-    }
-}
-
 /// @title UpgradeAnchorStateRegistry
 contract UpgradeAnchorStateRegistry is Script {
     function run(
-        UpgradeAnchorStateRegistryInput _input,
-        UpgradeAnchorStateRegistryOutput _output
+        address _disputeGameFactoryProxy,
+        address _opChainProxyAdmin,
+        address _anchorStateRegistryProxy,
+        address _superchainConfig,
+        uint32 _type,
+        uint256 _l2BlockNumber,
+        bytes32 _outputRoot
     ) public {
-        upgradeAnchorStateRegistryImpl(_input, _output);
-        _output.checkOutput(_input);
+        console.log("_disputeGameFactoryProxy: %s", _disputeGameFactoryProxy);
+        console.log("_opChainProxyAdmin: %s", _opChainProxyAdmin);
+        console.log("_anchorStateRegistryProxy: %s", _anchorStateRegistryProxy);
+        console.log("_superchainConfig: %s", _superchainConfig);
+        console.log("_type: %s", _type);
+        console.log("_l2BlockNumber: %s", _l2BlockNumber);
+        console.log("_outputRoot: %s", bytes32ToHex(_outputRoot));
+
+        vm.startBroadcast();
+        upgradeAnchorStateRegistryImpl(
+            IDisputeGameFactory(_disputeGameFactoryProxy),
+            IProxyAdmin(_opChainProxyAdmin),
+            IAnchorStateRegistry(_anchorStateRegistryProxy),
+            ISuperchainConfig(_superchainConfig),
+            GameType.wrap(_type),
+            _l2BlockNumber,
+            Hash.wrap(_outputRoot)
+        );
+        vm.stopBroadcast();
+        checkOutput(
+            IAnchorStateRegistry(_anchorStateRegistryProxy),
+            GameType.wrap(_type),
+            _l2BlockNumber,
+            Hash.wrap(_outputRoot)
+        );
     }
 
     function upgradeAnchorStateRegistryImpl(
-        UpgradeAnchorStateRegistryInput _input,
-        UpgradeAnchorStateRegistryOutput _output
+        IDisputeGameFactory _disputeGameFactoryProxy,
+        IProxyAdmin _opChainProxyAdmin,
+        IAnchorStateRegistry _anchorStateRegistryProxy,
+        ISuperchainConfig _superchainConfig,
+        GameType _type,
+        uint256 _l2BlockNumber,
+        Hash _outputRoot
     ) internal {
-        _output.set(
-            _output.anchorStateRegistryImpl.selector,
-            DeployUtils.create1({
-                _name: "AnchorStateRegistry",
-                _args: abi.encode(_input.disputeGameFactoryProxy())
-            })
-        );
+        address anchorStateRegistryImpl = DeployUtils.create1({
+            _name: "AnchorStateRegistry",
+            _args: abi.encode(_disputeGameFactoryProxy)
+        });
 
-        _output.set(
-            _output.storageSetter.selector,
-            DeployUtils.create1({_name: "StorageSetter", _args: ""})
-        );
+        address storageSetter = DeployUtils.create1({
+            _name: "StorageSetter",
+            _args: ""
+        });
 
         bytes memory data;
         data = encodeStorageSetterZeroOutInitializedSlot();
         upgradeAndCall(
-            _input.opChainProxyAdmin(),
-            _input.anchorStateRegistryProxy(),
-            _output.storageSetter(),
+            _opChainProxyAdmin,
+            address(_anchorStateRegistryProxy),
+            storageSetter,
             data
         );
-        data = encodeAnchorStateRegistryInitializer(_input);
+        data = encodeAnchorStateRegistryInitializer(
+            _type,
+            _l2BlockNumber,
+            _outputRoot,
+            _superchainConfig
+        );
         upgradeAndCall(
-            _input.opChainProxyAdmin(),
-            _input.anchorStateRegistryProxy(),
-            _output.anchorStateRegistryImpl(),
+            _opChainProxyAdmin,
+            address(_anchorStateRegistryProxy),
+            anchorStateRegistryImpl,
             data
         );
     }
@@ -224,19 +113,27 @@ contract UpgradeAnchorStateRegistry is Script {
     }
 
     function encodeAnchorStateRegistryInitializer(
-        UpgradeAnchorStateRegistryInput _input
+        GameType _type,
+        uint256 _l2BlockNumber,
+        Hash _outputRoot,
+        ISuperchainConfig _superchainConfig
     ) internal view virtual returns (bytes memory) {
-        // this line fails in the op-deployer tests because it is not passing in any data
         IAnchorStateRegistry.StartingAnchorRoot[]
-            memory startingAnchorRoots = abi.decode(
-                _input.startingAnchorRoots(),
-                (IAnchorStateRegistry.StartingAnchorRoot[])
+            memory startingAnchorRoots = new IAnchorStateRegistry.StartingAnchorRoot[](
+                1
             );
+        startingAnchorRoots[0] = IAnchorStateRegistry.StartingAnchorRoot({
+            gameType: _type,
+            outputRoot: OutputRoot({
+                root: _outputRoot,
+                l2BlockNumber: _l2BlockNumber
+            })
+        });
         return
             abi.encodeWithSelector(
                 IAnchorStateRegistry.initialize.selector,
                 startingAnchorRoots,
-                _input.superchainConfig()
+                _superchainConfig
             );
     }
 
@@ -257,5 +154,38 @@ contract UpgradeAnchorStateRegistry is Script {
             _implementation,
             _data
         );
+    }
+
+    function checkOutput(
+        IAnchorStateRegistry _anchorStateRegistryProxy,
+        GameType _type,
+        uint256 _l2BlockNumber,
+        Hash _outputRoot
+    ) public view {
+        (Hash root, uint256 l2BlockNumber) = IAnchorStateRegistry(
+            _anchorStateRegistryProxy
+        ).anchors(_type);
+        require(
+            Hash.unwrap(root) == Hash.unwrap(_outputRoot),
+            "UpgradeAnchorStateRegistryOutput: root mismatch"
+        );
+        require(
+            l2BlockNumber == _l2BlockNumber,
+            "UpgradeAnchorStateRegistryOutput: l2BlockNumber mismatch"
+        );
+    }
+
+    function bytes32ToHex(bytes32 data) internal pure returns (string memory) {
+        bytes memory result = new bytes(64);
+        for (uint256 i = 0; i < 32; i++) {
+            uint8 byteValue = uint8(data[i]);
+            result[i * 2] = toHexChar(byteValue / 16);
+            result[i * 2 + 1] = toHexChar(byteValue % 16);
+        }
+        return string(result);
+    }
+
+    function toHexChar(uint8 b) internal pure returns (bytes1) {
+        return b < 10 ? bytes1(b + 0x30) : bytes1(b + 0x57);
     }
 }
