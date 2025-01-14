@@ -23,6 +23,8 @@ cd op-program && make op-program-client && cd ..
 cd cannon && make elf && cd ..
 cd op-e2e && make pre-test && cd ..
 
+make devnet-allocs
+
 export ENABLE_KURTOSIS=true
 export OP_E2E_CANNON_ENABLED="false"
 export OP_E2E_SKIP_SLOW_TEST=true
