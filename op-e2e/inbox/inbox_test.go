@@ -116,6 +116,7 @@ func deployContract(t *testing.T, cfg *e2esys.SystemConfig, client *ethclient.Cl
 	auth, err := bind.NewKeyedTransactorWithChainID(ethPrivKey, cfg.L1ChainIDBig())
 	require.NoError(t, err)
 	auth.Nonce = big.NewInt(int64(nonce))
+	auth.Value = big.NewInt(0)
 	auth.GasLimit = uint64(3000000)
 	auth.GasPrice = gasPrice
 
