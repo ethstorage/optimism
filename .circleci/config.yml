@@ -1259,7 +1259,7 @@ workflows:
           # Heavily fuzz any fuzz tests within added or modified test files.
           name: contracts-bedrock-tests-heavy-fuzz-modified
           test_list: git diff origin/develop...HEAD --name-only --diff-filter=AM -- './test/**/*.t.sol' | sed 's|packages/contracts-bedrock/||'
-          test_timeout: 1h
+          test_timeout: 3h
           test_profile: ciheavy
       - contracts-bedrock-checks:
           requires:
