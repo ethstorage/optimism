@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/bootstrap"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/inspect"
-	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/upgrade"
 	"github.com/ethereum-optimism/optimism/op-deployer/pkg/deployer/version"
 
 	opservice "github.com/ethereum-optimism/optimism/op-service"
@@ -52,11 +51,6 @@ func main() {
 			Name:        "inspect",
 			Usage:       "inspects the state of a deployment",
 			Subcommands: inspect.Commands,
-		},
-		{
-			Name:        "upgrade",
-			Usage:       "upgrade contracts",
-			Subcommands: upgrade.Commands,
 		},
 	}
 	app.Writer = os.Stdout
