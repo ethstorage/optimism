@@ -27,6 +27,7 @@ contract UpgradeAnchorStateRegistry is Script {
         address _opChainProxyAdmin,
         address _anchorStateRegistryProxy,
         address _superchainConfig,
+        address _storageSetter,
         uint32 _type,
         uint256 _l2BlockNumber,
         bytes32 _outputRoot
@@ -35,6 +36,7 @@ contract UpgradeAnchorStateRegistry is Script {
         console.log("_opChainProxyAdmin: %s", _opChainProxyAdmin);
         console.log("_anchorStateRegistryProxy: %s", _anchorStateRegistryProxy);
         console.log("_superchainConfig: %s", _superchainConfig);
+        console.log("_storageSetter: %s", _storageSetter);
         console.log("_type: %s", _type);
         console.log("_l2BlockNumber: %s", _l2BlockNumber);
         console.log("_outputRoot: %s", bytes32ToHex(_outputRoot));
@@ -45,6 +47,7 @@ contract UpgradeAnchorStateRegistry is Script {
             IProxyAdmin(_opChainProxyAdmin),
             IAnchorStateRegistry(_anchorStateRegistryProxy),
             ISuperchainConfig(_superchainConfig),
+            _storageSetter,
             GameType.wrap(_type),
             _l2BlockNumber,
             Hash.wrap(_outputRoot)
@@ -63,6 +66,7 @@ contract UpgradeAnchorStateRegistry is Script {
         IProxyAdmin _opChainProxyAdmin,
         IAnchorStateRegistry _anchorStateRegistryProxy,
         ISuperchainConfig _superchainConfig,
+        address _storageSetter,
         GameType _type,
         uint256 _l2BlockNumber,
         Hash _outputRoot
@@ -72,17 +76,19 @@ contract UpgradeAnchorStateRegistry is Script {
             _args: abi.encode(_disputeGameFactoryProxy)
         });
 
-        address storageSetter = DeployUtils.create1({
-            _name: "StorageSetter",
-            _args: ""
-        });
+        if (_storageSetter == address(0)) {
+            _storageSetter = DeployUtils.create1({
+                _name: "StorageSetter",
+                _args: ""
+            });
+        }
 
         bytes memory data;
         data = encodeStorageSetterZeroOutInitializedSlot();
         upgradeAndCall(
             _opChainProxyAdmin,
             address(_anchorStateRegistryProxy),
-            storageSetter,
+            _storageSetter,
             data
         );
         data = encodeAnchorStateRegistryInitializer(
