@@ -754,6 +754,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		return nil, fmt.Errorf("waiting for blocks: %w", err)
 	}
 
+	// exec func which needs to run after L1 node starts and before L2 nodes start.
 	if action, ok := parsedStartOpts.Get("afterL1Start", ""); ok {
 		action(&cfg, sys)
 	}

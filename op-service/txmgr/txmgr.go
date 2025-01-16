@@ -326,7 +326,7 @@ func (m *SimpleTxManager) prepare(ctx context.Context, candidate TxCandidate) (*
 		}
 		tx, err := m.craftTx(ctx, candidate)
 		if err != nil {
-			m.l.Warn("Failed to create a transaction, will retry", "to", candidate.To, "gasLimit", candidate.GasLimit, "err", err)
+			m.l.Warn("Failed to create a transaction, will retry", "err", err)
 		}
 		return tx, err
 	})
