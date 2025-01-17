@@ -33,14 +33,14 @@ def:
         - "op-node/rollup/types.go"
     - title: "Soul Gas Token modifications"
       description: |
-        To bridge the gap between traditional web users and the growing world of Web3, we propose a non-transferable,
-        value-less gas token named SoulETH.
+        To bridge the gap between traditional web users and the growing world of Web3,
+        we propose a **non-transferable gas token** named Soul Gas Token (SGT), where the gas token is the native token of a Rollup.
 
-        The concept revolves around facilitating Web2 users' entry into Web3 by airdropping them with SoulETH.
+        The concept revolves around facilitating Web2 users' entry into Web3 by airdropping them with SGT.
 
-        This token will enable users to pay for transaction gas fees without the immediate need for ETH or other valuable cryptocurrencies.
+        This token will enable users to pay for transaction gas fees without the immediate selling pressure of the airdropped token.
 
-        This initiative is particularly aimed at those new to Web3, providing a seamless transition without the upfront cost of acquiring ETH.
+        This initiative is particularly aimed at those new to Web3, providing a seamless transition without the upfront cost of acquiring a gas token.
       globs:
         - "op-chain-ops/genesis/genesis.go"
         - "op-service/predeploys/addresses.go"
