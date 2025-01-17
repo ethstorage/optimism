@@ -63,11 +63,6 @@ func NewOpGeth(t testing.TB, ctx context.Context, cfg *e2esys.SystemConfig) (*Op
 	l2Allocs := config.L2Allocs(config.AllocTypeStandard, allocsMode)
 	l2Genesis, err := genesis.BuildL2Genesis(cfg.DeployConfig, l2Allocs, l1Block.Header())
 	require.NoError(t, err)
-	if cfg.UseSoulGasToken {
-		l2Genesis.Config.Optimism.UseSoulGasToken = true
-		l2Genesis.Config.Optimism.IsSoulBackedByNative = cfg.IsSoulBackedByNative
-	}
-
 	l2GenesisBlock := l2Genesis.ToBlock()
 
 	rollupGenesis := rollup.Genesis{
