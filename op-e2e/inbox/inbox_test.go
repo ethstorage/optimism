@@ -2,14 +2,13 @@ package inbox
 
 import (
 	"context"
-	"encoding/hex"
-	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"math/big"
 	"testing"
 	"time"
 
 	batcherFlags "github.com/ethereum-optimism/optimism/op-batcher/flags"
 	op_e2e "github.com/ethereum-optimism/optimism/op-e2e"
+	"github.com/ethereum-optimism/optimism/op-e2e/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-e2e/system/e2esys"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -109,12 +108,10 @@ func deployContract(t *testing.T, cfg *e2esys.SystemConfig, client *ethclient.Cl
 	auth.GasLimit = uint64(3000000)
 	auth.GasPrice = gasPrice
 
-	bytecode, err := hex.DecodeString(meta.Bin)
-	require.NoError(t, err)
 	parsed, err := meta.GetAbi()
 	require.NoError(t, err)
 
-	address, tx, _, err := bind.DeployContract(auth, *parsed, bytecode, client, params...)
+	address, tx, _, err := bind.DeployContract(auth, *parsed, common.FromHex(meta.Bin), client, params...)
 	require.NoError(t, err)
 
 	_, err = wait.ForReceiptOK(ctx, client, tx.Hash())
