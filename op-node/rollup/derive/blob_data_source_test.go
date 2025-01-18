@@ -89,6 +89,44 @@ func TestDataAndHashesFromTxs(t *testing.T) {
 	require.Equal(t, 0, len(blobHashes))
 }
 
+func TestBlockWithFailedBlobTx(t *testing.T) {
+	// test setup
+	rng := rand.New(rand.NewSource(12345))
+	privateKey := testutils.InsecureRandomKey(rng)
+	publicKey, _ := privateKey.Public().(*ecdsa.PublicKey)
+	batcherAddr := crypto.PubkeyToAddress(*publicKey)
+	batchInboxAddr := testutils.RandomAddress(rng)
+	logger := testlog.Logger(t, log.LvlInfo)
+
+	chainId := new(big.Int).SetUint64(rng.Uint64())
+	signer := types.NewCancunSigner(chainId)
+	config := DataSourceConfig{
+		l1Signer:          signer,
+		batchInboxAddress: batchInboxAddr,
+	}
+
+	// create two valid blob batcher txs
+	var txs types.Transactions
+	for i := 0; i < 2; i++ {
+		blobHash := testutils.RandomHash(rng)
+		blobTxData := &types.BlobTx{
+			Nonce:      rng.Uint64(),
+			Gas:        2_000_000,
+			To:         batchInboxAddr,
+			Data:       testutils.RandomData(rng, rng.Intn(1000)),
+			BlobHashes: []common.Hash{blobHash},
+		}
+		blobTx, _ := types.SignNewTx(privateKey, signer, blobTxData)
+		txs = append(txs, blobTx)
+	}
+
+	// mark the first blob tx as failed
+	txSucceedMap := map[common.Hash]bool{txs[1].Hash(): true}
+	_, blobHashes := dataAndHashesFromTxs(txs, &config, batcherAddr, logger, txSucceedMap)
+	// check the returned blob index is 1
+	require.True(t, len(blobHashes) == 1 && blobHashes[0].Index == 1)
+}
+
 func TestFillBlobPointers(t *testing.T) {
 	blob := eth.Blob{}
 	rng := rand.New(rand.NewSource(1234))
