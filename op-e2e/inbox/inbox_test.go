@@ -20,9 +20,8 @@ import (
 )
 
 var (
-	ctx, _     = context.WithTimeout(context.Background(), 20*time.Second)
-	cost       = big.NewInt(1500000000000000)
-	depositVal = new(big.Int).Mul(cost, big.NewInt(1000))
+	ctx, _ = context.WithTimeout(context.Background(), 20*time.Second)
+	cost   = big.NewInt(1500000000000000)
 )
 
 func TestBatchInboxFunctionSuccess(t *testing.T) {
@@ -52,11 +51,11 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 			mockStorageAddr := deployContract(t, cfg, l1Client, bindings.MockEthStorageMetaData, cost)
 			// Deploy BatchInbox.sol contract
 			batchInboxAddr := deployContract(t, cfg, l1Client, bindings.BatchInboxMetaData, mockStorageAddr)
-			t.Logf("mock storage %s, batchInbox %s, value %d", mockStorageAddr.Hex(), batchInboxAddr.Hex(), depositVal)
+			t.Logf("mock storage %s, batchInbox %s, value %d", mockStorageAddr.Hex(), batchInboxAddr.Hex())
 			// Set BatchInboxAddress
 			cfg.DeployConfig.BatchInboxAddress = batchInboxAddr
 			// Deposit token
-			transferNativeTokenToBatchInboxAddress(t, cfg, l1Client, depositVal)
+			transferNativeTokenToBatchInboxAddress(t, cfg, l1Client, new(big.Int).Mul(cost, big.NewInt(1000)))
 		},
 	})
 	require.Nil(t, err, "Error starting up system")
