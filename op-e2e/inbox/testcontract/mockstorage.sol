@@ -24,6 +24,7 @@ contract EthStorageContract {
         bytes32 dataHash = blobhash(_blobIdx);
         require(dataHash != 0, "EthStorageContract: failed to get blob hash");
         require(_key != 0, "EthStorageContract: failed to get blob key");
+        require(msg.value >= upfrontPayment(), "DecentralizedKV: not enough batch payment");
 
         uint256 kvIndex = kvEntryCount;
         kvEntryCount = kvEntryCount + 1;
