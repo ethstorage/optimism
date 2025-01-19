@@ -51,7 +51,7 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 			mockStorageAddr := deployContract(t, cfg, l1Client, bindings.MockEthStorageMetaData, cost)
 			// Deploy BatchInbox.sol contract
 			batchInboxAddr := deployContract(t, cfg, l1Client, bindings.BatchInboxMetaData, mockStorageAddr)
-			t.Logf("mock storage %s, batchInbox %s, value %d", mockStorageAddr.Hex(), batchInboxAddr.Hex())
+			t.Logf("mock storage %s, batchInbox %s", mockStorageAddr.Hex(), batchInboxAddr.Hex())
 			// Set BatchInboxAddress
 			cfg.DeployConfig.BatchInboxAddress = batchInboxAddr
 			// Deposit token
