@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-service/errutil"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
@@ -21,7 +22,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/holiman/uint256"
 
-	"github.com/ethereum-optimism/optimism/op-service/errutil"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/retry"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr/metrics"

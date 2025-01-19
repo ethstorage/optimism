@@ -20,10 +20,9 @@ import (
 )
 
 var (
-	ctx, _          = context.WithTimeout(context.Background(), 20*time.Second)
-	cost            = big.NewInt(1500000000000000)
-	depositVal      = new(big.Int).Mul(cost, big.NewInt(1000))
-	mockStorageAddr = common.Address{}
+	ctx, _     = context.WithTimeout(context.Background(), 20*time.Second)
+	cost       = big.NewInt(1500000000000000)
+	depositVal = new(big.Int).Mul(cost, big.NewInt(1000))
 )
 
 func TestBatchInboxFunctionSuccess(t *testing.T) {
@@ -43,7 +42,6 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 	cfg.DeployConfig.UseInboxContract = true
 	c, ok := cfg.Nodes["sequencer"]
 	require.True(t, ok, "sequencer is required")
-	c.SafeDBPath = t.TempDir()
 	c.Driver.SequencerEnabled = true
 
 	sys, err := cfg.Start(t, e2esys.StartOption{
@@ -51,7 +49,7 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 		Action: func(cfg *e2esys.SystemConfig, s *e2esys.System) {
 			l1Client := s.NodeClient(e2esys.RoleL1)
 			// Deploy mock storage contract
-			mockStorageAddr = deployContract(t, cfg, l1Client, bindings.MockEthStorageMetaData, cost)
+			mockStorageAddr := deployContract(t, cfg, l1Client, bindings.MockEthStorageMetaData, cost)
 			// Deploy BatchInbox.sol contract
 			batchInboxAddr := deployContract(t, cfg, l1Client, bindings.BatchInboxMetaData, mockStorageAddr)
 			t.Logf("mock storage %s, batchInbox %s, value %d", mockStorageAddr.Hex(), batchInboxAddr.Hex(), depositVal)
@@ -67,27 +65,25 @@ func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient
 
 func requireEventualBatcherTx(t *testing.T, cfg *e2esys.SystemConfig, l1Client *ethclient.Client, timeout time.Duration) {
 	require.Eventually(t, func() bool {
-		for {
-			b, err := l1Client.BlockByNumber(ctx, nil)
-			require.NoError(t, err)
-			for _, tx := range b.Transactions() {
-				if tx.To().Cmp(cfg.DeployConfig.BatchInboxAddress) != 0 {
-					continue
-				}
-				receipt, err := l1Client.TransactionReceipt(ctx, tx.Hash())
-				require.NoError(t, err)
-				if len(receipt.Logs) == 0 {
-					continue
-				}
-				balanceBefore, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, new(big.Int).Add(receipt.BlockNumber, big.NewInt(-1)))
-				require.NoError(t, err)
-				balanceAfter, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, receipt.BlockNumber)
-				require.NoError(t, err)
-				require.True(t, balanceAfter.Uint64()-balanceBefore.Uint64() == cost.Uint64()*uint64(len(receipt.Logs)), "Cost is mismatch")
-				return true
+		b, err := l1Client.BlockByNumber(ctx, nil)
+		require.NoError(t, err)
+		for _, tx := range b.Transactions() {
+			if tx.To() == nil || tx.To().Cmp(cfg.DeployConfig.BatchInboxAddress) != 0 {
+				continue
 			}
-			time.Sleep(time.Second)
+			receipt, err := l1Client.TransactionReceipt(ctx, tx.Hash())
+			require.NoError(t, err)
+			if len(receipt.Logs) == 0 {
+				continue
+			}
+			balanceBefore, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, new(big.Int).Add(receipt.BlockNumber, big.NewInt(-1)))
+			require.NoError(t, err)
+			balanceAfter, err := l1Client.BalanceAt(ctx, receipt.Logs[0].Address, receipt.BlockNumber)
+			require.NoError(t, err)
+			require.True(t, balanceAfter.Uint64()-balanceBefore.Uint64() == cost.Uint64()*uint64(len(receipt.Logs)), "Cost is mismatch")
+			return true
 		}
+		return false
 	}, timeout, time.Second, "expected batcher tx type didn't arrive")
 }
 
