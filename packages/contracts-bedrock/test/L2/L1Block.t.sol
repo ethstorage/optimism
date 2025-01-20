@@ -166,7 +166,7 @@ contract L1BlockEcotone_Test is L1BlockTest {
 
     /// @dev Tests that `blockHash` works for block range [n-256, n) where n is the latest
     /// L1 block number known by the L2 system.
-    function testFuzz_blockHash(
+    function testFuzz_blockHash_succeeds(
         uint32 baseFeeScalar,
         uint32 blobBaseFeeScalar,
         uint64 sequenceNumber,

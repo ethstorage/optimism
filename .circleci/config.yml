@@ -1062,8 +1062,8 @@ jobs:
 
   fpp-verify:
     circleci_ip_ranges: true
-    docker:
-      - image: cimg/go:1.21
+    machine: true
+    resource_class: swc/ax101
     steps:
       - checkout
       - run:
@@ -1492,14 +1492,14 @@ workflows:
   #         context:
   #           - slack
 
-  # scheduled-fpp:
-  #   when:
-  #     equal: [build_hourly, <<pipeline.schedule.name>>]
-  #   jobs:
-  #     - fpp-verify:
-  #         context:
-  #           - slack
-  #           - oplabs-fpp-nodes
+  scheduled-fpp:
+    when:
+      equal: [build_hourly, <<pipeline.schedule.name>>]
+    jobs:
+      - fpp-verify:
+          context:
+            - slack
+            - oplabs-fpp-nodes
 
   # develop-publish-contract-artifacts:
   #   when:
@@ -1521,39 +1521,39 @@ workflows:
   #   jobs:
   #     - contracts-bedrock-coverage
 
-  # develop-fault-proofs:
-  #   when:
-  #     and:
-  #       - or:
-  #           - equal: ["develop", <<pipeline.git.branch>>]
-  #           - equal: [true, <<pipeline.parameters.fault_proofs_dispatch>>]
-  #       - not:
-  #           equal: [scheduled_pipeline, << pipeline.trigger_source >>]
-  #   jobs:
-  #     - go-mod-download
-  #     - cannon-prestate
-  #     - cannon-stf-verify:
-  #         requires:
-  #           - go-mod-download
-  #         context:
-  #           - slack
-  #     - contracts-bedrock-build:
-  #         build_args: --deny-warnings --skip test
-  #         context:
-  #           - slack
-  #     - go-tests:
-  #         name: op-e2e-cannon-tests
-  #         notify: true
-  #         mentions: "@proofs-team"
-  #         no_output_timeout: 60m
-  #         test_timeout: 59m
-  #         resource_class: ethereum-optimism/latitude-fps-1
-  #         environment_overrides: |
-  #           export OP_E2E_CANNON_ENABLED="true"
-  #         packages: |
-  #           op-e2e/faultproofs
-  #         context:
-  #           - slack
+  develop-fault-proofs:
+    when:
+      and:
+        - or:
+            - equal: ["develop", <<pipeline.git.branch>>]
+            - equal: [true, <<pipeline.parameters.fault_proofs_dispatch>>]
+        - not:
+            equal: [scheduled_pipeline, << pipeline.trigger_source >>]
+    jobs:
+      - go-mod-download
+      - cannon-prestate
+      - cannon-stf-verify:
+          requires:
+            - go-mod-download
+          context:
+            - slack
+      - contracts-bedrock-build:
+          build_args: --deny-warnings --skip test
+          context:
+            - slack
+      - go-tests:
+          name: op-e2e-cannon-tests
+          notify: true
+          mentions: "@proofs-team"
+          no_output_timeout: 60m
+          test_timeout: 59m
+          resource_class: swc/ax101
+          environment_overrides: |
+            export OP_E2E_CANNON_ENABLED="true"
+          packages: |
+            op-e2e/faultproofs
+          context:
+            - slack
 
   # develop-kontrol-tests:
   #   when:
@@ -1569,23 +1569,23 @@ workflows:
   #           - slack
   #           - runtimeverification
 
-  # scheduled-cannon-full-tests:
-  #   when:
-  #     or:
-  #       - equal: [build_four_hours, <<pipeline.schedule.name>>]
-  #       - equal: [true, << pipeline.parameters.cannon_full_test_dispatch >>]
-  #   jobs:
-  #     - contracts-bedrock-build:
-  #         build_args: --deny-warnings --skip test
-  #     - cannon-go-lint-and-test:
-  #         name: cannon-go-lint-and-test-<<matrix.mips_word_size>>-bit
-  #         requires:
-  #           - contracts-bedrock-build
-  #         context:
-  #           - slack
-  #         matrix:
-  #           parameters:
-  #             mips_word_size: [32, 64]
+  scheduled-cannon-full-tests:
+    when:
+      or:
+        - equal: [build_four_hours, <<pipeline.schedule.name>>]
+        - equal: [true, << pipeline.parameters.cannon_full_test_dispatch >>]
+    jobs:
+      - contracts-bedrock-build:
+          build_args: --deny-warnings --skip test
+      - cannon-go-lint-and-test:
+          name: cannon-go-lint-and-test-<<matrix.mips_word_size>>-bit
+          requires:
+            - contracts-bedrock-build
+          context:
+            - slack
+          matrix:
+            parameters:
+              mips_word_size: [32, 64]
 
   # scheduled-docker-publish:
   #   when:
@@ -1631,15 +1631,15 @@ workflows:
   #         requires:
   #           - <<matrix.op_component>>-docker-publish
 
-  # scheduled-preimage-reproducibility:
-  #   when:
-  #     or:
-  #       - equal: [build_daily, <<pipeline.schedule.name>>]
-  #       # Trigger on manual triggers if explicitly requested
-  #       - equal: [true, << pipeline.parameters.reproducibility_dispatch >>]
-  #   jobs:
-  #     - preimage-reproducibility:
-  #         context: slack
+  scheduled-preimage-reproducibility:
+    when:
+      or:
+        - equal: [build_daily, <<pipeline.schedule.name>>]
+        # Trigger on manual triggers if explicitly requested
+        - equal: [true, << pipeline.parameters.reproducibility_dispatch >>]
+    jobs:
+      - preimage-reproducibility:
+          context: slack
 
   # scheduled-stale-check:
   #   when:

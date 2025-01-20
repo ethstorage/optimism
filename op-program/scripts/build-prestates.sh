@@ -12,7 +12,7 @@ cd "${TMP_DIR}"
 
 # Need to check out a fresh copy of the monorepo so we can switch to specific tags without it also affecting the
 # contents of this script (which is checked into the repo).
-git clone https://github.com/ethereum-optimism/optimism --recurse-submodules
+git clone https://github.com/ethstorage/optimism --recurse-submodules
 
 STATES_DIR="${SCRIPTS_DIR}/../temp/states"
 LOGS_DIR="${SCRIPTS_DIR}/../temp/logs"
