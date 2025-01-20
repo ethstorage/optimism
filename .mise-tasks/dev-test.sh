@@ -51,6 +51,9 @@ packages=(
     op-e2e/interop
     op-e2e/actions
     op-e2e/faultproofs
+    op-e2e/l2blob
+    op-e2e/inbox
+    op-e2e/sgt
     packages/contracts-bedrock/scripts/checks
 )
 formatted_packages=""
