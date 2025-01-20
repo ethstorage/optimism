@@ -31,7 +31,7 @@ func TestBatchInboxFunctionSuccess(t *testing.T) {
 	t.Cleanup(sys.Close)
 
 	// Wait for batch submitted and check event
-	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 12*time.Second)
+	requireEventualBatcherTx(t, &sys.Cfg, l1Client, 8*time.Second)
 }
 
 func startSystemWithBatchInboxContract(t *testing.T) (*e2esys.System, *ethclient.Client) {
