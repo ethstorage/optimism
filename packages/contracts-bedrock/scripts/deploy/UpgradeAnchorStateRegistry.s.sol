@@ -73,13 +73,13 @@ contract UpgradeAnchorStateRegistry is Script {
     ) internal {
         address anchorStateRegistryImpl = DeployUtils.create1({
             _name: "AnchorStateRegistry",
-            _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, (_disputeGameFactoryProxy)))
+            _args: DeployUtils.encodeConstructor(abi.encodeCall(IAnchorStateRegistry.__constructor__, (_disputeGameFactoryProxy)))
         });
 
         if (_storageSetter == address(0)) {
             _storageSetter = DeployUtils.create1({
                 _name: "StorageSetter",
-                _args: DeployUtils.encodeConstructor(abi.encodeCall(IProxy.__constructor__, ()))
+                _args: DeployUtils.encodeConstructor("")
             });
         }
 
