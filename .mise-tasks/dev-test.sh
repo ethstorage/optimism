@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+SECONDS=0
 
 #MISE description="Developers' local tests"
 #MISE alias="dt"
@@ -76,3 +77,5 @@ gotestsum --no-summary=skipped,output \
 cd op-e2e
 make test-actions
 make test-ws
+
+echo "Execution time: $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)"
