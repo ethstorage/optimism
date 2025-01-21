@@ -112,9 +112,8 @@ contract UpgradeAnchorStateRegistry is Script {
     {
         return
             abi.encodeCall(
-                bytes4(keccak256("setBytes32(bytes32,bytes32)")),
-                0,
-                0
+                StorageSetter.setBytes32(bytes32, bytes32),
+                (bytes32(0), bytes32(0))
             );
     }
 
