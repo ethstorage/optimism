@@ -7,7 +7,7 @@ set -e
 # Just for environment test
 forge --version
 
-# Runs semgrep tests on the entire monorepo.
+# Runs semgrep tests on the entire monorepo
 
 just semgrep
 just semgrep-test
