@@ -113,6 +113,10 @@ def:
           description: ""
           globs:
             - "op-e2e/inbox/inbox_test.go"
+            - "op-e2e/bindings/batchinbox.go"
+            - "op-e2e/bindings/mockstorage.go"
+            - "op-e2e/inbox/testcontract/mockstorage.sol"
+            - "op-e2e/system/e2esys/setup.go"
         - title: "Soul Gas Token e2e test"
           description: ""
           globs:
