@@ -171,6 +171,7 @@ func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batc
 	for _, tx := range txs {
 		// skip any non-batcher transactions or failed transactions
 		// blobIndex needs to be incremented for both invalid batch tx and failed tx
+		// if txSucceedMap is nil, it means no status check is needed.
 		if (!isValidBatchTx(tx, config.l1Signer, config.batchInboxAddress, batcherAddr, logger)) || (txSucceedMap != nil && !txSucceedMap[tx.Hash()]) {
 			blobIndex += len(tx.BlobHashes())
 			continue
