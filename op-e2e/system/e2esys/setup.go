@@ -628,6 +628,11 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 		}
 	}
 
+	var inboxContractConfig *rollup.InboxContractConfig
+	if cfg.DeployConfig.UseInboxContract {
+		inboxContractConfig = &rollup.InboxContractConfig{UseInboxContract: true}
+	}
+
 	makeRollupConfig := func() rollup.Config {
 		return rollup.Config{
 			Genesis: rollup.Genesis{
@@ -662,6 +667,7 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 			ProtocolVersionsAddress: cfg.L1Deployments.ProtocolVersionsProxy,
 			AltDAConfig:             rollupAltDAConfig,
 			L2BlobConfig:            l2BlobConfig,
+			InboxContractConfig:     inboxContractConfig,
 		}
 	}
 	defaultConfig := makeRollupConfig()
@@ -746,6 +752,11 @@ func (cfg SystemConfig) Start(t *testing.T, startOpts ...StartOption) (*System, 
 	_, err = geth.WaitForBlock(big.NewInt(2), l1Client)
 	if err != nil {
 		return nil, fmt.Errorf("waiting for blocks: %w", err)
+	}
+
+	// exec func which needs to run after L1 node starts and before L2 nodes start.
+	if action, ok := parsedStartOpts.Get("afterL1Start", ""); ok {
+		action(&cfg, sys)
 	}
 
 	sys.Mocknet = mocknet.New()

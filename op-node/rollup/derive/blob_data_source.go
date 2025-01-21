@@ -73,6 +73,25 @@ func (ds *BlobDataSource) Next(ctx context.Context) (eth.Data, error) {
 	return data, nil
 }
 
+// getTxSucceedMap returns a map indicating whether tx status is successful if useInboxContract;
+// if !useInboxContract, nil map is returned to indicate that no status check is needed.
+func getTxSucceedMap(ctx context.Context, useInboxContract bool, fetcher L1Fetcher, hash common.Hash) (txSucceeded map[common.Hash]bool, err error) {
+	if !useInboxContract {
+		return
+	}
+	_, receipts, err := fetcher.FetchReceipts(ctx, hash)
+	if err != nil {
+		return nil, NewTemporaryError(fmt.Errorf("failed to fetch L1 block info and receipts: %w", err))
+	}
+	txSucceeded = make(map[common.Hash]bool)
+	for _, receipt := range receipts {
+		if receipt.Status == types.ReceiptStatusSuccessful {
+			txSucceeded[receipt.TxHash] = true
+		}
+	}
+	return
+}
+
 // getTxSucceed returns all successful txs
 func getTxSucceed(ctx context.Context, useInboxContract bool, fetcher L1Fetcher, hash common.Hash, txs types.Transactions) (successTxs types.Transactions, err error) {
 	if !useInboxContract {
@@ -111,12 +130,12 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 		}
 		return nil, NewTemporaryError(fmt.Errorf("failed to open blob data source: %w", err))
 	}
-	txs, err = getTxSucceed(ctx, ds.dsCfg.useInboxContract, ds.fetcher, ds.ref.Hash, txs)
+	txSucceedMap, err := getTxSucceedMap(ctx, ds.dsCfg.useInboxContract, ds.fetcher, ds.ref.Hash)
 	if err != nil {
 		return nil, err
 	}
 
-	data, hashes := dataAndHashesFromTxs(txs, &ds.dsCfg, ds.batcherAddr, ds.log)
+	data, hashes := dataAndHashesFromTxs(txs, &ds.dsCfg, ds.batcherAddr, ds.log, txSucceedMap)
 
 	if len(hashes) == 0 {
 		// there are no blobs to fetch so we can return immediately
@@ -145,13 +164,15 @@ func (ds *BlobDataSource) open(ctx context.Context) ([]blobOrCalldata, error) {
 // dataAndHashesFromTxs extracts calldata and datahashes from the input transactions and returns them. It
 // creates a placeholder blobOrCalldata element for each returned blob hash that must be populated
 // by fillBlobPointers after blob bodies are retrieved.
-func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, logger log.Logger) ([]blobOrCalldata, []eth.IndexedBlobHash) {
+func dataAndHashesFromTxs(txs types.Transactions, config *DataSourceConfig, batcherAddr common.Address, logger log.Logger, txSucceedMap map[common.Hash]bool) ([]blobOrCalldata, []eth.IndexedBlobHash) {
 	data := []blobOrCalldata{}
 	var hashes []eth.IndexedBlobHash
 	blobIndex := 0 // index of each blob in the block's blob sidecar
 	for _, tx := range txs {
 		// skip any non-batcher transactions or failed transactions
-		if !(isValidBatchTx(tx, config.l1Signer, config.batchInboxAddress, batcherAddr, logger)) {
+		// blobIndex needs to be incremented for both invalid batch tx and failed tx
+		// if txSucceedMap is nil, it means no status check is needed.
+		if (!isValidBatchTx(tx, config.l1Signer, config.batchInboxAddress, batcherAddr, logger)) || (txSucceedMap != nil && !txSucceedMap[tx.Hash()]) {
 			blobIndex += len(tx.BlobHashes())
 			continue
 		}

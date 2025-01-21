@@ -81,7 +81,6 @@ func startSystemWithDAC(t *testing.T) (*e2esys.System, *ethclient.Client) {
 	delete(cfg.Nodes, "verifier")
 	c, ok := cfg.Nodes["sequencer"]
 	require.True(t, ok, "sequencer is required")
-	c.SafeDBPath = t.TempDir()
 	c.DACConfig = &node.DACConfig{URLS: []string{dacUrl}}
 	c.Driver.SequencerEnabled = true
 	cfg.DeployConfig.L2GenesisBlobTimeOffset = new(hexutil.Uint64)

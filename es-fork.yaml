@@ -1,0 +1,143 @@
+title: "SWC-optimism - official-optimism fork diff overview"
+footer: |
+  Fork-diff overview of [`SWC optimism`](https://github.com/ethstorage/optimism), a fork of [`official optimism`](https://github.com/ethereum-optimism/optimism).
+  and consensus layer of the `SWC OP-stack`.
+base:
+  name: official optimism
+  url: https://github.com/ethereum-optimism/optimism
+  hash: 750ed2025f4ef00c6c5a9f1ffee90c98fdeb39bf
+fork:
+  name: SWC optimism
+  url: https://github.com/ethstorage/optimism
+  ref: refs/heads/op-es
+def:
+  title: "optimism"
+  description: |
+    This is an overview of the changes in [`SWC optimism`](https://github.com/ethstorage/optimism),
+    a fork of [`official optimism`](https://github.com/ethereum-optimism/optimism), part of the `SWC OP-stack`.
+  sub:
+    - title: "Inbox contract modifications"
+      description: |
+        The OP-stack is extended to to allow the batch inbox to be a contract, enabling customized batch submission conditions such as:
+
+        - Requiring the batch transaction to be signed by a quorum of sequencers in a decentralized sequencing network; or
+
+        - Mandating that the batch transaction call a BLOB storage contract (e.g., EthStorage) with a long-term storage fee, which is then distributed to data nodes that prove BLOB storage over time.
+      globs:
+        - "op-batcher/batcher/driver.go"
+        - "op-chain-ops/genesis/config.go"
+        - "op-node/rollup/derive/blob_data_source.go"
+        - "op-node/rollup/derive/calldata_source.go"
+        - "op-node/rollup/derive/calldata_source_test.go"
+        - "op-node/rollup/derive/data_source.go"
+        - "op-node/rollup/types.go"
+    - title: "Soul Gas Token modifications"
+      description: |
+        To bridge the gap between traditional web users and the growing world of Web3,
+        we propose a **non-transferable gas token** named Soul Gas Token (SGT), where the gas token is the native token of a Rollup.
+
+        The concept revolves around facilitating Web2 users' entry into Web3 by airdropping them with SGT.
+
+        This token will enable users to pay for transaction gas fees without the immediate selling pressure of the airdropped token.
+
+        This initiative is particularly aimed at those new to Web3, providing a seamless transition without the upfront cost of acquiring a gas token.
+      globs:
+        - "op-chain-ops/genesis/genesis.go"
+        - "op-service/predeploys/addresses.go"
+        - "packages/contracts-bedrock/scripts/Artifacts.s.sol"
+        - "packages/contracts-bedrock/scripts/L2Genesis.s.sol"
+        - "packages/contracts-bedrock/scripts/deploy/DeployConfig.s.sol"
+        - "packages/contracts-bedrock/src/L2/SoulGasToken.sol"
+        - "packages/contracts-bedrock/src/libraries/Predeploys.sol"
+        - "packages/contracts-bedrock/interfaces/L2/ISoulGasToken.sol"
+        - "packages/contracts-bedrock/deploy-config/devnetL1-template.json"
+    - title: "L2 Blob modifications"
+      description: |
+        The Ethereum Cancun upgrade has significantly reduced Layer 2 (L2) data uploading costs by introducing BLOB
+        transactions to Layer 1 (L1). This innovation has also enabled a variety of additional applications based on
+        the BLOBs due to their low cost, such as [blob.fm](https://blob.fm/), [EthStorage](https://ethstorage.io), and
+        [Ethscriptions](https://ethscriptions.com/). However, while the data upload costs have decreased, the execution
+        costs on L1 remain high compared to L2, leading to high costs for L2 state proposals and non-financial applications
+        that rely on BLOBs.
+
+        To address these challenges, the L2 BLOB feature introduces support for BLOB transactions on L2. enabling L3 solutions that settle on L2 to use an enshrined 4844-compatible DA layer without needing to
+        integrate third-party DA providers or deal with the security risks associated with DA bridges. Additionally, the
+        applications mentioned above could migrate to L2 with minimal costs.
+      globs:
+        - "op-node/flags/flags.go"
+        - "op-node/node/config.go"
+        - "op-node/node/node.go"
+        - "op-node/p2p/gossip.go"
+        - "op-node/rollup/derive/span_batch_tx.go"
+        - "op-node/rollup/derive/span_batch_txs.go"
+        - "op-node/rollup/derive/span_batch_txs_test.go"
+        - "op-node/rollup/driver/driver.go"
+        - "op-node/rollup/engine/engine_controller.go"
+        - "op-node/rollup/sequencing/sequencer.go"
+        - "op-node/rollup/sequencing/sequencer_test.go"
+        - "op-node/rollup/types.go"
+        - "op-node/service.go"
+        - "op-service/eth/types.go"
+        - "op-service/sources/engine_client.go"
+        - "op-service/testutils/random.go"
+        - "op-program/client/l2/engineapi/block_processor.go"
+        - "packages/contracts-bedrock/deploy-config/devnetL1-template.json"
+    - title: "L2 Randao modifications"
+      description: |
+        In order to simplify the integration with EthStorage as L3, The `L1Block` contract is extended to allow
+        fetching 8191 history L1 blockhash not including the current one.
+      globs:
+        - "packages/contracts-bedrock/src/L2/L1Block.sol"
+        - "packages/contracts-bedrock/interfaces/L2/IL1Block.sol"
+        - "packages/contracts-bedrock/interfaces/L2/IL1BlockInterop.sol"
+        - "op-node/bindings/l1block.go"
+    - title: "Fault Proof for beta testnet"
+      description: |
+        Based on these PRs to enable fault proof for custom chains:
+
+        - https://github.com/ethereum-optimism/optimism/pull/12503
+        - https://github.com/ethereum-optimism/optimism/pull/12310
+
+        We enabled fault proof for the beta testnet.
+      globs:
+        - "op-program/chainconfig/configs/3335-genesis-l2.json"
+        - "op-program/chainconfig/configs/3335-rollup.json"
+        - "op-program/client/l2/engineapi/block_processor.go"
+        - "op-program/verify/beta-testnet/cmd/beta-testnet.go"
+        - "op-program/Makefile"
+        - "op-program/scripts/build-prestates.sh"
+        - "op-program/prestates/releases.json"
+    - title: "Testing"
+      sub:
+        - title: "Inbox contract e2e test"
+          description: ""
+          globs:
+            - "op-e2e/inbox/inbox_test.go"
+            - "op-e2e/bindings/batchinbox.go"
+            - "op-e2e/bindings/mockstorage.go"
+            - "op-e2e/inbox/testcontract/mockstorage.sol"
+            - "op-e2e/system/e2esys/setup.go"
+        - title: "Soul Gas Token e2e test"
+          description: ""
+          globs:
+            - "op-e2e/bindings/soulgastoken.go"
+            - "op-e2e/sgt/sgt_test.go"
+            - "op-e2e/sgt/helper.go"
+        - title: "L2 Blob e2e test"
+          description: ""
+          globs:
+            - "op-e2e/l2blob/l2blob_test.go"
+
+# ignored globally, does not count towards line count
+ignore:
+  - ".circleci/*"
+  - "*.sum"
+  - "go.mod"
+  - "fork.yaml"
+  - "Makefile"
+  - ".golangci.yml"
+  - ".github/**"
+  - "**/*.gob" # data asset, not code
+  - "core/vm/testdata/precompiles/p256Verify.json" # data asset, not code
+  - "eth/tracers/internal/tracetest/testdata/**/*.json"
+  - "packages/contracts-bedrock/snapshots/**"
