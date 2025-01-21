@@ -323,15 +323,15 @@ contract L2Genesis is Deployer {
         if (cfg.isSoulBackedByNative()) {
             SoulGasToken(impl).initialize({ _name: "", _symbol: "", _owner: cfg.proxyAdminOwner() });
             SoulGasToken(Predeploys.SOUL_GAS_TOKEN).initialize({
-                _name: "QKC",
-                _symbol: "QKC",
+                _name: "SoulQKC",
+                _symbol: "SoulQKC",
                 _owner: cfg.proxyAdminOwner()
             });
         } else {
             SoulGasToken(impl).initialize({ _name: "", _symbol: "", _owner: cfg.proxyAdminOwner() });
             SoulGasToken(Predeploys.SOUL_GAS_TOKEN).initialize({
-                _name: "QKC",
-                _symbol: "QKC",
+                _name: "SoulQKC",
+                _symbol: "SoulQKC",
                 _owner: cfg.proxyAdminOwner()
             });
         }
