@@ -665,7 +665,7 @@ jobs:
             TEST_FILES=$(<<parameters.test_list>>)
             if [ -z "$TEST_FILES" ]; then
               echo "No test files to run. Exiting early."
-              exit 1
+              exit 0
             fi
           working_directory: packages/contracts-bedrock
       - check-changed:
