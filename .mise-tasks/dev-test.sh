@@ -16,6 +16,7 @@ just semgrep-test
 # Solidity
 
 cd packages/contracts-bedrock
+just lint-check
 just pre-pr
 just test
 
