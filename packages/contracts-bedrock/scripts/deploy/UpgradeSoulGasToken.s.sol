@@ -68,11 +68,9 @@ contract UpgradeSoulGasToken is Script {
         returns (bytes memory)
     {
         return
-            abi.encodeWithSelector(
-                ISoulGasToken.initialize.selector,
-                "SoulQKC",
-                "SoulQKC",
-                tx.origin
+            abi.encodeCall(
+                ISoulGasToken.initialize,
+                ("SoulQKC", "SoulQKC", tx.origin)
             );
     }
 
