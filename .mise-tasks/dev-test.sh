@@ -1,9 +1,17 @@
 #!/usr/bin/env bash
-set -e
-SECONDS=0
 
 #MISE description="Developers' local tests"
 #MISE alias="dt"
+
+set -e
+SECONDS=0
+
+error_handler() {
+    echo "Execution time: ${SECONDS} seconds"
+    exit 1
+}
+
+trap 'error_handler' ERR
 
 # Just for environment test
 forge --version
