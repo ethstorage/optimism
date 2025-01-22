@@ -12,6 +12,7 @@ import {StorageSetter} from "src/universal/StorageSetter.sol";
 
 // Interfaces
 import {IProxyAdmin} from "interfaces/universal/IProxyAdmin.sol";
+import {IStorageSetter} from "interfaces/universal/IStorageSetter.sol";
 import {IProxy} from "interfaces/universal/IProxy.sol";
 import {ISoulGasToken} from "interfaces/L2/ISoulGasToken.sol";
 
@@ -28,7 +29,9 @@ contract UpgradeSoulGasToken is Script {
         if (_storageSetter == address(0)) {
             _storageSetter = DeployUtils.create1({
                 _name: "StorageSetter",
-                _args: ""
+                _args: DeployUtils.encodeConstructor(
+                    abi.encodeCall(IStorageSetter.__constructor__, ())
+                )
             });
         }
 
@@ -53,12 +56,7 @@ contract UpgradeSoulGasToken is Script {
         pure
         returns (bytes memory)
     {
-        return
-            abi.encodeWithSelector(
-                bytes4(keccak256("setBytes32(bytes32,bytes32)")),
-                0,
-                0
-            );
+        return abi.encodeCall(IStorageSetter.setBytes32, (0, 0));
     }
 
     function encodeSoulGasTokenInitializer()
