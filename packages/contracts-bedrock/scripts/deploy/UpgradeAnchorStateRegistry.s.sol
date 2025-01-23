@@ -136,9 +136,8 @@ contract UpgradeAnchorStateRegistry is Script {
         });
         return
             abi.encodeCall(
-                IAnchorStateRegistry.initialize.selector,
-                startingAnchorRoots,
-                _superchainConfig
+                IAnchorStateRegistry.initialize,
+                (startingAnchorRoots, _superchainConfig)
             );
     }
 
