@@ -42,7 +42,7 @@ contract UpgradeSoulGasToken is Script {
             0x4200000000000000000000000000000000000800
         );
 
-        address impl = IProxy(soulGasToken).implementation();
+        address impl = proxyAdmin.getProxyImplementation(soulGasToken);
 
         bytes memory data;
         data = encodeStorageSetterZeroOutInitializedSlot();
