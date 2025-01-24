@@ -111,11 +111,7 @@ contract UpgradeAnchorStateRegistry is Script {
         pure
         returns (bytes memory)
     {
-        return
-            abi.encodeCall(
-                StorageSetter.setBytes32(bytes32, bytes32),
-                (bytes32(0), bytes32(0))
-            );
+        return abi.encodeCall(IStorageSetter.setBytes32, (0, 0));
     }
 
     function encodeAnchorStateRegistryInitializer(
