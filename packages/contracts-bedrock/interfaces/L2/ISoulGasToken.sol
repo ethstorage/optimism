@@ -7,4 +7,7 @@ interface ISoulGasToken {
     function initialize(string memory _name, string memory _symbol, address _owner) external;
 
     function __constructor__() external;
+
+    function name() external view returns (string memory);
+    function symbol() external view returns (string memory);
 }
