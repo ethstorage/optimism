@@ -96,7 +96,9 @@ contract UpgradeSoulGasToken is Script {
     }
 
     function preCheck() public view {
-        address sgtAdmin = soulGasToken.admin();
+        address sgtAdmin = proxyAdmin.getProxyAdmin(
+            payable(address(soulGasToken))
+        );
         require(sgtAdmin == address(proxyAdmin));
     }
 
