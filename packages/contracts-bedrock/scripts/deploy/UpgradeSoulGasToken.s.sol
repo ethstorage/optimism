@@ -41,13 +41,14 @@ contract UpgradeSoulGasToken is Script {
         address payable soulGasToken = payable(
             0x4200000000000000000000000000000000000800
         );
+        address sgtOwner = ISoulGasToken(soulGasToken).owner();
 
         address impl = proxyAdmin.getProxyImplementation(soulGasToken);
 
         bytes memory data;
         data = encodeStorageSetterZeroOutInitializedSlot();
         upgradeAndCall(proxyAdmin, soulGasToken, _storageSetter, data);
-        data = encodeSoulGasTokenInitializer();
+        data = encodeSoulGasTokenInitializer(sgtOwner);
         upgradeAndCall(proxyAdmin, soulGasToken, impl, data);
     }
 
@@ -59,16 +60,13 @@ contract UpgradeSoulGasToken is Script {
         return abi.encodeCall(IStorageSetter.setBytes32, (0, 0));
     }
 
-    function encodeSoulGasTokenInitializer()
-        internal
-        view
-        virtual
-        returns (bytes memory)
-    {
+    function encodeSoulGasTokenInitializer(
+        address _sgtOwner
+    ) internal view virtual returns (bytes memory) {
         return
             abi.encodeCall(
                 ISoulGasToken.initialize,
-                ("SoulQKC", "SoulQKC", tx.origin)
+                ("SoulQKC", "SoulQKC", _sgtOwner)
             );
     }
 
