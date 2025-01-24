@@ -11,8 +11,7 @@ import {DeployUtils} from "scripts/libraries/DeployUtils.sol";
 // Libraries
 import {GameType, Hash, OutputRoot} from "src/dispute/lib/Types.sol";
 // Contracts
-import {StorageSetter} from "src/universal/StorageSetter.sol";
-
+import {IStorageSetter} from "interfaces/universal/IStorageSetter.sol";
 // Interfaces
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
@@ -79,7 +78,9 @@ contract UpgradeAnchorStateRegistry is Script {
         if (_storageSetter == address(0)) {
             _storageSetter = DeployUtils.create1({
                 _name: "StorageSetter",
-                _args: DeployUtils.encodeConstructor("")
+                _args: DeployUtils.encodeConstructor(
+                    abi.encodeCall(IStorageSetter.__constructor__, ())
+                )
             });
         }
 
