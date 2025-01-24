@@ -18,11 +18,19 @@ import {ISoulGasToken} from "interfaces/L2/ISoulGasToken.sol";
 
 /// @title UpgradeSoulGasToken
 contract UpgradeSoulGasToken is Script {
+    IProxyAdmin constant proxyAdmin =
+        IProxyAdmin(0x4200000000000000000000000000000000000018);
+    ISoulGasToken constant soulGasToken =
+        ISoulGasToken(0x4200000000000000000000000000000000000800);
+
     function run(address _storageSetter) public {
+        address sgtOwner = getSGTOwner();
+        preCheck();
+
         vm.startBroadcast();
         upgradeSoulGasTokenImpl(_storageSetter);
         vm.stopBroadcast();
-        checkOutput();
+        postCheck(sgtOwner);
     }
 
     function upgradeSoulGasTokenImpl(address _storageSetter) internal {
@@ -35,21 +43,15 @@ contract UpgradeSoulGasToken is Script {
             });
         }
 
-        IProxyAdmin proxyAdmin = IProxyAdmin(
-            0x4200000000000000000000000000000000000018
-        );
-        address payable soulGasToken = payable(
-            0x4200000000000000000000000000000000000800
-        );
         address sgtOwner = ISoulGasToken(soulGasToken).owner();
 
-        address impl = proxyAdmin.getProxyImplementation(soulGasToken);
+        address impl = proxyAdmin.getProxyImplementation(address(soulGasToken));
 
         bytes memory data;
         data = encodeStorageSetterZeroOutInitializedSlot();
-        upgradeAndCall(proxyAdmin, soulGasToken, _storageSetter, data);
+        upgradeAndCall(proxyAdmin, address(soulGasToken), _storageSetter, data);
         data = encodeSoulGasTokenInitializer(sgtOwner);
-        upgradeAndCall(proxyAdmin, soulGasToken, impl, data);
+        upgradeAndCall(proxyAdmin, address(soulGasToken), impl, data);
     }
 
     function encodeStorageSetterZeroOutInitializedSlot()
@@ -89,11 +91,16 @@ contract UpgradeSoulGasToken is Script {
         );
     }
 
-    function checkOutput() public view {
-        ISoulGasToken soulGasToken = ISoulGasToken(
-            0x4200000000000000000000000000000000000800
-        );
+    function getSGTOwner() public view returns (address) {
+        return soulGasToken.owner();
+    }
 
+    function preCheck() public view {
+        address sgtAdmin = soulGasToken.admin();
+        require(sgtAdmin == address(proxyAdmin));
+    }
+
+    function postCheck(address _sgtOwner) public view {
         require(
             keccak256(abi.encodePacked(soulGasToken.name())) ==
                 keccak256("SoulQKC")
@@ -102,5 +109,6 @@ contract UpgradeSoulGasToken is Script {
             keccak256(abi.encodePacked(soulGasToken.symbol())) ==
                 keccak256("SoulQKC")
         );
+        require(soulGasToken.owner() == _sgtOwner);
     }
 }
