@@ -11,8 +11,7 @@ import {DeployUtils} from "scripts/libraries/DeployUtils.sol";
 // Libraries
 import {GameType, Hash, OutputRoot} from "src/dispute/lib/Types.sol";
 // Contracts
-import {StorageSetter} from "src/universal/StorageSetter.sol";
-
+import {IStorageSetter} from "interfaces/universal/IStorageSetter.sol";
 // Interfaces
 import {IAnchorStateRegistry} from "interfaces/dispute/IAnchorStateRegistry.sol";
 import {IDisputeGameFactory} from "interfaces/dispute/IDisputeGameFactory.sol";
@@ -73,13 +72,15 @@ contract UpgradeAnchorStateRegistry is Script {
     ) internal {
         address anchorStateRegistryImpl = DeployUtils.create1({
             _name: "AnchorStateRegistry",
-            _args: abi.encode(_disputeGameFactoryProxy)
+            _args: DeployUtils.encodeConstructor(abi.encodeCall(IAnchorStateRegistry.__constructor__, (_disputeGameFactoryProxy)))
         });
 
         if (_storageSetter == address(0)) {
             _storageSetter = DeployUtils.create1({
                 _name: "StorageSetter",
-                _args: ""
+                _args: DeployUtils.encodeConstructor(
+                    abi.encodeCall(IStorageSetter.__constructor__, ())
+                )
             });
         }
 
@@ -110,12 +111,7 @@ contract UpgradeAnchorStateRegistry is Script {
         pure
         returns (bytes memory)
     {
-        return
-            abi.encodeWithSelector(
-                bytes4(keccak256("setBytes32(bytes32,bytes32)")),
-                0,
-                0
-            );
+        return abi.encodeCall(IStorageSetter.setBytes32, (0, 0));
     }
 
     function encodeAnchorStateRegistryInitializer(
@@ -136,10 +132,9 @@ contract UpgradeAnchorStateRegistry is Script {
             })
         });
         return
-            abi.encodeWithSelector(
-                IAnchorStateRegistry.initialize.selector,
-                startingAnchorRoots,
-                _superchainConfig
+            abi.encodeCall(
+                IAnchorStateRegistry.initialize,
+                (startingAnchorRoots, _superchainConfig)
             );
     }
 
@@ -181,17 +176,17 @@ contract UpgradeAnchorStateRegistry is Script {
         );
     }
 
-    function bytes32ToHex(bytes32 data) internal pure returns (string memory) {
+    function bytes32ToHex(bytes32 _data) internal pure returns (string memory) {
         bytes memory result = new bytes(64);
         for (uint256 i = 0; i < 32; i++) {
-            uint8 byteValue = uint8(data[i]);
+            uint8 byteValue = uint8(_data[i]);
             result[i * 2] = toHexChar(byteValue / 16);
             result[i * 2 + 1] = toHexChar(byteValue % 16);
         }
         return string(result);
     }
 
-    function toHexChar(uint8 b) internal pure returns (bytes1) {
-        return b < 10 ? bytes1(b + 0x30) : bytes1(b + 0x57);
+    function toHexChar(uint8 _b) internal pure returns (bytes1) {
+        return _b < 10 ? bytes1(_b + 0x30) : bytes1(_b + 0x57);
     }
 }
