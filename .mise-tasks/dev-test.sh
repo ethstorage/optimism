@@ -13,8 +13,24 @@ error_handler() {
 
 trap 'error_handler' ERR
 
-# Just for environment test
+# Environment tests
+
 forge --version
+
+for var in SEPOLIA_RPC_URL MAINNET_RPC_URL; do
+    if [ -z "${!var}" ]; then
+        echo "Error: $var is not set."
+        exit 1
+    fi
+done
+
+STATUS=$(kurtosis engine status)
+if echo "$STATUS" | grep -q "1.4.3"; then
+    echo "Kurtosis engine is running."
+else
+    echo "The Kurtosis engine is not running, or there is a version mismatch."
+    exit 1
+fi
 
 # Runs semgrep tests on the entire monorepo
 
