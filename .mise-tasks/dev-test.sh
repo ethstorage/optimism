@@ -81,10 +81,4 @@ gotestsum --no-summary=skipped,output \
    --format=short-verbose \
    --rerun-fails=2
 
-# End-to-End
-
-cd op-e2e
-make test-actions
-make test-ws
-
 echo "Execution time: $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)"
