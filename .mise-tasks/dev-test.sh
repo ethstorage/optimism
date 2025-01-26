@@ -48,7 +48,7 @@ just test
 
 cd ../..
 make lint-go
-make build
+make build-go
 
 cd op-program && make op-program-client && cd ..
 cd cannon && make elf && cd ..
