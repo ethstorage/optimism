@@ -10,4 +10,6 @@ interface ISoulGasToken {
 
     function name() external view returns (string memory);
     function symbol() external view returns (string memory);
+    function owner() external view returns (address);
+    function admin() external view returns (address);
 }
