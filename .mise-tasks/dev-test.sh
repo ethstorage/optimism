@@ -1,15 +1,46 @@
 #!/usr/bin/env bash
-set -e
 
 #MISE description="Developers' local tests"
 #MISE alias="dt"
 
-# Just for environment test
+set -e
+SECONDS=0
+
+error_handler() {
+    echo "Execution time: ${SECONDS} seconds"
+    exit 1
+}
+
+trap 'error_handler' ERR
+
+# Environment tests
+
 forge --version
+
+for var in SEPOLIA_RPC_URL MAINNET_RPC_URL; do
+    if [ -z "${!var}" ]; then
+        echo "Error: $var is not set."
+        exit 1
+    fi
+done
+
+STATUS=$(kurtosis engine status)
+if echo "$STATUS" | grep -q "1.4.3"; then
+    echo "Kurtosis engine is running."
+else
+    echo "The Kurtosis engine is not running, or there is a version mismatch."
+    exit 1
+fi
+
+# Runs semgrep tests on the entire monorepo
+
+just semgrep
+just semgrep-test
 
 # Solidity
 
 cd packages/contracts-bedrock
+just lint-check
 just pre-pr
 just test
 
@@ -17,7 +48,7 @@ just test
 
 cd ../..
 make lint-go
-make build
+make build-go
 
 cd op-program && make op-program-client && cd ..
 cd cannon && make elf && cd ..
@@ -66,8 +97,4 @@ gotestsum --no-summary=skipped,output \
    --format=short-verbose \
    --rerun-fails=2
 
-# End-to-End
-
-cd op-e2e
-make test-actions
-make test-ws
+echo "Execution time: $((SECONDS / 60)) minute(s) and $((SECONDS % 60)) second(s)"
