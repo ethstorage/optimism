@@ -1,0 +1,71 @@
+# This workflow will publish a github release for op-challenger
+
+name: Publish
+run-name: ${{ github.actor }} is publishing an op-challenger release 🚀
+on:
+  push:
+    tags:
+      - 'op-challenger/v*'
+
+# Always wait for previous release to finish before releasing again
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        arch: [amd64, arm64]
+        exclude:
+          - os: ubuntu-latest
+            arch: arm64
+    env:
+      BUILD_DIR: ${{ github.ref_name }}
+      BIN_DIR: ${{ github.ref_name }}/build/bin
+    steps:
+      - name: Set file name
+        run: |
+          # replace "op-challenger/v*" with "op-challenger.v*" since `actions/upload-artifact@v4` doesn't support slashes in file names
+          FILE_NAME="op-challenger.${GITHUB_REF_NAME:14}.${{ matrix.os == 'ubuntu-latest' && 'linux' || 'darwin' }}-${{ matrix.arch }}.tar.gz"
+          echo "FILE_NAME=$FILE_NAME" >> $GITHUB_ENV
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.7'
+
+      - uses: extractions/setup-just@v2
+
+      - name: Build
+        run: |
+          TARGETOS=${{ matrix.os == 'ubuntu-latest' && 'linux' || 'darwin' }} TARGETARCH=${{ matrix.arch }} make op-challenger
+          mkdir -p ${{ env.BIN_DIR }}
+          mv op-challenger/bin/op-challenger ${{ env.BIN_DIR }}/
+          tar -czvf ${{ env.FILE_NAME }} ${{ env.BUILD_DIR }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE_NAME }}
+          path: ${{ env.FILE_NAME }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref_name }}
+          files: |
+            **/*
+          fail_on_unmatched_files: true
+          generate_release_notes: true
