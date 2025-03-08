@@ -39,6 +39,9 @@ go clean -cache
 git clone -b wasi https://github.com/ethstorage/go
 cd go/src
 ./all.bash
+cd ../
+export GOROOT=$PWD
+alias zkGo=$PWD/bin/go
 ```
 
 ## build op-program-client-wasm with zkwasm-go

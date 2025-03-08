@@ -35,7 +35,7 @@ op-program-client-smoke-test:
 	env GO111MODULE=on GOMEMLIMIT=30MiB GOOS=$(TARGETOS) GOARCH=$(TARGETARCH) go build -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test ./client/cmd/main.go
 
 op-program-client-wasm-smoke-test:
-	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm GOMEMLIMIT=30MiB go build -gcflags=all=-d=softfloat -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test.wasm ./client/cmd/main.go
+	env GO111MODULE=on GOOS=wasip1 GOARCH=wasm GOMEMLIMIT=30MiB $(zkGo) build -gcflags=all=-d=softfloat -v $(LDFLAGS) -tags smoke_test -o ./bin/op-program-client-test.wasm ./client/cmd/main.go
 
 clean:
 	rm -rf bin
